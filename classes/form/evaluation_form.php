@@ -22,6 +22,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 use tool_vae\local\evaluation_manager;
+use tool_vae\output\form_note;
 
 /**
  * Evaluating a competency (T-90, lot 3): a status and a written reason. The positioning of the structure, never a validation.
@@ -35,6 +36,8 @@ class evaluation_form extends \moodleform {
      * Build the form. The target - candidate, record, rank - is in the address, not in the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $options = [];
@@ -44,8 +47,9 @@ class evaluation_form extends \moodleform {
         $mform->addElement('select', 'status', get_string('positioningstatuslabel', 'tool_vae'), $options);
         $mform->setType('status', PARAM_ALPHA);
 
-        $mform->addElement('html', \html_writer::div(s(get_string('anonymiseshort', 'tool_vae')), 'small text-muted mb-2'));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::short()));
         $mform->addElement('textarea', 'reason', get_string('positioningreasonlabel', 'tool_vae'), ['rows' => 6, 'cols' => 70]);
+        // Free text: PARAM_RAW, as Moodle asks for a text area; checked by its manager and cleaned or escaped when shown.
         $mform->setType('reason', PARAM_RAW);
         $mform->addRule('reason', null, 'required', null, 'client');
 

@@ -31,34 +31,21 @@ namespace tool_vae\form;
  * error is read first, then the reminder. Nothing is removed and the merge is idempotent. Without
  * JavaScript the field keeps the core's attribute and the reminder stays visible.
  *
+ * The merge is the module tool_vae/reminder_pointers (amd/src/reminder_pointers.js, lot Q4): the
+ * page hands it the map and nothing else.
+ *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class reminder_pointers {
     /**
-     * The script, pure so it can be tested without a page.
-     *
-     * @param array $map Element id => list of ids the element must be described by.
-     * @return string
-     */
-    public static function script(array $map): string {
-        $json = json_encode($map, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
-        return '(function(map){Object.keys(map).forEach(function(id){'
-            . 'var el=document.getElementById(id);if(!el){return;}'
-            . 'var ids=(el.getAttribute("aria-describedby")||"").split(/\s+/).filter(Boolean);'
-            . 'map[id].forEach(function(t){if(ids.indexOf(t)<0&&document.getElementById(t)){ids.push(t);}});'
-            . 'el.setAttribute("aria-describedby",ids.join(" "));'
-            . '});})(' . $json . ');';
-    }
-
-    /**
-     * Add the script to the current page, to run once the form is in the DOM.
+     * Ask the page for the module, which runs once the page is built, with the form in it.
      *
      * @param array $map Element id => list of ids the element must be described by.
      */
     public static function apply(array $map): void {
         global $PAGE;
-        $PAGE->requires->js_init_code(self::script($map), true);
+        $PAGE->requires->js_call_amd('tool_vae/reminder_pointers', 'init', [$map]);
     }
 }

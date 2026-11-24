@@ -52,15 +52,15 @@ class tool_vae_generator extends component_generator_base {
         $fichecode = $data['fichecode'] ?? 'RNCP36832';
         $ficherang = $data['ficherang'] ?? 'C03';
 
-        // Le nom du sous-systeme vient de la passerelle : MC-5 vaut aussi ici, et la constante
-        // est le seul endroit du plugin ou ce nom est ecrit.
+        // The name of the subsystem comes from the gateway: MC-5 holds here too, and the constant
+        // is the only place of the plugin where that name is written.
         $lpg = $this->datagenerator->get_plugin_generator(\tool_vae\local\competency_gateway::SUBSYSTEM);
-        // L'IDNUMBER, PAS LE SHORTNAME. C'est sur competency_framework.idnumber que
-        // find_framework() retrouve un referentiel deja importe ; poser le code de fiche dans
-        // le shortname laissait l'idnumber a « frm1 », et un scenario qui semait une fiche puis
-        // passait par import.php avec le meme code creait un SECOND referentiel complet.
-        // Le docbloc ci-dessus promet que ce generateur ecrit ce que l'import ecrit : il le
-        // fait maintenant.
+        // THE IDNUMBER, NOT THE SHORTNAME. It is by competency_framework.idnumber that
+        // find_framework() finds a framework already imported; putting the record code in the
+        // shortname left the idnumber at "frm1", and a scenario that seeded a record then went
+        // through import.php with the same code created a SECOND complete framework.
+        // The docblock above promises that this generator writes what the import writes: it now
+        // does.
         $framework = $lpg->create_framework([
             'shortname' => $data['name'] ?? 'Referentiel importe',
             'idnumber' => $fichecode,
@@ -190,7 +190,7 @@ class tool_vae_generator extends component_generator_base {
 
                 return (int) array_search($idnumber, array_column($competencies, 'idnumber', 'id'));
             };
-            (new \tool_vae\local\passage_manager())->decide(
+            (new \tool_vae\local\correspondence_manager())->decide(
                 $find((string) $data['from']),
                 $find((string) $data['to']),
                 (string) ($data['note'] ?? '')

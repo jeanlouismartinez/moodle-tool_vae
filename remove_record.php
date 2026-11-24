@@ -34,6 +34,7 @@ require_once($CFG->libdir . '/adminlib.php');
 
 use tool_vae\form\remove_record_form;
 use tool_vae\local\record_remover;
+use tool_vae\output\remove_record_page;
 
 $fichecode = required_param('fichecode', PARAM_ALPHANUMEXT);
 $self = new moodle_url('/admin/tool/vae/remove_record.php', ['fichecode' => $fichecode]);
@@ -72,18 +73,10 @@ if ($refusal === null) {
     }
 }
 
+// A refusal is said on the page rather than as an exception: the manager reached it by a button, and is told why there is
+// nothing to do.
+$renderer = $PAGE->get_renderer('tool_vae');
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('removerecordheading', 'tool_vae', s($fichecode)));
-
-if ($refusal !== null) {
-    // Said on the page rather than as an exception: the manager reached it by a button, and is told why there is nothing to do.
-    echo $OUTPUT->notification(
-        s(get_string($refusal->errorcode, 'tool_vae', $refusal->a)),
-        \core\output\notification::NOTIFY_ERROR
-    );
-    echo $OUTPUT->continue_button($index);
-} else {
-    $form->display();
-}
-
+echo $renderer->render($refusal !== null ? remove_record_page::refused($refusal, $index) : remove_record_page::form($form));
 echo $OUTPUT->footer();

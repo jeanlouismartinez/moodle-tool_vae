@@ -1,526 +1,762 @@
-# VAE - cheminement (`tool_vae`)
-
-> Plugin Moodle de type **admin tool**. Il permet à des professionnels engagés dans une démarche de VAE de constituer, au fil de leur activité, une trace datée, attribuée et vérifiable des compétences acquises en situation de travail.
->
-> **Nom.** Affiché « VAE - cheminement » (« VAE - pathway » en anglais) ; composant `tool_vae`. Jusqu'à la version 0.10.1, le composant s'appelait `tool_referentiel` : les entrées anciennes du [journal des versions](CHANGELOG.md) gardent ce nom. Cette identification de "Référentiel" fait clairement référence au plugin de M. Jean Fruitet (https://github.com/jfruitet/moodle_referentiel). 
->
-> **Un seul paquet maintenu : Moodle 5.3 (branche `main`, suivie par `MOODLE_503`). Le projet de ce plugin VAE sera construit uniquement pour les versions LTS de Moodle.**
->
-> **État au 9 novembre 2026 : version 2.5.03 (Moodle 5.3), numéro de build 2026110409, maturité alpha.** Ce dépôt est le dépôt **public** du plugin `tool_vae` (répertoire des plugins de Moodle ; plateformes fildargent.net et lavae.org). Le dépôt de travail privé `moodle-tool_vae` porte le même code ; la 01.5.3 (28 octobre 2026) était la première version publiée.
->
-> **Numérotation.** Le numéro de publication se lit « génération . branche de Moodle » : **01.5.3** est la première version prévue pour le répertoire des plugins de Moodle (« 01 ») : c'était l'étiquette de la première version publiée (28 octobre 2026). Celle-ci est la **deuxième version** du plugin VAE, **2.5.03** (« 2 »), parce que son contenu est bien plus avancé que celui de la 01.5.3 (décision du porteur, 6 novembre 2026) ; il ne vaut que pour **Moodle 5.3** (« 5.3 »). Les versions 0.x des entrées anciennes du [journal des versions](CHANGELOG.md) sont celles d'avant cette renumérotation. Ce que Moodle compare pour décider d'une mise à jour est le numéro `version` de `version.php` (une date et un rang), pas cette étiquette. Ce qui suit décrit le paquet 5.3 ; le paquet 4.5, qui n'est plus maintenu, est à part (voir plus bas). Un vaeiste déclare l'exercice d'une activité, un responsable l'atteste, chacun est prévenu de ce qui le concerne sans que le récit quitte le dossier, une fiche de certification s'importe et se réimporte sans dégât, et le dossier s'exporte en une archive figée pour le jury, PDF imprimable compris, que l'administrateur d'un autre site peut reprendre après vérification des empreintes, à condition que ce site n'ait pas déjà numéroté autrement les compétences qu'elle nomme (sinon l'import est refusé en entier, et le message nomme les compétences en cause). Une attestation donnée par erreur n'oblige plus à déranger l'administrateur chaque matin : un collègue qui suit le même vaeiste peut en demander le retrait au signataire, qui accepte ou refuse ; et le signataire peut la retirer lui-même si l'administrateur a activé le réglage. Le tableau de couverture montre au vaeiste ce qu'il a déclaré, sans jamais conclure.
->
-> **Vérifié par l'intégration continue**, sur PostgreSQL, MariaDB et pour la migration 4.5 → 5.3, à la 0.47.1 (commit `db52ee5` : verte). La même version a été jouée en local sur PostgreSQL : 1 376 tests PHPUnit, 10 406 assertions, 105 scénarios Behat hors JavaScript. Le renommage en 01.5.3 ne change aucun code ; sa propre CI n'est pas encore lue. À la 0.22.0 : **440 tests PHPUnit** (3 994 assertions) et **25 scénarios Behat** (dont le contrôle d'accessibilité) sur le paquet 5.3 ; **272 tests** (3 131 assertions) et 10 scénarios Behat sur le paquet 4.5 à la 0.9.6 ; preuves exportées validées contre le schéma. La migration 4.5 → 5.3 n'est vérifiée que sur PostgreSQL : les fichiers de preuves d'un jeu de deux dossiers ressortent identiques à l'octet, et l'archive et la sauvegarde prises sous 4.5 se réimportent.
->
-> **Vérifié à la main le 13 octobre 2026 sur un vrai Moodle 5.3.0** : installation, rendu du `dossier.pdf` en anglais et en français (l'essai a trouvé et fait corriger le pied de page, puis la coupure d'une déclaration entre deux pages), écrans du vaeiste, du responsable et de l'administration, et le retrait délégué de bout en bout (demande, refus, acceptation, réglage, droit).
->
-> **Jamais vérifié à ce jour** : l'usage par de vrais vaeistes ; le comportement du plugin sous une charge réelle.
->
-> **La suite** est dans la liste de travail du projet, avec la conception de la VAE qui le guide (https://martinez.pro/mod/page/view.php?id=84 & https://martinez.pro/mod/page/view.php?id=85)
-
----
-
-## Pourquoi ce plugin, et pourquoi « cheminement »
-
-La VAE n'est pas un examen. Elle transforme une compétence éprouvée en qualification, par un travail de réflexion sur la pratique : la formation va du savoir vers l'expérience, la validation va de l'expérience vers le savoir. Le plugin accompagne ce **cheminement** ; le dossier n'en est que le produit final. Il aide à constituer et à mettre en forme — le jury, lui, décide.
-
----
-
-## Relancer le projet dans six mois
-
-```bash
-git clone <dépôt> tool_vae
-cd tool_vae
-make doctor      # ce qui manque, et ce que ça empêche
-make valider     # tous les contrôles exécutables hors ligne
-```
-
-Pour l'installer dans un Moodle :
-
-```bash
-# Moodle 5.3 (branche main)
-cp -r tool_vae <moodle>/public/admin/tool/vae
-# Moodle 4.5 : paquet non maintenu, à ne pas installer sur un site réel ; passer à Moodle 5.3
-```
-
-puis **Administration du site → Notifications**.
-
-**Première installation, pas à pas, pour débutants** : [`docs/INSTALLATION-PAS-A-PAS.md`](docs/INSTALLATION-PAS-A-PAS.md) (installation, rôles et droits, cohortes, import des fiches, réglages, politique de confidentialité, répétition générale, dépannage).
-
-**Usage, de la première déclaration au livret final remis au jury** : les guides d'usage (administrateur, responsable VAE, direction, référence complète) sont publiés par le porteur sur son site, pas dans ce dépôt.
-
-**Prérequis :** Moodle 5.3 LTS (branche `main`), PHP 8.3, et le sous-système de compétences activé (*Fonctions avancées → Activer les compétences*). Sans lui, le plugin affiche une explication et s'arrête — il alimente `core_competency`, il ne le remplace pas. Le paquet pour Moodle 4.5 LTS (branche `MOODLE_405`) n'est plus maintenu : un site en Moodle 4.5 passe à Moodle 5.3.
-
-### Dossier de faisabilité : identité, statut, coordonnées
-
-Depuis la 0.16.0, la page « Dossier de faisabilité » du vaeiste comprend les rubriques à champs de l'annexe II de l'arrêté du 3 juillet 2025 (« candidat accompagné », intitulé de l'arrêté). **Ce que le plugin garde** : nom de naissance, date de naissance, nationalité, niveau de formation le plus élevé, niveau et intitulés des certifications obtenues, statut, identifiant de la convention collective. **Ce qu'il lit dans le compte Moodle sans le copier** : prénoms, nom d'usage, courriel, adresse, ville, pays, téléphone. Le genre, que l'annexe laisse facultatif, n'est pas repris. Chaque enregistrement est une version, comparable comme celles des récits ; les valeurs lues du compte ne sont pas versionnées.
-
-- **Lecture par un tiers** : la capability `tool/vae:identityview`, à part de `tool/vae:draftview` et donnée à aucun archétype (MC-11). Lire les récits d'un vaeiste n'ouvre pas sa date de naissance. Le vaeiste lit les siens ; l'administrateur lit comme à l'ordinaire.
-- **L'archive d'export n'emporte ni date de naissance, ni nationalité, ni adresse, ni téléphone** (MC-13, décidé le 15 octobre 2026) : elle garde des identifiants opaques.
-- **Aucun contrôle de complétude** : l'astérisque dit ce que le formulaire officiel exige, et la rubrique s'enregistre même incomplète. Le plugin ne dit pas qu'un dossier est recevable.
-- **Limite** : les listes de l'annexe ont été lues par un lecteur de page, non copiées du Journal officiel ; à comparer avec le texte avant tout usage en production.
-
-### Copies modifiables du dossier (Word, OpenDocument)
-
-Depuis la 0.15.0, le vaeiste (et la direction) peut télécharger son dossier en **.docx** ou en **.odt** pour le relire et le corriger : déclarations, attestations, fiche de certification, avec une phrase en tête qui dit que ce n'est **pas** l'archive délivrée par la plateforme. Même droit que l'archive (`tool/vae:export`) : la copie quitte la plateforme de la même façon. Chaque téléchargement laisse un événement (nombre de déclarations, format, empreinte des données, jamais le texte).
-
-Depuis la 0.17.0, la copie **commence par les rubriques du dossier de faisabilité** (dernière version enregistrée de chacune, jamais un brouillon), puis reprend les déclarations et les attestations. **Identité, coordonnées et statut n'y figurent que pour le vaeiste et pour qui détient `tool/vae:identityview`** : les autres reçoivent la copie sans ces trois rubriques, avec une ligne qui le dit. **Les rubriques elles-mêmes n'y figurent que pour qui peut les lire à l'écran** (le vaeiste, l'administrateur, et qui détient `tool/vae:draftview` en pouvant consulter le dossier) : la direction qui n'a que `viewany` et `export` reçoit la copie sans rubriques. Les intitulés des pièces n'y figurent que pour qui peut ouvrir les pièces (le vaeiste, l'administrateur, et qui peut attester ce vaeiste), comme à l'écran, et non pour qui lit seulement l'identité. La copie hebdomadaire, écrite dans les fichiers du vaeiste, garde tout cela, avec la préparation du dossier de validation. Les dates des copies et des archives sont celles du fuseau horaire du vaeiste, quel que soit le lecteur.
-
-Depuis la 0.19.0, le vaeiste peut **déposer** son dossier de faisabilité : un jalon daté et empreinté (SHA-256) de ce qu'il a **enregistré**, jamais d'un brouillon. Le dépôt n'est pas un verrou : il continue d'écrire, et un nouveau dépôt est un nouveau jalon, numéroté ; les précédents ne changent pas. Les responsables qui le suivent **et** détiennent `tool/vae:readdeposit` sont prévenus (le nom et le numéro, rien des rubriques) et lisent ce jalon, **jamais les brouillons ni les versions** ; l'identité et le statut restent derrière `tool/vae:identityview`. Le plugin enregistre le jalon ; il ne le juge pas et ne remplace pas le dépôt auprès du certificateur. Le dépôt n'est pas dans l'archive d'export ; il se trouve dans l'export des données personnelles de Moodle, qui se lit mais ne se réimporte pas.
-
-Depuis la 0.21.0, un responsable qui suit le vaeiste, et détient `tool/vae:writeopinion` en plus de `tool/vae:readdeposit`, peut **écrire son avis sur un dépôt précis** : du texte libre, daté, empreinté, **jamais réécrit**, que le vaeiste lit (avec le nom de l'auteur) et dont il est prévenu sans le texte. L'avis reste attaché au dépôt qu'il commente : un nouveau dépôt n'en a pas tant qu'on n'en écrit pas un dessus. **Le plugin ne dit pas si l'avis est favorable** et n'est pas la signature du formulaire officiel. L'avis n'est pas dans l'archive d'export ; il se trouve dans l'export des données personnelles de Moodle, qui se lit mais ne se réimporte pas.
-
-Depuis la 0.22.0, un responsable qui suit le vaeiste et peut attester une déclaration peut lui **poser une question sur cette déclaration, avant de l'attester** ; le vaeiste y répond une fois, avec des mots. Les deux textes sont datés, empreintés et jamais réécrits. **Ce n'est ni un verrou ni un verdict** : l'attestation n'attend pas la réponse et le plugin ne dit pas si elle suffit. Le vaeiste est prévenu qu'une question l'attend, sans le texte. La question et la réponse ne sont pas dans l'archive d'export ; elles se trouvent dans l'export des données personnelles de Moodle, qui se lit mais ne se réimporte pas.
-
-Depuis la 0.23.0, l'administrateur peut choisir un **délai en jours** (réglage `overduedays`, zéro = désactivé) après lequel les responsables qui suivent le vaeiste et peuvent attester sont **rappelés, une fois**, qu'une déclaration attend encore leur attestation ; le message nomme le vaeiste et un nombre, jamais le récit. Une page « Déclarations en attente d'attestation » (droit `viewany`) les liste par vaeiste, la plus ancienne d'abord, avec une colonne « Responsables à prévenir » : le **nombre** de responsables qui seraient prévenus d'une déclaration de ce vaeiste (ceux qui le suivent, peuvent attester et dont le compte n'est ni suspendu ni supprimé), jamais leurs noms. Un zéro dit que personne ne serait prévenu, ni à la déclaration ni au rappel ; une case permet de ne garder que ces vaeistes. Un détenteur de `viewany` qui ne suit personne n'est pas compté : il n'est pas prévenu non plus. Ce n'est ni un état de la déclaration ni un jugement : rien n'est retenu. Pour qu'un vaeiste ait toujours quelqu'un à prévenir, rattachez-le à un responsable par une cohorte (partie 7 du guide d'installation).
-
-Depuis la 0.18.0, l'**archive d'export** emporte aussi les **rubriques de texte** du dossier de faisabilité : un fichier `faisabilite.json` (avec son schéma, sous empreinte comme le reste), une section « Dossier de faisabilité » dans le `dossier.pdf`, chaque rubrique dans sa dernière version enregistrée, jamais le brouillon. **Jamais l'identité, le statut ni les coordonnées** (MC-13) : le vaeiste les ressaisit sur le site qui reçoit l'archive. Au réimport, chaque rubrique absente revient en version 1 (note « Restauré depuis l'archive … ») ; **une rubrique déjà écrite sur le site n'est jamais écrasée**. Le fichier est facultatif : une archive d'avant la 0.18.0 se réimporte comme avant. L'archive ne les emporte que pour qui peut les lire à l'écran (le vaeiste, l'administrateur, et qui détient `tool/vae:draftview` en pouvant consulter le dossier) ; la sauvegarde sur Moodle les garde toutes.
-
-**Archive venue d'un autre site.** Chaque site numérote lui-même ses compétences la première fois qu'un dossier en sort (archive, copie Word ou OpenDocument, sauvegarde) ou qu'une archive y est reprise, puis ne change plus ce numéro ; le compte du vaeiste reçoit de même son identifiant dès sa première déclaration, son premier export, sa première copie ou sa première sauvegarde. Une archive d'un autre site n'est donc reprise qu'à **deux conditions** : que le site qui la reçoit n'ait pas déjà numéroté autrement les compétences qu'elle nomme, et que le compte du vaeiste n'y ait pas déjà d'identifiant. Sinon elle est refusée en entier et rien n'est écrit. Pour les compétences, le message donne leur nombre et nomme les dix premières, triées par code (le code et le rang, avec l'intitulé que ce site leur donne), puis compte les autres ; pour le compte, il dit que le compte est déjà connu sur ce site sous un autre identifiant. L'écran d'export et l'écran de sauvegarde disent ces réserves ; l'écran d'export parle au vaeiste (à la deuxième personne) quand il exporte son propre dossier, et du vaeiste (à la troisième) quand la direction ou l'administrateur exporte le dossier d'un autre. Aujourd'hui, l'administrateur peut repartir de zéro sur le nouveau site (nouvelles déclarations, nouvelles signatures des responsables) en gardant l'archive et son PDF comme pièce du dossier, ou demander l'aide d'un développeur. Le plugin ne rapproche jamais de lui-même deux compétences de deux sites : c'est un jugement, qui reviendrait à une personne. Un écran de correspondance validée par une personne, puis une archive complète pour soi, sont des chantiers décidés, **pas construits** ; chacun sera validé avant livraison. L'archive ne contient ni les dépôts du dossier de faisabilité, ni les avis des responsables, ni les questions de précision et leurs réponses : ils se trouvent dans l'export des données personnelles de Moodle, et l'écran d'export le dit.
-
-**Ligne hors format.** Une ligne dont le rang de compétence est hors format (« c7 » au lieu de « C7 ») ne bloque ni l'export de l'archive ni la sauvegarde faite depuis l'écran : l'archive est produite telle que le dossier la tient, avec un avertissement qui nomme la déclaration en cause et une mention dans sa notice `LISEZMOI.txt`. La sauvegarde faite depuis l'écran, avec avertissement, renvoie au dossier (ses messages s'y affichent comme des notifications). La ligne vient d'une déclaration **déjà enregistrée** avec un rang hors format, soit par une version antérieure du plugin (avant la 0.46.0), soit écrite directement dans la base de données ; depuis la 0.46.0, une déclaration nouvelle sur un tel rang est refusée. **Elle ne se corrige pas depuis Moodle** : l'archive reprend le rang écrit dans la déclaration enregistrée, non le numéro d'identification que la compétence porte aujourd'hui, si bien que corriger ce numéro (*Compétences → Référentiels de compétences*) ne réécrit pas la déclaration. L'avertissement revient à chaque export et à chaque sauvegarde tant que la déclaration existe, et il faut en prévenir l'administrateur du site. L'archive ne pourra pas être réimportée telle quelle, l'import restant strict ; la copie modifiable (Word, OpenDocument) reste possible. Le journal de Moodle garde, pour chaque export, le nombre de lignes en cause, et le rapport des journaux l'affiche dans la description de l'événement (seulement quand ce nombre est supérieur à zéro). Une pièce dont le fichier est perdu ou altéré, et un dossier trop volumineux pour être relu, restent refusés.
-
-L'administrateur peut aussi activer, dans les réglages du plugin, une **copie hebdomadaire** : la nuit du dimanche au lundi, une tâche écrit une copie datée dans les **fichiers personnels du vaeiste** (dossier `vae/copies`), seulement si le dossier a changé depuis la dernière copie, et ne garde que les **deux dernières**. Désactivée par défaut. Une demande d'effacement les supprime avec le dossier. Ce traitement a sa base légale et sa durée de conservation à fixer par le site avant activation ; le bornage de ces copies et des sauvegardes de l'administrateur relève d'une politique du site, que le délégué écrit ([T-84](docs/T-84-conformite-rgpd.md), § 6) : aucun code, durée « à fixer par le site ».
-
-### Pièces justificatives
-
-Depuis la 0.37.0, le vaeiste peut joindre à une déclaration des **pièces justificatives** : un **fichier** (PDF, ODT, DOCX, JPEG, PNG) ou un **lien**, avec une **nature** choisie dans une liste fermée (bulletin de paie, contrat de travail, attestation de l'employeur, diplôme ou attestation de formation, fiche de poste, autre) et un intitulé facultatif. **Le plugin ne lit pas une pièce, ne la juge pas et ne dit pas qu'elle suffit** ; il ne visite jamais une adresse saisie par un utilisateur (sa seule requête sortante propre (l'aide d'IA et les courriels sortent par le cœur de Moodle, pas par le plugin) est la récupération, sur clic d'un administrateur, de l'export de France compétences, vers deux hôtes fixes du code : voir « Importer des fiches depuis France compétences »). **Fermé par défaut** (réglage `piecesopen`) : à n'ouvrir que lorsque l'amendement 4 de `DER-referentiel-001` est validé et que la durée de conservation de tels fichiers est écrite (T-84). Conception : `docs/T-13-pieces-jointes.md`.
-
-- **Ce qui est contrôlé.** Le type est lu **sur le contenu**, jamais sur le nom ; **le nom d'origine du fichier n'est jamais gardé** (le fichier est enregistré, servi et archivé sous un identifiant) ; 5 Mo par fichier, 5 pièces par déclaration, 30 Mo par vaeiste (réglables sous ces bornes : l'archive tient 50 Mio) ; macros, scripts, objets incorporés et relations vers l'extérieur sont refusés dans un DOCX ou un ODT, et les actions qui démarrent à l'ouverture dans un PDF quand elles sont lisibles. **C'est une liste d'interdits, pas une garantie.** L'antivirus du cœur est appelé ; **sans antivirus configuré, les fichiers sont refusés**, sauf si l'administrateur l'accepte par écrit (réglage `piecenoantivirus`). Une empreinte SHA-256 est calculée à la réception et recomparée à chaque export. Un lien n'a pas d'empreinte : ce qui est à une adresse peut changer ; il est signalé quand il porte une requête ou désigne une adresse qui semble privée.
-- **Qui lit.** Le vaeiste ; qui peut attester ce vaeiste ; l'administrateur du site. Qui peut seulement lire le dossier voit la **liste** (nature, type, taille, empreinte, dates, pas l'intitulé) et n'ouvre rien. Le téléchargement est toujours forcé.
-- **L'attestation.** L'écran liste les pièces ; le formulaire porte la liste affichée, et **la signature est refusée si les pièces ont changé** depuis l'affichage. La liste signée est gardée avec l'empreinte de chaque fichier, avec **une case** « J'ai pris connaissance des pièces » : une **déclaration**, pas un fait. L'écran dit combien de fichiers le signataire a ouverts, et que **ouvrir n'est pas lire**. Une pièce jointe **après** la signature est marquée comme telle, et les responsables qui suivent le vaeiste en sont prévenus (sans rien de la pièce).
-- **Le retrait** est toujours possible pour le vaeiste, avant ou après l'attestation : le fichier, l'intitulé et l'adresse sont effacés, la nature, le type, la taille, l'empreinte et les dates restent. Ce que le retrait ne peut pas atteindre est écrit à l'écran : une copie déjà téléchargée, la corbeille de la plateforme jusqu'à son vidage, une archive déjà remise à un jury.
-- **Dans les archives.** `pieces.json` (schéma `docs/schema/pieces.schema.json`) liste les pièces ; il ne dit jamais ce qu'elles contiennent.
-
-| | Liste (`pieces.json`) | Octets des fichiers | Adresses des liens |
-|---|---|---|---|
-| Archive que **le vaeiste exporte lui-même** | oui | oui (`pieces/`) | oui |
-| **Sauvegarde** conservée sur la plateforme (filet de la désinstallation) | oui | oui | oui |
-| Export fait par **un tiers** (direction, `viewany` et `export`) | oui | **non** | **non** |
-| PDF et copie Word/ODT | oui, en liste | **non** | **non** |
-
-  L'intitulé d'une pièce (champ libre) suit les octets : absent de l'export d'un tiers.
-
-  Au réimport, les pièces reviennent par la porte d'une personne (type lu sur le contenu, antivirus, empreinte, adresse et intitulé tels que le plugin les accepte, bornes tenues) ; une archive qui ne la passe pas est refusée **en entier, par le nom de la pièce**. **Si la jonction de pièces est fermée ici et que l'archive a des pièces à restaurer, elle est refusée** (une déclaration ne s'importe pas deux fois : des pièces laissées en silence seraient perdues) : ouvrir, importer de nouveau, refermer. Ce qui vient sans octets ni adresse (l'export d'un tiers) est compté et laissé. **Un plugin antérieur à la 0.39.0 réimporte les déclarations et perd les pièces sans le dire.**
-- **Ce que le plugin ne peut pas faire.** Vérifier qu'un document ne nomme personne ; voir ce qu'un document garde en lui (auteur, dates, position d'une photographie : les métadonnées ne sont pas retirées) ; savoir si un responsable a lu une pièce. Pour un fichier, le régime 2 du projet ne tient plus sur les mêmes preuves : la probabilité du risque R2 est relevée de « faible » à « moyenne » dans l'amendement 4.
-
-### Règle de validation du certificateur : un lien, jamais un texte
-
-Depuis la 0.40.0, un administrateur peut donner, pour chaque fiche importée, **jusqu'à cinq adresses** où le certificateur publie sa règle de validation (la fiche du répertoire national, l'arrêté du diplôme sur Légifrance), chacune avec un **intitulé court** et, si l'administrateur le dit, le **jour où il a vérifié la page**. *Compétences → Règles de validation : adresses.*
-
-- **Le plugin ne copie, ne lit et n'applique aucune règle.** L'export du répertoire national ne donne pas la règle de validation en VAE (constat du 22/10/2026) : copier « validation de tous les blocs » aurait laissé croire que c'est la règle de la VAE. Une adresse ne peut pas devenir fausse dans un dossier, seulement sur la page qu'elle nomme, et le jour de vérification le dit.
-- **Sur le dossier du vaeiste**, **un seul encadré, au-dessus de toute la couverture** (jamais entre le titre d'une fiche et ses nombres) : « Règle de validation : voir » et, par fiche, les liens (nouvel onglet, adresse entière au survol), puis une phrase fixe : le plugin n'applique pas cette règle, ne dit pas si le dossier la satisfait, ne vérifie pas les adresses ; la décision revient au jury. L'encadré est à part, jamais sur la ligne d'un bloc, sans couleur, et rien n'est mis à côté des nombres de la couverture (D-1).
-- **Le PDF et la copie Word/ODT** écrivent les adresses en texte (jamais un lien actif) avec la même phrase ; `referentiel.json` porte `regle_validation`. Les adresses ne sont pas relues à l'import : ce sont celles du site.
-- **Fermé par défaut** (`refopen`) : les adresses peuvent être saisies, aucun vaeiste ne les voit, ni sur l'écran ni dans les documents, tant que le réglage n'est pas coché. **À ne cocher qu'après relecture de la phrase et de sa place par un accompagnateur VAE.** Le plugin n'ouvre jamais une adresse saisie par un utilisateur : le clic est celui du lecteur. (Sa seule requête sortante propre (l'aide d'IA et les courriels sortent par le cœur de Moodle, pas par le plugin) est la récupération, sur clic d'un administrateur, de l'export de France compétences, vers deux hôtes fixes du code ; aucune adresse n'y vient d'une saisie.)
-
-### « Hors de mon activité » : la parole du vaeiste, sans effet
-
-Depuis la 0.41.0, un vaeiste peut dire qu'une compétence ou un bloc d'une fiche importée **ne relève pas de son activité** (*Dossier → Hors de mon activité*), avec une note facultative d'une ligne sous le rappel d'anonymisation.
-
-- **C'est une déclaration, pas une dispense.** Personne ne la signe (ce n'est pas une attestation), elle n'est comptée nulle part, ne déclenche aucun rappel ni aucun message, et ne change rien à la couverture. Le jury décide si une compétence non exercée compte : pour certains diplômes, elle compte. La phrase le dit partout où le marqueur apparaît : *« Ce marqueur est la parole du vaeiste sur son activité. Il n'exempte de rien : la décision revient au jury. »*
-- **Sur le dossier**, dans un encadré **à part** de la couverture, lu par le vaeiste, par qui le suit et par qui lit tous les dossiers. Le vaeiste seul le pose et le retire.
-- **Dans l'archive** : `hors_activite.json` (schéma `docs/schema/hors_activite.schema.json`), dans toute archive du dossier d'un vaeiste qui en a posé ; dans le PDF et la copie Word/ODT ; **réimporté sans écraser** un marqueur déjà posé, et en laissant de côté une compétence que ce site ne tient pas.
-- **Fermé par défaut** (`scopeopen`) : aucun vaeiste ne peut en ajouter tant que le réglage n'est pas coché ; ce qui a été dit reste lisible et peut être retiré. **À ne cocher qu'après relecture du libellé et de la phrase par un accompagnateur VAE.**
-
-### Référents des blocs : un aiguillage des messages, pas un droit
-
-Depuis la 0.42.0, un administrateur peut nommer, pour un bloc d'une fiche importée (ou pour toute la fiche), des membres du personnel *référents* (*Compétences → Référents des blocs*). **C'est une règle du site, écrite une fois, pas une fois par vaeiste.**
-
-- **Elle décide qui est prévenu en premier** d'une déclaration sur ce bloc, parmi les responsables qui suivent le vaeiste : les référents du bloc et de la fiche entière s'ils sont parmi eux, **tous les responsables sinon** (rien ne se perd en silence si un bloc n'a pas de référent ou si son référent ne suit pas ce vaeiste). Même aiguillage pour le message « pièce ajoutée après une signature ».
-- **Elle ne donne et n'ôte aucun droit** : qui suit un vaeiste lit toujours son dossier et peut attester. Rien n'est compté ni classé par référent.
-- Le rappel d'attente (T-22) et les autres messages (dépôt, avis, précision) ne sont pas aiguillés : ils portent sur le vaeiste, non sur un bloc.
-- Depuis la 0.43.0, sur la page *Mes vaeistes*, un référent peut **compter les déclarations d'un de ses blocs** (ou de toute une fiche) : les nombres se limitent à ce bloc, **la liste des vaeistes ne change pas** et il peut toujours lire tout ce qu'il suit. Un responsable qui n'est référent de rien ne voit pas ce choix. Comptes seulement.
-
-### Aide à la reformulation par IA : fermée, et jamais sans confirmation
-
-Depuis la 0.44.0 (serveur) et la 0.45.0 (écrans), un vaeiste peut demander **une autre formulation d'un texte qu'il a écrit lui-même** : une rubrique de texte du dossier de faisabilité, la préparation du dossier de validation, la situation d'une déclaration. **Jamais** le journal réflexif, jamais l'identité. **Fermée par défaut** (réglage `aiopen`) : à n'ouvrir qu'une fois écrits la base légale, le registre, la durée de conservation, le contrat avec le fournisseur (T-84) et relus par un accompagnateur VAE et par la personne qui tient le registre l'instruction envoyée (`ai_assistant::PROMPT`) et le texte de la politique.
-
-- **Ce qui doit être vrai pour que le bouton paraisse** : le réglage ouvert ; le droit `tool/vae:useai`, donné à la main (aucun rôle ne l'a par défaut ; **un administrateur du site passe tous les contrôles de droit, le vrai verrou est le réglage**) ; **un seul fournisseur d'IA actif pour le texte** (le cœur essaie les fournisseurs l'un après l'autre : avec deux, le texte pourrait partir chez le second sans que le vaeiste le sache). Sinon, les formulaires sont comme avant.
-- **Trois écrans, toujours en POST** (`ai.php`) : la **politique d'IA du site**, le texte du cœur (« Politique d'usage IA », que le site rédige une fois pour tous les endroits qui offrent de l'IA), à accepter une fois pour tout le site, dans Moodle ou ici (consignée dans le registre du cœur) ; la **confirmation, à chaque envoi et qu'on ne peut pas désactiver**, qui montre le texte exact, le nom du fournisseur, le nombre de caractères et ce qui est conservé, et rappelle de ne nommer personne ; le **résultat**, la proposition à côté de l'original, avec la mention qu'elle est à relire. **Rien n'est enregistré** par le plugin : le vaeiste copie, ou non, et enregistre lui-même.
-- **Plafonds** : 3 000 caractères par défaut (réglable de 500 à 6 000), 25 appels par jour par défaut (réglable de 1 à 100), et une pause de 30 secondes entre deux appels, fixée par le code et non réglable ; les appels sont comptés par le plugin dans `tool_vae_aicall` (qui et quand, jamais le texte, purgés au bout de trois jours au plus ; ce registre ne sert qu'à ces deux plafonds). Le limiteur du cœur ne le permet pas : c'est une fenêtre fixe d'une heure dans un cache.
-- **Ce que le fournisseur reçoit en plus du texte** : un code qui désigne le vaeiste sans le nommer, et la **consigne réglée par l'administrateur dans l'administration de l'IA** (à faire relire avec l'instruction du plugin avant d'ouvrir). L'écran de confirmation le dit.
-- **Pas de perte du texte non enregistré** : le bouton ouvre `ai.php` dans un nouvel onglet ; la page de rédaction garde son texte. Chaque confirmation porte un jeton à usage unique et la marque du fournisseur nommé : recharger la page, un double clic ou un fournisseur changé entre-temps n'envoient rien et ramènent à la confirmation.
-- **Ce qui reste dans le cœur** : le texte envoyé et la réponse sont conservés par Moodle dans ses propres tables, rattachés au contexte du site au nom du vaeiste. **Le plugin n'en efface aucun lui-même**, ni à la suppression d'un compte ni à un autre moment. Moodle ne les vide que lorsqu'une personne approuve une demande de suppression de données (celle que Moodle crée à la suppression d'un compte, ou celle que le vaeiste dépose lui-même), **et à deux conditions** : que le site crée lui-même ces demandes à la suppression d'un compte (réglage `automaticdeletionrequests` de `tool_dataprivacy`, actif par défaut, avec approbation manuelle par défaut), sinon rien ne les crée ; **et que la finalité et la catégorie du site ne soient pas définies** dans le registre des données (*Administration du site → Utilisateurs → Protection des données et politiques → Registre des données*). Si elles le sont, Moodle ne vide **jamais** ces textes, rattachés au contexte du site, et déclare quand même la demande terminée : il faut alors les faire effacer à la main. Tant qu'une demande n'est pas approuvée, ils restent dans Moodle. **L'administrateur doit le savoir.** L'écran de confirmation de l'aide dit l'une de deux phrases selon l'état du site au moment de l'envoi : la phrase normale (les textes sont conservés jusqu'à l'effacement des données, après la suppression du compte et l'approbation de la demande), ou, quand l'une des deux conditions manque, que sur ce site Moodle ne les efface pas de lui-même et qu'il faut le demander à l'administrateur. Dans tous les cas, Moodle garde après l'effacement une ligne de registre : le numéro du compte (qui reste rattaché au nom dans Moodle), la date, le fournisseur, le modèle, la taille de l'échange en jetons, la réussite ou l'échec de l'appel et, après un échec, le message d'erreur du fournisseur, dont le plugin ne maîtrise pas le contenu. Le journal du plugin ne contient jamais le texte.
-
-### Importer des fiches depuis France compétences : un écran, deux voies
-
-Depuis la 0.47.0, un administrateur (droit `tool/vae:import`) importe des fiches **par un écran** (*Compétences → VAE - cheminement → « Importer des fiches depuis France compétences »*) : il tape des numéros de fiche (`RNCP12345`, `RS1234`, des exemples de forme ; vingt au plus), puis choisit **une voie**. Il **dépose** le fichier zip de l'export qu'il a téléchargé sur data.gouv.fr, ou il clique sur **« Aller chercher le dernier export »** : le serveur du site le récupère, au clic et seulement alors. Le plugin lit le fichier zip sans rien extraire, montre pour chaque numéro l'intitulé publié en entier, ce que Moodle détient déjà et ce que l'import fera, et **n'écrit rien avant la confirmation**. Une fiche refusée (numéro absent, fiche sans bloc, code de bloc inattendu…) l'est par son nom, sans bloquer les autres. Source, licence, paternité et date ne se retapent plus : la date est celle de l'export, lue dans le nom du fichier ; un export plus ancien que ce que Moodle détient est signalé et n'est importé que si une case est cochée. L'écran CSV à quatre colonnes reste (« cas particulier »), et la ligne de commande `scripts/convertir-fiche-rncp.php` reste comme voie de secours.
-
-**La requête de la voie « Aller chercher » est la seule que le plugin fasse de lui-même** : deux hôtes écrits dans le code (`www.data.gouv.fr`, `static.data.gouv.fr`), https, jamais planifiée, aucune donnée sur personne (mesure compensatoire MC-30, `make sortie`). **Non vérifié** : cette voie n'a jamais été jouée contre le vrai data.gouv.fr ; l'écran n'a jamais été cliqué par une personne (les scénarios Behat du dépôt de fichier, des refus, de l'export plus ancien et du droit sont verts en local, sur des fichiers zip inventés) ; l'hébergement réel du porteur n'est pas connu. L'intitulé complet d'une fiche de plus de 100 caractères (CAFERUIS, CAFDES) n'est conservé nulle part : le référentiel porte le numéro pour nom. Détail et mesures : [`docs/IMPORT-FICHES-FRANCE-COMPETENCES.md`](docs/IMPORT-FICHES-FRANCE-COMPETENCES.md).
-
-### Fiche importée par erreur : retirer sa ligne
-
-Quand le fichier d'un diplôme a été importé sous le code d'un autre, la fiche fausse est visible de tous les vaeistes. Le geste complet tient en trois temps : **masquer** d'abord la fiche (*Visible : Non* dans Moodle ; voir « Une fiche cachée dans Moodle n'accepte plus de déclaration », plus bas), **supprimer le référentiel dans Moodle** si Moodle l'accepte (il refuse tant qu'un cours, un plan, un modèle de plan, un badge ou une compétence d'utilisateur s'appuie sur l'une de ses compétences, donc dès qu'un vaeiste a déclaré dessus), puis **retirer la ligne de la fiche** dans ce plugin.
-
-- **Le bouton « Retirer cette ligne »** est offert, sur la page des fiches importées (*Compétences → VAE - cheminement*), à qui détient `tool/vae:import`, quand Moodle n'a plus le référentiel de la fiche, qu'aucun référentiel de Moodle ne porte ce code et qu'aucun vaeiste n'a laissé de trace sur ce code et que la structure n'y a rien positionné : ni déclaration, ni marque « Hors de mon activité », ni rubrique de la préparation du dossier de validation, ni évaluation ni certification de la structure (historique compris, retraits compris). Trois situations laissent une fiche sans bouton, et la page dit les deux premières par une phrase propre, pour les fiches qu'elles concernent : **une trace sur la fiche** (rien ne se retire : ce qu'un vaeiste a écrit, et ce qui a été écrit sur lui, n'est jamais supprimé depuis cet écran) ; **un référentiel de Moodle qui porte déjà le code** (fait à la main, par exemple, et même caché : la page dit de le supprimer d'abord dans Moodle) ; **tout autre cas**, où la page n'a que sa phrase générale (le référentiel n'existe plus ; importer la fiche de nouveau), sans parler de bouton : c'est ce qu'elle dirait sans le droit `tool/vae:import`, que son accès exige pourtant déjà.
-- **Un écran de confirmation** liste ce qui part avec la ligne : la licence et la paternité de la source, les dates notées, les adresses de règles de validation, les référents de bloc, les marques de compétences absentes de la fiche, les correspondances entre compétences, la fiche remplaçante déclarée, et le lien des fiches qui la désignaient comme remplaçante. Le plugin n'écrit rien dans les référentiels de Moodle, et la ligne ne se récupère pas : importer de nouveau la fiche en crée une neuve.
-
-### La page Organisation : trois onglets, des nombres, jamais un verdict
-
-Depuis les numéros de version 2026110301 (« Mon parcours »), 2026110400 (« Vaeistes suivis ») et 2026110401 (« Organisation »), la page `organisation.php` réunit trois onglets, **chacun sous son droit**. Le même test décide de ce qui s'affiche et de ce que l'adresse accepte : un onglet qu'on ne peut pas ouvrir est refusé, jamais remplacé par un autre. **La page ne lit aucun identifiant de personne dans l'adresse** (hors l'onglet, le seul paramètre est le bloc choisi dans « Vaeistes suivis », contrôlé contre la liste du lecteur). Sans onglet dans l'adresse, elle s'ouvre sur le premier onglet ouvrable, sauf pour qui détient `viewany` et n'a rien déclaré : celui-là arrive sur « Organisation ». Des nombres, des dates et des noms (fiches, cours, activités, plans de formation avec leur statut, rôles, cohortes, référents) : aucun taux, aucun total général, aucune couleur qui qualifie une personne ou un dossier. Seule une ligne de bloc additionne les déclarations, les pièces et les attestations de sa propre ligne et des compétences qu'elle contient, et l'écran le dit. Le seul badge de couleur est le mot « Manque » de la grille des droits, qui qualifie un réglage du site.
-
-- **« Mon parcours »**, pour qui peut lire son propre dossier, jamais en session « Se connecter en tant que ». Pour chaque compétence des fiches où le vaeiste a déclaré : ses déclarations, ses pièces (colonne présente si la jonction de pièces est ouverte ou si le vaeiste en détient), ses attestations en vigueur, la date du dernier acte de son dossier, puis les cours, les activités (rubrique suivante) et les plans de formation du cœur qui la portent. Une ligne de bloc additionne les déclarations, pièces et attestations de sa ligne et de ses compétences ; ses cours et ses plans sont les siens, non additionnés. Les fiches que seul un plan de formation nomme sont listées à part, sans rien compter : un plan n'oblige pas à déclarer. Le vaeiste lit ses plans ; **un tiers ne lit un plan que sous `moodle/competency:planview` ou `moodle/competency:planmanage` dans le contexte du vaeiste** (les brouillons, sous `planviewdraft` ou `planmanagedraft` : la règle du cœur, reprise telle quelle), et jamais une évaluation du cœur. Un cours dont le lecteur n'a pas le droit du cœur sur les compétences est omis comme dans le cœur, et « Non lisible avec vos droits » le dit quand tous le sont, au lieu de « aucun » ; un cours caché reste listé, son nom n'est donné qu'à qui détient `moodle/course:viewhiddencourses`.
-- **« Vaeistes suivis »**, pour le responsable qui suit au moins un vaeiste (lien en bas de « Mes vaeistes ») : par vaeiste, les fiches sur lesquelles il a déclaré, le nombre de déclarations et celui des déclarations qui attendent une attestation, et ses plans de formation là où le droit du cœur le permet (sous `planview` ou `planmanage`, le nom et le statut seulement ; sinon « Non lisible avec vos droits »). Le choix d'un bloc (pour un référent) limite les nombres comme sur « Mes vaeistes ». Aucun bouton d'action : les noms mènent aux dossiers, qui ont leurs droits. Des nombres de travail, pas un verdict sur un dossier ni sur une personne.
-- **« Organisation »**, pour qui détient `viewany` ; entrée *Administration du site → Compétences → Organisation*, et nœud « Organisation » du profil. C'est la configuration du dispositif sur le site, qui **ne montre aucun vaeiste** (les référents de bloc, que le personnel connaît déjà, sont la seule exception). Par fiche : blocs, compétences, cours, activités, modèles de plans du cœur, **nombre de plans de formation qui la citent** (jamais leurs noms), référents de bloc et adresses de règle de validation (« Réglage fermé » tant que `refopen` l'est). Puis « Droits, rôles et réglages » : la grille « Acteurs et pouvoirs » (rubrique plus bas), les rôles qui accordent, retirent ou interdisent chaque droit du plugin, les cohortes dont les membres sont suivis par un responsable qui reçoit un rôle sur leur profil (nommées quelle que soit leur visibilité), et dix réglages (ouverts ou fermés ; le délai de rappel en jours). Les noms des modèles du cœur sont donnés à tout détenteur de `viewany`, sauf ceux d'un modèle caché, réservés à qui détient `moodle/competency:templatemanage`. **Cet écran montre, il ne règle rien**, et il n'écrit rien dans le cœur.
-- **Un choix à connaître avant de donner `viewany`** (décision du porteur du 4 novembre 2026, écrite dans l'AIPD) : le nombre de plans de formation est **exact, sans seuil, brouillons compris**, sur les comptes qui ont laissé une trace dans le plugin (une déclaration, une marque « Hors de mon activité » ou un brouillon du dossier de validation ; comptes supprimés exclus, comptes suspendus gardés). Il peut donc dire à la direction qu'un plan existe là où le cœur ne le lui montrerait pas ; le champ rendu ne dit jamais à qui il est, mais **le risque n'est pas nul** : un petit nombre (1 ou 2) sur une fiche suivie par peu de vaeistes peut désigner une personne pour qui connaît le site, et le nom d'une cohorte masquée peut nommer un groupe. Ces risques sont **acceptés par le porteur le 4 novembre 2026** (AIPD § 2 et T-84), non mesurés sur un site réel.
-- **Non vérifié** : les introductions et les libellés, à relire par un accompagnateur VAE ; l'accessibilité (axe-core : aucun scénario JavaScript ne visite la page) ; le coût de lecture sur un site qui compte beaucoup de fiches et de cours (les lectures sont groupées, jamais une par fiche, mais le coût n'a pas été mesuré sur un grand site).
-
-### Activités de cours : où se travaille la compétence
-
-Au plus tard au numéro de version 2026110402, « Mon parcours » dit aussi, pour chaque compétence, **dans quelle activité** de quel cours elle se travaille (quiz, devoir, forum… : table `competency_modulecomp` du cœur), en plus du cours ; « Organisation » le dit par fiche, non par compétence (le nombre d'activités et la liste, plus bas). C'est l'offre de formation, un fait sur le site, jamais une mesure de la personne.
-
-- **Où l'on la lit.** « Mon parcours » : une colonne « Activités » à côté de « Cours », des lignes « Cours › Activité (type) », avec un lien vers l'activité pour qui la voit. « Organisation » : le **nombre** d'activités par fiche, et la liste dans un élément dépliable (`<details>`), sans JavaScript.
-- **Ce qui est lu.** Le seul rattachement d'une activité à une compétence. La règle que l'activité applique à la compétence (`ruleoutcome`, `overridegrade`), qui est le début d'une évaluation, **n'est jamais lue** : un test capture la requête et le tient. Aucune personne, aucune date, aucune note par activité. Une activité en cours de suppression n'est pas comptée.
-- **Ce que le lecteur ne voit pas est tu, non supprimé.** Une activité cachée ou restreinte pour lui (`uservisible` du cœur) reste dans la liste, sans nom, sans type et sans lien : « Une activité non visible ». Dans un cours caché (lecteur sans `viewhiddencourses`), ni le nom du cours ni celui de l'activité. Une activité dont le lecteur n'a pas le droit du cœur sur les compétences du module (`coursecompetencyview` ou `coursecompetencymanage`) est écartée, et « Non lisible avec vos droits » le dit quand toutes le sont.
-- **Conséquence assumée** (décision du porteur du 4 novembre 2026 : taire plutôt que nommer hors du droit du cœur). Le plugin ne teste pas l'inscription au cours : un nom n'est donné que si le cours est visible pour le lecteur (ou s'il a `viewhiddencourses`) et si le cœur tient l'activité pour visible à son égard (`uservisible` : ni cachée, ni restreinte, et, pour un module qui définit un droit `mod/<module>:view`, ce droit tenu par le lecteur dans l'activité). Le sort d'un lecteur sans rôle dans le cours dépend donc du module et des rôles du site, non de l'inscription en elle-même ; un module sans droit `view` n'est pas concerné par ce motif. Constaté sur l'instance d'essai (relu dans le code du cœur de cette instance) : la direction (`viewany` seul, non inscrite) lit « 3 activités » sans aucun nom, parce que son quiz visible d'un cours visible n'est pas visible pour elle (le droit `mod/quiz:view` lui manque), que l'activité cachée ne l'est pas, et que le cours de la troisième est caché ; l'administrateur lit les trois noms, un vaeiste inscrit lit le nom de l'activité visible et « Une activité non visible » pour les autres.
-- **Non vérifié** : le coût de lecture à froid sur un site qui compte beaucoup de cours (une lecture par cours distinct, non mesurée) ; MariaDB et PostgreSQL (CI) ; l'accessibilité du dépliant.
-
-### Acteurs et pouvoirs : une grille en lecture, pas un réglage
-
-Au plus tard au numéro de version 2026110402, l'onglet « Organisation » porte, avant le tableau des droits, **une grille qui dit ce que le dispositif prévoit**, d'après le guide d'usage (§ 2.4) : pour chaque acteur, les droits du plugin qu'il doit détenir et les rôles du site qui les donnent. Elle se calcule à partir des rôles tels que le site les définit ; elle n'écrit rien, ne crée aucun rôle et ne lit rien de plus que le tableau des droits.
-
-- **Quatre acteurs à compte.** Le vaeiste (`declare`, `viewown`, `draftown`, `export`, et `useai` une fois `aiopen` ouvert) ; le responsable VAE (`viewassigned`, `attest`, `readdeposit`, `writeopinion`, et `evaluate` si le site adopte le cycle) ; la direction VAE (`viewany`, `export`, `readdeposit`, et selon le site `draftview`, `identityview`, `certify`) ; l'administrateur du dispositif (`import`, `importdossier`, `withdrawany`, qu'aucun rôle n'a besoin de donner, et `linkcourse`, que le rôle Gestionnaire reçoit par défaut). **Trois acteurs sans compte**, une phrase chacun : le référent de bloc (un aiguillage de messages, pas un droit), le jury (il reçoit l'archive et décide seul), le certificateur (sa fiche fait foi).
-- **Trois états par droit.** Donné (avec les noms des rôles) ; non donné et voulu ainsi (« Aucun rôle ») ; **« Manque »** : un droit attendu qu'aucun rôle ne donne. La phrase du manque est propre au droit : « seuls les administrateurs du site peuvent l'exercer » là où l'administrateur passe le contrôle, « personne ne peut l'exercer » pour suivre un vaeiste ou écrire un avis, qu'il ne fait pas. `evaluate`, droit facultatif, ne signale jamais de manque : sans rôle, la grille dit « Aucun rôle (facultatif) ». Un rôle qui interdit un droit est nommé même si un autre le donne ; un rôle qui le retire seulement ne le donne pas.
-- **Limites écrites sur l'écran.** La grille ne lit ni qui détient un rôle, ni les surcharges faites plus bas que le site, ni les droits du cœur exigés en plus (rattacher une fiche à un cours demande aussi un droit du cœur sur le cours). Elle ne dit pas à quel acteur un rôle est destiné : un droit donné par le rôle d'un autre acteur se lit dans les noms de rôles. Un droit « donné » n'est donc pas la preuve qu'il est exercé par la bonne personne.
-- **Non vérifié** : les libellés des acteurs, à relire par un accompagnateur VAE ; l'accessibilité du tableau ; MariaDB et PostgreSQL (CI). Les rôles types ne se créent pas en un clic à l'installation : ils se créent un à un, sur demande, depuis la page « Rôles VAE » (section suivante).
-
-### Évaluer une compétence, certifier un bloc : le positionnement de la structure, jamais la validation
-
-Depuis le numéro de version 2026110402, le cycle **déclarer, évaluer, certifier** se joue à l'intérieur de la structure. **Seul le jury valide, hors de la plateforme**, et seule cette validation ouvre l'accès à la qualification du diplôme officiel. Le plugin enregistre un *positionnement de la structure*, daté, motivé et attribué ; il ne dit jamais qu'une compétence est acquise ni qu'un bloc est validé, et il ne tient aucun registre de diplômes. Un test de langue refuse les mots « valid- », « acquis », « candidat », « taux », « note » et « score » dans les textes des écrans d'évaluation, de certification, d'échéance et de renouvellement, et d'erreur de positionnement (en anglais : « valid- » et « score » seulement) ; il écarte à dessein les phrases qui disent « n'est pas une validation » (avertissement, titre du dossier, phrase de l'archive). Aucun réglage n'ouvre le cycle : ce sont les deux droits, donnés à la main, qui le font.
-
-- **Évaluer une compétence** (`evaluate.php`). Le responsable qui suit le vaeiste et détient `tool/vae:evaluate` donne à **une compétence** (une feuille de la fiche) un statut parmi *à construire*, *en cours de preuve*, *suffisante pour certification* ou *retirée*, et un **motif écrit obligatoire** (4 000 caractères au plus). Jamais sur soi-même ; l'administrateur, qui ne suit personne, n'évalue pas. La fiche doit porter au moins une déclaration du vaeiste, et le sous-système de compétences doit être activé.
-- **Certifier un bloc** (`certify.php`). La direction (`viewany` **et** `certify`) donne à **un bloc** (ou à la fiche entière quand elle n'a pas de bloc) le statut *certifié par la structure* ou *retiré*, avec la **date de la décision** (AAAA-MM-JJ, du 2000-01-01 à aujourd'hui) et un motif écrit. Jamais sur son propre dossier, l'administrateur compris. **Une alerte, pas un verrou** : si une compétence du bloc n'est pas « suffisante » (jamais évaluée, à construire, en cours de preuve, ou évaluation retirée), l'écran la nomme et le **motif de l'alerte est obligatoire** ; il est refusé quand rien ne manque. Le serveur recalcule à l'enregistrement ; une compétence sortie de la fiche à l'import ne compte pas comme manque.
-- **Ajout seul, la dernière ligne fait foi.** Une ligne n'est jamais modifiée ni effacée : corriger ou retirer, c'est ajouter une ligne. Le dossier montre la ligne qui fait foi ; un lien « Historique » mène aux pages `evaluate.php` et `certify.php`, qui montrent la ligne qui fait foi puis les précédentes. Une ligne identique à la dernière est refusée, un retrait sans ligne qui compte aussi. Chaque ligne porte l'empreinte SHA-256 de ce qu'elle dit ; **cette empreinte détecte l'accident, elle n'est pas inviolable**. Deux envois simultanés sur un même vaeiste et une même fiche passent par un verrou. Le dossier signale quand des compétences d'un bloc ont été positionnées après sa certification.
-- **Qui lit.** Quiconque lit le dossier : le vaeiste lui-même, au fil de l'eau, les responsables qui le suivent, la direction. Une section « Positionnement de la structure » du dossier, construite sur l'arbre de la fiche, ouvre sur un avertissement (« Ce n'est pas une validation : seul le jury valide, hors de cette plateforme ») qu'elle répète sur chaque écran. Depuis le 7 novembre 2026, cette section n'est plus dans le `dossier.pdf` ni dans les copies Word et OpenDocument du vaeiste. **Le vaeiste est prévenu à chaque ligne écrite** (numéro de version 2026110404, code commité ; voir « Le message au vaeiste » ci-dessous) : un message dit seulement qu'une ligne a été ajoutée, et le vaeiste la lit dans son dossier. Un événement par écriture, avec des identifiants et le statut du positionnement (par exemple « sufficient », « certified », « withdrawn »), jamais le motif.
-- **Dans les archives, depuis le 7 novembre 2026 (build 2026110406).** `positionnement.json` (schéma `docs/schema/positionnement.schema.json`, version 0.1.0 ; `officiel` est toujours faux) emporte l'état courant **et l'historique complet**, sous la phrase « Positionnement de la structure, non validation ». **Il n'est plus dans l'archive que le vaeiste emporte, ni dans son `dossier.pdf`, ni dans ses copies Word et OpenDocument** (décision du porteur : la parole de la structure a son propre livret, qui ne se mêle jamais aux documents du vaeiste ; le vaeiste continue de lire ses lignes à l'écran). Il est dans l'**archive de la structure** (page `structure.php`, autorisation donnée une fois par responsable, droit `tool/vae:issuestructure`) et dans la **sauvegarde**, le filet de sécurité d'une désinstallation. Un auteur dont le compte est effacé n'y figure par aucun identifiant. Une correction ou un retrait fait après un export est sans effet sur cette archive. Un plugin plus ancien réimporte les déclarations et perd ce fichier sans le dire.
-- **Au réimport.** Les lignes reviennent **clé par clé (fiche, rang), tout ou rien**. Une clé qui a déjà une ligne sur ce site n'est pas touchée (l'historique de ce site n'est pas entrelacé avec celui d'un autre) ; une clé dont la fiche ou le rang manque ici, ou une ligne dont l'identifiant existe déjà, est laissée et comptée. L'empreinte de chaque motif est vérifiée contre le texte ; une date d'écriture future, antérieure à 2000 ou antérieure à la ligne qui la précède dans la clé fait refuser l'archive. Une ligne restaurée dit « restaurée depuis une archive », et son auteur, qui n'a pas de compte ici, est retrouvé par son identifiant opaque.
-- **Limites écrites.** Un vaeiste resté sans aucune déclaration n'a ni archive ni sauvegarde : ses positionnements ne sont pas sauvegardés (`db/uninstall.php` le dit). L'export ne borne pas le nombre de lignes ; l'import en accepte 5 000 au plus et refuse au-delà en nommant `/evaluations`.
-- **Le message au vaeiste** (numéro de version 2026110404, code commité). À chaque ligne de positionnement écrite, évaluation ou certification, un événement (`evaluation_recorded`, `certification_recorded`) met en file d'attente un message du type `positioningrecorded` (« Lignes de positionnement de la structure écrites sur votre parcours »), pour le seul vaeiste concerné. Il dit qu'une ligne a été ajoutée à son positionnement, rappelle que ce n'est pas une validation (phrase `positioningdisclaimer`), renvoie au dossier par un lien et indique le délégué à la protection des données du site pour demander une rectification, une limitation ou une opposition. **Il ne dit ni le statut, ni le motif, ni l'auteur.** Il part par la tâche asynchrone, comme les autres, et seulement si le vaeiste peut encore ouvrir son dossier (droit `viewown`) et si une ligne subsiste au moment de l'envoi. Le vaeiste, ou l'administrateur, peut le désactiver dans les préférences de notification (notification et courriel permis et activés par défaut, comme les autres messages du plugin).
-- **Rappel sur les formulaires.** Les formulaires d'évaluation et de certification portent, au-dessus du motif (et, pour la certification, au-dessus du motif d'alerte), le rappel : « ne nommez aucune personne accompagnée (au besoin, un prénom fictif) et ne donnez aucun détail qui la rende reconnaissable » (chaîne `anonymiseshort`). C'est un rappel écrit, non un contrôle : le plugin ne lit pas le motif.
-- **Décisions du porteur, qui est aussi délégué à la protection des données du site, le 5 novembre 2026** (détail : [T-84](docs/T-84-conformite-rgpd.md), § 8). Base légale de ces traitements : le contrat d'usage, comme pour les autres (article 6, paragraphe 1, point b). Information du vaeiste : une clause du contrat d'usage **et** le message ci-dessus. Durée de conservation : celle du dossier (jusqu'à la suppression du compte du vaeiste, effacement avec lui), plus un effacement à la demande du délégué du site ; pas de purge automatique propre, la ligne étant en ajout seul. Contestation : le vaeiste s'adresse au délégué du site, par la clause du contrat d'usage, **sans écran** ; une rectification passe par une nouvelle ligne écrite par la structure, la limitation et l'opposition par le délégué. Ligne dont l'auteur est effacé : le texte reste, l'identité part (confirmé).
-- **Non vérifié** : les mots des statuts et les textes, à relire par un accompagnateur VAE ; le message au vaeiste est testé par PHPUnit, envoyé le 5 novembre 2026 par un dialogue SMTP réel vers un récepteur local de test (texte relu : ni statut, ni motif, ni auteur), **jamais par le serveur de courriel d'un site réel** ; la clause du contrat d'usage est à écrire et à faire valider par le délégué ; MariaDB et PostgreSQL (CI).
-
-### Certification : date « valable jusqu'au », liste « À renouveler », lecture sur l'ancienne fiche
-
-Depuis le numéro de version 2026110403, trois ajouts complètent le cycle, sans message ni tâche planifiée de plus (le message au vaeiste vient de la 2026110404).
-
-- **Une date « valable jusqu'au », facultative.** En certifiant, la direction peut donner le dernier jour où la certification tient (AAAA-MM-JJ, du jour de la décision au 2100-01-01 ; un jour déjà passé est permis : une certification antidatée peut naître « à renouveler », ce qui est l'état exact des faits). Sans date, la certification n'expire jamais. Refusée sur un retrait. La date entre dans l'empreinte seulement quand elle existe : l'empreinte d'une ligne sans date n'a pas changé. Elle est gardée comme un jour, sans fuseau.
-- **« À renouveler » se calcule à la lecture, au jour du lecteur, et ne s'écrit jamais.** Le dernier jour compte encore ; le lendemain, le dossier dit « Valable jusqu'au J - échéance passée depuis N jour(s), comptés au jour où vous lisez ». Renouveler, c'est ajouter une ligne de certification. Le vaeiste lit le même texte neutre, **sans bouton « Renouveler »** : il ne certifie pas. Pas de couleur seule, pas de classement de personnes. L'archive, le PDF, la copie et l'export des données personnelles portent « valable jusqu'au », jamais « à renouveler ».
-- **Une liste « Certifications à renouveler »** (`renewals.php`, *Compétences → Certifications à renouveler*) pour qui détient `viewany` **et** `certify` : une ligne par certification qui fait foi et dont le dernier jour est passé (vaeiste, fiche, bloc, date, jours depuis, lien vers le dossier), l'échéance la plus ancienne d'abord (la sélection des certifications tient en une requête, quel qu'en soit le nombre ; l'affichage y ajoute une lecture des déclarations et une lecture de la disposition de chaque fiche distincte). Pas de total, pas de pourcentage, pas de couleur : elle dit qu'une date est passée, rien de la qualité d'un dossier. L'entrée n'est inscrite au menu que pour qui détient les deux droits (une page d'administration n'en demande qu'un) et la page les redemande. Comptes supprimés exclus, comptes suspendus gardés ; sur sa propre ligne, aucun lien pour renouveler (on ne se certifie pas).
-- **« Positionné sur l'ancienne fiche ».** Quand une fiche en remplace une autre (lot 7 du tableau plus bas) et que l'administrateur a décidé l'équivalent d'une compétence ou d'un bloc, la nouvelle fiche montre, **en lecture seule**, la ligne qui fait foi sur l'ancienne (« Positionné sur l'ancienne fiche RNCP100 (C01) : suffisante pour certification, … », suivi d'une date nue : celle de la décision pour un bloc certifié, celle de la ligne pour une compétence évaluée). **Rien n'est copié, reporté ni écrit** : un positionnement nouveau s'écrit à la main sur la nouvelle fiche, comme l'attestation ne se reporte pas. Règles : un seul saut (A remplacée par B, B par C : A se lit sur B, pas sur C) ; de compétence à compétence pour une évaluation ; de bloc à bloc pour une certification, seulement quand le bloc de l'ancienne fiche a sa propre décision, jamais déduite de ses compétences ; une ligne par ancienne fiche et par compétence (ou bloc) source de cette ancienne fiche, de sorte que deux compétences d'une même ancienne fiche décidées équivalentes à une même compétence de la nouvelle donnent deux lignes ; un retrait ne se montre pas.
-- **Essayé en HTTP réel** le 4 novembre 2026 sur l'instance locale, avec le compte d'une direction d'essai : la liste, le dossier, le formulaire (une date avant celle de la décision est refusée sans rien écrire), le renouvellement (la liste est vide ensuite) et la lecture sur l'ancienne fiche.
-- **Non vérifié** : les mots « à renouveler » et « valable jusqu'au », à relire par un accompagnateur VAE ; les deux `require_capability` de `renewals.php` (`viewany`, `certify`) : aucun test ne les atteint, car `admin_externalpage_setup` refuse avant eux quiconque n'a pas les deux droits (« Accès refusé » sans `moodle/site:config`, « Erreur de section ! » avec lui), l'entrée `toolvae_renewals` n'étant rangée dans l'arbre d'administration que pour qui les détient ; ce refus, lui, est joué (PHPUnit lit l'arbre d'administration pour un détenteur de `viewany` seul, de `certify` seul, des deux et pour l'administrateur ; Behat visite l'adresse avec un détenteur de `viewany` seul et un de `certify` seul), mais pas pour un compte sans aucun des deux droits ; MariaDB et PostgreSQL (CI) ; l'accessibilité.
-
-### Me positionner : l'auto-positionnement du vaeiste, sa propre parole
-
-Depuis le numéro de version 2026110407, le vaeiste dit lui-même où il en est sur chaque élément de son référentiel, à tous les niveaux que le référentiel a (référentiel, domaine ou bloc, compétence, habileté…), par un **palier d'une échelle en mots**, avec une justification facultative. **C'est sa parole, une trace de son développement : ni une validation, ni une note ; rien n'en est calculé** (aucun total, taux, seuil, tri ni écart).
-
-- **La page** `selfposition.php` (« Me positionner », atteinte depuis « Mon parcours ») montre les fiches proposées, l'arbre d'une fiche à tous ses niveaux, puis un élément avec son formulaire, la parole de la structure **en regard** (dernière évaluation ou certification, sans écart calculé), le nombre de déclarations (« dont n attestée(s) ») et de pièces sur l'élément, et l'historique. Un élément dont le code ne suit pas `<fiche>-<rang>` est affiché, non positionnable, avec l'explication.
-- **Ajout seul.** Chaque envoi ajoute une ligne (table `tool_vae_selfpos`) : un palier de 1 à 4, ou un retrait ; une justification en texte simple ou en Markdown (10 000 caractères au plus) ; l'empreinte SHA-256 ; 200 lignes au plus par élément. Un envoi identique à la dernière ligne est refusé.
-- **Quatre paliers, dont le site choisit les mots** (réglages `selfposlabel1` à `selfposlabel4`) ; par défaut « Je découvre », « Je pratique avec aide », « J'agis seul », « Je maîtrise et je transmets ».
-- **Qui écrit, qui lit.** Droit `tool/vae:positionself`, donné au rôle Vaeiste (la mise à jour le donne elle-même au rôle installé, depuis le build 2026110408). **Seul le vaeiste écrit, sur son propre dossier.** Les responsables qui le suivent et la direction lisent, par la règle de lecture du dossier ; l'administrateur du site peut lire la page, sans écrire. Les écrans lus par un tiers parlent du vaeiste et n'invitent jamais le lecteur à se positionner.
-- **Archives.** `autopositionnement.json` (schéma `docs/schema/autopositionnement.schema.json`) dans l'archive du vaeiste, dans l'export fait par un tiers et dans la sauvegarde, **jamais dans l'archive de la structure** ; restauré clé par clé, empreinte vérifiée. Déclaré à la confidentialité (export, effacement avec le dossier). Une ligne d'auto-positionnement bloque le retrait d'une fiche du référentiel. Le `dossier.pdf` n'est pas étendu.
-- **Non vérifié** : l'effet sur de vrais vaeistes (autocensure) ; les mots des paliers, à relire par un accompagnateur VAE.
-
-### Situations de travail : ce que le vaeiste écrit de son travail, et ce que les responsables y annotent
-
-Depuis le numéro de version 2026110408, le vaeiste décrit lui-même ses **situations de travail** : un titre, une période, un cadre, un texte en versions (avec son brouillon en cours), des étiquettes sur les éléments de son référentiel à partir du deuxième niveau (« ce dont cette situation témoigne »), des pièces (fichier ou lien, avec la « partie concernée »). **Rien n'est validé, rien n'est calculé** : une annotation est la parole d'un responsable, sans valeur de validation ; seul le jury valide, hors de la plateforme, et chaque écran le dit.
-
-- **Les pages** `situations.php` (les situations d'une fiche, et la vue inverse : les situations et les déclarations qui portent sur un élément), `situation.php` et `consent.php`. Une situation s'écrit quand la préparation du dossier de validation est ouverte et sur une fiche proposée, **sans déclaration préalable** ; fermée ou cachée, elle reste lisible. **Le vaeiste seul** l'écrit, y verse des pièces et la supprime.
-- **« Où j'en suis ».** Un panneau, sur la déclaration, la préparation et la partie « lier » d'une section, dit pour chaque élément du référentiel le nombre de situations et de déclarations qui le portent, avec le lien vers la vue inverse : des comptes, jamais un total ni un pourcentage.
-- **Accord et annotations.** Le vaeiste donne, nominativement, un **accord daté et retirable** à un responsable qui le suit : celui-ci peut alors annoter ses situations et son auto-positionnement. Annoter exige le droit `tool/vae:annotate`, le suivi du vaeiste **et** l'accord en cours, revérifiés à chaque écriture ; l'auteur seul retire son annotation. Deux messages sans texte libre : `noteadded` au vaeiste, `consentgiven` au responsable ; un retrait n'en envoie aucun.
-- **Qui lit.** Quiconque peut lire le dossier : les responsables qui suivent le vaeiste et la direction lisent la dernière version, le brouillon en cours (marqué) et l'historique ; **l'administrateur du site est refusé** sur les situations et sur les brouillons, versions et historique de la préparation du dossier de validation (invariant MC-16) ; il lit les dépôts de cette préparation, comme avant.
-- **Bornes.** 30 situations par fiche, 200 versions par situation, 5 pièces actives par situation, 200 annotations par cible, 400 accords donnés par vaeiste ; un retrait n'est jamais refusé par une borne.
-- **Archives.** `situations.json` (schéma `docs/schema/situations.schema.json`) et `pieces-situations/` dans l'archive du vaeiste et dans la sauvegarde, et dans l'export d'un tiers **seulement quand ce tiers peut lire la préparation du dossier de validation** ; les octets des pièces seulement dans l'archive du vaeiste et la sauvegarde ; jamais dans `validation.json`, le PDF, les copies ni les dépôts. Une annotation ou un accord restauré ne désigne aucun compte du site et n'ouvre jamais l'annotation.
-- **Données personnelles.** Sept tables (`tool_vae_situation`, `sitversion`, `sitetag`, `spiece`, `slink`, `consent`, `note`), déclarées colonne par colonne à la confidentialité, exportées et effacées par trois chemins (dossier, auteur effacé, compte supprimé) ; durée : l'existence du compte du vaeiste. Les risques propres à ces traitements ne sont pas encore analysés dans l'AIPD (`docs/AIPD-VAE.md`).
-- **Non vérifié** : les pièces de situation, le retrait de l'accord et les messages `noteadded` et `consentgiven` n'ont pas été essayés sur un site réel ; aucun serveur de courriel réel.
-
----
-
-## Ce que fait ce plugin, et ce qu'il ne fait pas
-
-Moodle possède déjà un sous-système de compétences complet. Ce plugin l'**alimente** et l'**étend** ; il ne le réimplémente jamais.
-
-**Il apporte** la collecte continue de preuves d'acquis produites en situation de travail — avec période d'exercice, cadre d'intervention et attestation d'un responsable — et leur restitution sous une forme exploitable pour un dossier de validation.
-
-**Il n'apporte pas** :
-
-- Il ne remplace pas `core_competency` et ne redéfinit aucune de ses entités.
-- **Il ne se substitue en rien au certificateur.** Aucune recevabilité, aucune pré-évaluation, aucun avis sur l'issue probable. Il collecte et met en forme — le jury juge. Les positionnements que la structure y inscrit (évaluer une compétence, certifier un bloc) sont ses propres actes, internes : ils ne sont ni une validation ni une prévision de ce que le jury décidera.
-- Il n'édite pas le référentiel de certification : importé, jamais modifié depuis le plugin.
-- Il n'embarque aucun modèle d'IA.
-
----
-
-## Deux actes distincts
-
-| Acte | Qui | Capability | API du cœur |
-|---|---|---|---|
-| **Déclaration** | Le **vaeiste**, sur lui-même | `tool/vae:declare` | `create_user_evidence()` + rattachement |
-| **Attestation** | Le **responsable** | `tool/vae:attest` | **aucune** — ligne du plugin |
-
-L'attestation étant une ligne du plugin, elle peut être **retirée sans détruire la preuve** du vaeiste : le dossier dit alors qu'une attestation a existé et qu'elle a été retirée à telle date, pour tel motif, et que cette attestation n'est plus valable. **Seulement si aucune autre attestation n'est en vigueur sur la déclaration**, il ajoute, une seule fois après la dernière attestation retirée, que la déclaration n'a pas été modifiée et que le vaeiste peut demander à un responsable de l'attester de nouveau. Même règle et mêmes phrases à l'écran, dans le PDF et dans les copies Word ou OpenDocument ; le fichier lisible par machine garde son motif codé.
-
-Le récit saisi dans le formulaire est du **texte brut** : le vaeiste n'a aucun format à choisir, et les balises qu'il taperait sont retirées. Une archive réimportée peut porter un récit en Markdown ; le format HTML est refusé partout.
-
-**Une fiche cachée dans Moodle n'accepte plus de déclaration.** Un référentiel de compétences dont l'administrateur a mis *Visible* sur *Non* (*Administration du site → Compétences → Référentiels de compétences*) refuse la déclaration d'une activité et le report d'une déclaration vers cette fiche. Le vaeiste lit un message écrit pour lui : l'intitulé et le code de la fiche, qu'elle est cachée, qu'on ne peut pas y déclarer pour le moment, et de s'adresser à son responsable ou à l'organisme qui l'accompagne ; aucun chemin d'administration. Un formulaire ouvert avant le masquage rend le texte déjà écrit au lieu de le perdre ; la liste des compétences que le formulaire de déclaration redonne après un refus commence par « Choisir… » et n'en présélectionne aucune, pour qu'un second envoi ne déclare pas sur une autre fiche à l'insu du vaeiste. L'adresse du report, ouverte sur une fiche déjà cachée, ramène au dossier avec ce message. Les déclarations déjà faites ne changent pas ; la restauration d'une archive et l'écran « Hors de mon activité » ne sont pas concernés. L'administrateur ne peut pas non plus essayer une fiche cachée avec un compte d'essai de vaeiste. Conseil : importer une fiche qui n'est pas prête, puis la cacher aussitôt.
-
----
-
-## Habilitations — à attribuer explicitement
-
-**Aucune des capabilities touchant à la donnée ne porte d'archétype par défaut** (aucun droit par défaut, sauf `linkcourse`, donné au Gestionnaire). Ce n'est pas un oubli.
-
-L'archétype `user` désigne le rôle « Utilisateur authentifié », attribué au **contexte système**. Le contexte utilisateur étant un enfant direct du système, une capability accordée à cet archétype au niveau `CONTEXT_USER` serait détenue par chaque utilisateur dans le contexte de **tous les autres**. Le plugin prouve l'appartenance en PHP — `\tool_vae\local\access` — jamais par une capability héritée.
-
-Il faut donc créer un rôle et l'attribuer. Le rôle du vaeiste se crée avec le **modèle de rôle « Étudiant »** de Moodle, choisi dans le formulaire du rôle — et non « MODÈLE : Étudiant » sur le premier écran, qui recopierait les 81 droits d'un étudiant de cours, dont « Voir les profils des utilisateurs », sur tout le site : le vaeiste est rangé avec les étudiants sans recevoir un seul de leurs droits. Les rôles du responsable et de la direction n'ont pas de modèle (guide d'installation, partie 6). Dix-sept capabilities, par ce qu'elles ouvrent (une dix-huitième, `useai`, n'ouvre que l'aide à la reformulation par IA et se décrit avec elle) :
-
-| Capability | Niveau | Ce qu'elle ouvre |
+# VAE - pathway (`tool_vae`)
+
+*Version française : [README.fr.md](README.fr.md) (the same sections and the same facts, in French).*
+
+A Moodle **admin tool** for the French VAE (*validation des acquis de l'expérience*, the accreditation of prior
+experiential learning). It lets professionals engaged in a VAE build, as their work goes on, a dated, attributed and
+verifiable record of the competencies they have acquired in work situations. The VAE is not an exam: the plugin helps
+to build and shape the dossier; **the jury decides**.
+
+- **Source code**: https://github.com/jeanlouismartinez/moodle-tool_vae
+- **Bug tracker (public)**: https://github.com/jeanlouismartinez/moodle-tool_vae/issues
+- **Documentation**: this file, and three pages in English: [installation and first setup](docs/en/installation.md),
+  [personal data](docs/en/privacy.md), [external services](docs/en/external-services.md). The other documents are in
+  French (see "Documentation").
+
+Displayed name "VAE - pathway" ("VAE - cheminement" in French); component `tool_vae`; repository `moodle-tool_vae`
+(Moodle's convention `moodle-{plugintype}_{pluginname}`). Up to version 0.10.1 the component was called
+`tool_referentiel`, a name that referred to the plugin of Jean Fruitet (https://github.com/jfruitet/moodle_referentiel):
+older entries of the [changelog](CHANGELOG.md) keep that name.
+
+In this file, the person who prepares a VAE is the **candidate** (*vaeiste*, the word of the French screens); the
+**manager** (*responsable VAE*) follows candidates; the **direction** reads every dossier; the **administrator** sets
+the plugin up. The words of the VAE are explained in the "Glossary" at the end.
+
+**Why "pathway".** The VAE turns a proven competency into a qualification through reflection on one's practice: training
+goes from knowledge to experience, validation goes from experience to knowledge. The plugin accompanies that
+**pathway**; the dossier is only its end product. The conception of the VAE that guides the project is described by the
+author at https://martinez.pro/mod/page/view.php?id=84 and https://martinez.pro/mod/page/view.php?id=85. The user
+guides (candidate, manager, direction, administrator) are published on the author's website, not in this repository.
+
+## Status
+
+- **Version 2.5.03 (Moodle 5.3), build 2026112200, maturity beta** (`version.php`). The release reads
+  "generation . Moodle branch": 01.5.3 was the first release sent to the plugins directory; 2.5.03 is the second
+  generation, for Moodle 5.3 only. What Moodle compares to decide an upgrade is the build number, not the release.
+- **Never used by real candidates to date**; its behaviour under a real load has never been verified.
+- **Checked by**: the PHPUnit and Behat suites of the plugin, run locally on Moodle 5.3.0 with PostgreSQL 17 before each
+  build (the changelog says what each build verified and what it did not); the continuous integration on GitHub
+  (`.github/workflows/moodle-ci.yml`, `moodle-plugin-ci`) on PostgreSQL and MariaDB; **MySQL was added to it on
+  22 November 2026 and has not run yet**. On 23 November 2026 the package of this build was installed on new local
+  sites with MySQL 8.4 and MariaDB 11.4: the PHPUnit suite passes on both without any notice; the tests skipped there
+  need PostgreSQL (a trigger) or what the package leaves out (the development files, the French strings). Behat ran there on
+  22 November 2026 with an earlier package of this build (without JavaScript after the corrections of that day, with
+  JavaScript before them), not with this one. The two unexpected `debugging()` notices that an earlier local run on
+  MySQL showed came from two tests of `tests/observer_test.php`, which ran the queue of messages in the PHP process that
+  had just deleted an account, with rights read before the deletion still in cache; the two tests now run the queue as a
+  new cron process would, and the plugin no longer tries to send a pending declaration about a deleted account, whatever
+  the rights in cache (see the changelog).
+- Behat runs axe-core accessibility checks in a real browser (five scenarios of `tests/behat/accessibility.feature`):
+  the three tabs of the organisation page, "Getting started" and the guide for candidates. A PHPUnit test counts the
+  database reads of the three tabs as the data grows (`tests/organisation_load_test.php`); the hot spots it found are
+  described in the changelog, none is fixed.
+- **Developer debugging**: the Behat test site of Moodle runs at the developer debug level (`lib/behat/lib.php`), and
+  PHPUnit reports every unexpected `debugging()` call (`lib/phpunit/classes/advanced_testcase.php`). On 22 November
+  2026, before the last corrections of this build, a new local site at the developer debug level was walked through
+  over HTTP: the 45 pages of the plugin for four roles, and 62 forms, uploads and downloads sent, without any warning,
+  notice or `debugging()` call. A session in a browser with developer debugging on a real site is **not verified**.
+
+## What it does, role by role
+
+Moodle already has a full competency subsystem. This plugin **feeds and extends** `core_competency`; it never
+reimplements it.
+
+- **The candidate** declares an activity on a competency of a certification record, with a period of practice and a
+  setting (a core user evidence is created); writes the sections of the *dossier de faisabilité* (drafts saved on their
+  own while typing, versions compared and restored), deposits it as a dated milestone, and answers the questions a
+  manager asks before attesting; attaches supporting pieces, positions themself on each element of the record,
+  describes work situations, and exports the dossier as an archive for the jury, or downloads an editable Word or
+  OpenDocument copy. The candidate reads the dossier on "My pathway" and in a one-page guide.
+- **The manager** follows candidates through a role given in each candidate's user context (by cohort); reads their
+  dossiers, attests a declaration, asks for a precision before attesting, reads the deposits and writes an opinion on
+  one; may evaluate a competency (optional role) and annotate situations with the candidate's consent; asks a colleague
+  to withdraw an attestation. The tab "Followed candidates" lists the candidates with numbers, never a verdict.
+- **The direction** reads every dossier (`viewany`), exports it, lists the declarations that await an attestation, may
+  certify a block as the positioning of the structure (optional role) and list the certifications to renew, produces
+  the archive of the structure, and reads the configuration of the scheme on the tab "Organisation".
+- **The administrator** imports the certification records (France compétences export uploaded or fetched by the
+  server, or a CSV file), creates the roles from the presets, sets the settings, backs up a dossier, reimports an
+  archive, declares which record replaces which, names the referents of the blocks and the addresses of the rules of
+  validation.
+- Each person is notified of what concerns them, through Moodle messaging; **no message reproduces the narrative**.
+- The dossier is **exported as a frozen archive for the jury**, with a printable PDF and a manifest of SHA-256 hashes,
+  that another site can import back after checking the hashes, under the conditions said below.
+
+## What it does not do
+
+- **Numbers, never a verdict.** No screen says that a dossier is complete, ready or admissible; no rate, no
+  percentage. The coverage table shows the candidate what has been declared, without concluding.
+- **It does not replace the certifier.** No admissibility check, no pre-assessment, no opinion on the likely outcome.
+  The positionings the structure records (evaluating a competency, certifying a block) are its own internal acts:
+  they are neither a validation nor a forecast. **Only the jury validates, outside the platform.**
+- It does not edit the certification framework: imported, never changed by the plugin.
+- It embeds no AI model. The optional rewording help is closed by default and goes through the AI providers of Moodle
+  core, with a confirmation at each sending.
+- Its only outgoing request of its own is fetching the France compétences export, on an administrator's click, from
+  two hosts written in the code. It never visits an address typed by a user (see
+  [external services](docs/en/external-services.md)).
+
+## Requirements
+
+- **Moodle 5.3 LTS**: `requires` is 5.3.0 and `incompatible` is 5.4, so Moodle refuses the plugin on 5.4 and later.
+  Only LTS releases are supported, one per package (reason under "Compatibility").
+- **PHP**: what Moodle 5.3 requires (8.3.0 or later, `admin/environment.xml` of Moodle 5.3); tested on PHP 8.3.
+- **Database**: through Moodle's database API only. Run locally on PostgreSQL 17; in the continuous integration on
+  PostgreSQL 17 and MariaDB 11.4; **MySQL 8.4 added to the continuous integration, not run yet**. The lowest versions
+  are those of Moodle 5.3 (PostgreSQL 17, MariaDB 11.4, MySQL 8.4).
+- The **competency subsystem enabled** (*Site administration > Advanced features > Enable competencies*). Without it
+  the plugin shows an explanation and stops.
+- **Cron** running: messages, the purge after a deleted account and the scheduled tasks run from Moodle's cron.
+- **No other plugin** is required (`version.php` declares no dependency); the plugin uses core subsystems only
+  (competencies, cohort roles, messaging, files, data privacy, and AI when the site opens the rewording help). Nothing
+  is to be installed with Composer.
+
+## Installation
+
+1. **From a ZIP file**, the ordinary way: *Site administration > Plugins > Install plugins*. The root folder of the
+   ZIP must be named `vae`. A ZIP made by GitHub ("Download ZIP" or the archive of a release) opens on a folder named
+   `moodle-tool_vae-<branch or tag>`: type `vae` in the advanced field "Rename the root directory" of the installer, or
+   unzip by hand into `<moodle>/public/admin/tool/vae` (the folder must be named `vae`).
+2. **Or with git**:
+   `git clone https://github.com/jeanlouismartinez/moodle-tool_vae.git <moodle>/public/admin/tool/vae`.
+3. Visit *Site administration > Notifications* to install (or run `php admin/cli/upgrade.php`).
+4. **Steps after the installation** (they are not standard, nothing is created without the administrator):
+   open *Site administration > Competencies > VAE > Getting started*, which lists the next steps in order, each with its
+   state, and changes nothing; create the roles from the page *VAE roles*; attach managers to their candidates by
+   cohort (core *Cohort roles management*); import the certification records; review *VAE: settings*; publish the site's terms of
+   use and data protection information.
+
+Details: [docs/en/installation.md](docs/en/installation.md) (English) and
+[docs/INSTALLATION-PAS-A-PAS.md](docs/INSTALLATION-PAS-A-PAS.md) (French, step by step, for beginners).
+
+The package is made from the repository by `git archive`: the development files (`scripts/`, `Makefile`,
+`phpcs.xml.dist`, the continuous integration files) and the working documents of `docs/` stay in the repository and
+are left out of the package by `.gitattributes` (`export-ignore`). Of `docs/`, the package keeps `docs/schema` (read
+at run time) and the documents this README links to. **The package ships the English strings only** (`lang/en`): the
+French strings (`lang/fr/tool_vae.php`) stay in the GitHub repository, for the sites that want them, and the project
+owner intends the French of the plugin to come from AMOS, the translation tool of Moodle (not done to date).
+
+## Roles and capabilities
+
+**No capability touching the data has a default archetype**, except `linkcourse`, given to the Manager archetype
+(`db/access.php`). This is deliberate: a capability given to the `user` archetype at user-context level would be held
+by every user in the context of all the others. The plugin proves who follows whom in PHP (`\tool_vae\local\access`),
+never by an inherited capability. **The plugin assigns no role**: who holds a role, and where, is decided in Moodle.
+
+| Capability (`tool/vae:…`) | Level | What it opens |
 |---|---|---|
-| `declare` | utilisateur | déclarer une activité, sur soi |
-| `viewown` | utilisateur | lire son propre dossier |
-| `attest` | utilisateur | attester la déclaration d'un vaeiste que l'on suit |
-| `viewassigned` | utilisateur | lire le dossier des vaeistes que l'on suit (rattachement par cohorte) |
-| `viewany` | système | lire tous les dossiers — la direction |
-| `export` | utilisateur | exporter un dossier en archive ; avec `viewown` sur le sien, avec `viewany` sur ceux des autres |
-| `withdrawany` | utilisateur | retirer **n'importe quelle** attestation d'un dossier que l'on peut lire — voir « Retirer une attestation » |
-| `import` | système | importer des fiches de certification (fichier CSV, ou export de France compétences déposé ou récupéré sur data.gouv.fr), et retirer la ligne d'une fiche importée par erreur — réservée par défaut à l'administrateur |
-| `importdossier` | système | réimporter une archive, **et sauvegarder sur Moodle le dossier de n'importe quel vaeiste** — réservée par défaut à l'administrateur ; à n'attribuer qu'avec le soin de `viewany` ; la sauvegarde, comme le réimport, demande aussi le droit du cœur `moodle/competency:userevidencemanage` sur le vaeiste concerné |
-| `draftown` | utilisateur | rédiger les rubriques de son dossier de faisabilité (brouillons, versions) ; donnée à aucun archétype |
-| `draftview` | utilisateur | lire les rubriques et les versions d'un autre dossier **que l'on peut consulter** (`viewany`, ou en suivant le vaeiste) ; donnée à aucun archétype, **pas** aux responsables qui suivent (ils lisent le dépôt) |
-| `identityview` | utilisateur | lire l'identité et le statut d'un dossier de faisabilité ; en plus de la lecture (qui suppose de pouvoir consulter le dossier), jamais à la place ; l'administrateur la détient d'office |
-| `readdeposit` | utilisateur | lire les dépôts du dossier de faisabilité d'un vaeiste **que l'on peut consulter** (`viewany` pour la direction, `viewassigned` pour le responsable qui suit) ; jamais ses brouillons ni ses versions ; donnée à aucun archétype ; l'identité d'un dépôt demande en plus `identityview` |
-| `writeopinion` | utilisateur | écrire un avis sur un dépôt d'un vaeiste que l'on suit ; exige aussi `readdeposit` ; donnée à aucun archétype |
-| `linkcourse` | cours | rattacher toute une fiche importée aux compétences d'un cours ; gestionnaire par défaut ; exige aussi `moodle/competency:coursecompetencymanage` dans le cours, que les gestionnaires détiennent |
-| `evaluate` | utilisateur | évaluer **une compétence** d'un vaeiste que l'on suit : un statut et un motif écrit, ajoutés et jamais modifiés (voir « Évaluer une compétence, certifier un bloc ») ; exige de suivre le vaeiste (`viewassigned` dans son contexte) et de pouvoir lire son dossier ; jamais sur soi-même ; l'administrateur, qui ne suit personne, n'évalue pas ; donnée à aucun archétype |
-| `certify` | système | certifier **un bloc** d'un vaeiste, comme positionnement de la structure et jamais comme validation ; exige aussi `viewany`, comme l'export du dossier d'un autre ; jamais sur son propre dossier, l'administrateur compris ; donnée à aucun archétype |
+| `declare` | user | declare an activity, on oneself |
+| `viewown` | user | read one's own dossier |
+| `draftown` | user | write the sections of one's own dossier and their versions |
+| `positionself` | user | position oneself on the elements of one's record |
+| `export` | user | export a dossier as an archive: with `viewown` on one's own, with `viewany` on another's; never alone |
+| `useai` | user | ask for a rewording of a text one wrote (only once the setting `aiopen` is open) |
+| `viewassigned` | user | read the dossier of a candidate one follows (role in the candidate's user context) |
+| `attest` | user | attest the declaration of a candidate one may read |
+| `readdeposit` | user | read the deposits of a dossier one may consult, never its drafts or versions |
+| `writeopinion` | user | write an opinion on a deposit of a candidate one follows; needs `readdeposit` too |
+| `evaluate` | user | evaluate one competency of a candidate one follows; never on oneself |
+| `annotate` | user | annotate the situations and self-positioning of a candidate one follows, with their consent |
+| `draftview` | user | read the sections and versions of a dossier one may consult |
+| `identityview` | user | read the identity and status of a dossier de faisabilité, on top of reading it |
+| `withdrawany` | user | withdraw any attestation on a dossier one may read |
+| `viewany` | system | read every dossier, and the configuration of the scheme |
+| `certify` | system | certify one block as the positioning of the structure; needs `viewany`; never on one's own dossier |
+| `issuestructure` | system | produce the archive of the structure, and authorize a manager to produce it; needs `viewany` |
+| `import` | system | import certification records, and remove the row of a record imported by mistake |
+| `importdossier` | system | reimport an archive, and back up any candidate's dossier into one's own private files |
+| `linkcourse` | course | attach an imported record to the competencies of a course (Manager archetype by default) |
 
-**Les droits du cœur de Moodle.** Le plugin lit les fiches importées (liste des compétences, dossier, couverture, rattachement à un cours, sauvegardes) sans le droit du cœur `moodle/competency:competencyview`. Mais le cœur le redemande à l'enregistrement d'une déclaration, quand il relie la preuve à la compétence : le vaeiste doit donc le détenir (par défaut il lui vient de l'archétype « Utilisateur authentifié »), et la page de déclaration le dit quand ce n'est pas le cas, au lieu d'ouvrir le formulaire. Trois actions demandent, elles, un droit du cœur de gestionnaire : l'import (`moodle/competency:competencymanage`), le rattachement à un cours (`moodle/competency:coursecompetencymanage`) et la sauvegarde ou le réimport d'un dossier (`moodle/competency:userevidencemanage`, sur le vaeiste).
+Rules that the table does not show:
 
-Quatre règles qui ne se lisent pas dans le tableau :
+- **`attest` is not enough on its own**: attesting needs reading the dossier, by following the candidate or holding
+  `viewany`. **`export` is never enough on its own**: a manager who follows a candidate reads the dossier, does not
+  export it. **`certify` needs `viewany`; `evaluate` needs following the candidate.**
+- **Never assign the manager role at site level.** `viewassigned` held at site level opens no dossier
+  (`access::follows()`), and `readdeposit`, `draftview` and `identityview` held without `viewany` or following open
+  nothing either. Reading every dossier has its own capability, `viewany`, for the direction.
+- **The core capabilities.** The plugin reads the imported records without `moodle/competency:competencyview`, but the
+  core asks for it when a declaration is saved, so the candidate must hold it (by default it comes from the
+  "Authenticated user" archetype); the declaration page says so instead of opening the form. Importing asks
+  `moodle/competency:competencymanage`, attaching a record to a course `moodle/competency:coursecompetencymanage`, and a
+  backup or a reimport `moodle/competency:userevidencemanage` on the candidate.
 
-- **`certify` ne suffit jamais seule, `evaluate` non plus.** Certifier exige aussi `viewany` ; évaluer exige de suivre le vaeiste. Les deux sont donnés à la main et à aucun archétype ; la grille « Acteurs et pouvoirs » les range parmi les droits facultatifs, pour ne pas signaler un manque sur un site qui n'a pas adopté le cycle.
-- **`attest` ne suffit pas seule.** Attester exige de **lire** le dossier : suivre le vaeiste (`viewassigned` dans son contexte) ou détenir `viewany`. Un rôle portant `attest` au niveau du site, sans l'une ou l'autre, n'ouvre aucun dossier (corrigé en 0.8.3).
-- **`export` ne suffit jamais seule.** Un responsable qui suit un vaeiste lit son dossier, il ne l'exporte pas.
-- **« Sauvegarder sur Moodle »** (garde : `importdossier`) place un dossier dans les fichiers personnels de l'administrateur. Chaque dossier y est sauvegardé automatiquement à la désinstallation du plugin **si elle passe par l'écran d'administration ou par `admin/cli/uninstall_plugins.php`** — jamais en supprimant d'abord le dossier du plugin, auquel cas rien n'est sauvegardé et les tables sont perdues. On réimporte après réinstallation, une fois les fiches de certification réimportées, à trois réserves : sauf si la sauvegarde porte la mention d'une ligne dont le format n'est pas celui attendu (notice `LISEZMOI.txt` de la sauvegarde, et avertissement affiché par l'écran de sauvegarde), le réimport refusant alors l'archive en entier ; sauf si, depuis la réinstallation, un dossier est déjà sorti du site sur les mêmes compétences (archive, copie Word ou OpenDocument, sauvegarde), le site leur ayant alors donné un nouveau numéro (voir « Archive venue d'un autre site ») ; et sauf si, depuis la réinstallation, le compte du vaeiste a déjà reçu un nouvel identifiant (dès sa première déclaration, son premier export, sa première copie ou sa première sauvegarde), le réimport refusant alors l'archive en entier. La sauvegarde faite depuis l'écran ne refuse plus un dossier pour une telle ligne ; elle refuse toujours une pièce dont le fichier est perdu ou altéré et un dossier trop volumineux pour être relu, ce que celle de la désinstallation ne fait pas. La sauvegarde est l'archive normative : elle ne contient ni les dépôts du dossier de faisabilité (numéros, dates, empreintes, notes), ni les avis des responsables, ni les demandes de précision et leurs réponses, ni les versions antérieures des rubriques, ni qui a décidé un report et sa note, ni — quel que soit celui qui la déclenche — le journal de bord et la préparation du dossier de validation ; un réimport ne les rend pas (le journal et la préparation se gardent par l'export du vaeiste lui-même). Elle contient en revanche les positionnements de la structure (`positionnement.json`), mais seulement pour un vaeiste qui a encore au moins une déclaration. Depuis la ligne de commande, où personne n'est connecté, elle se fait sans aucun droit de lecture des compétences, y compris pour un vaeiste qui a posé une marque « Hors de mon activité », et porte les intitulés des compétences. Réécrite (retrait d'une pièce, effacement d'un signataire), elle ne l'est que dans les fichiers des comptes qui détiennent encore `importdossier` et, sur ce vaeiste, `moodle/competency:userevidencemanage`.
+**The page "VAE roles"** (*Site administration > Competencies > VAE > VAE roles*, `roles_install.php`, for whoever
+holds `moodle/role:manage`) creates the roles from the presets shipped in `presets/roles/`: three base roles (`vaeiste`,
+`vae_responsable`, `vae_direction`) and two optional ones (`vae_responsable_evaluateur`, the manager plus `evaluate`;
+`vae_direction_certificatrice`, the direction plus `certify`). Their names come from the language strings: in English
+"Vaeiste", "VAE manager", "VAE direction", "VAE evaluating manager", "VAE certifying direction". Nothing is created when
+the page opens nor at installation: a role is created after a confirmation that lists its rights; an existing role
+(same short name) is never changed; `import`, `importdossier`, `identityview`, `useai`, `withdrawany` and `linkcourse`
+are refused even if a preset file were edited; `evaluate`, `certify` and `issuestructure` are only in the optional
+presets. The roles can also be imported by hand (*Define roles > Import*) from the files of `presets/roles/`. The role
+of the candidate is created with the core role archetype "Student" chosen in the role form, not by copying a student
+role, which would copy rights such as "View user profiles" on the whole site. Its short name `vaeiste`, without the
+`vae_` of the four others, is kept on purpose (decision of the project owner, 22 November 2026): the role exists only on a
+site where an administrator asked for it on this page and confirmed, and the page shows a role that already has this
+short name as existing, never creates it again and never changes it; renamed, the roles already created would be out of
+reach of the page and of the upgrades of the plugin, which look a role up by its short name.
 
-### Retirer une attestation
+**Attaching managers to candidates.** A manager reads only the dossiers of the candidates they follow. The core tool
+*Cohort roles management* (`tool_cohortroles`) gives a role to a person in the user context of each member of a cohort and keeps it
+up to date from cron: one cohort per establishment, a role "VAE manager" (assignable in the user context only), then
+the manager, the role and the cohort on *Cohort roles management*.
 
-**Par défaut, seul l'administrateur du site retire directement une attestation.** Trois voies s'y ajoutent. Les deux premières sont dormantes tant que l'administrateur ne les a pas ouvertes ; la troisième n'a pas d'interrupteur — elle est disponible dès qu'un second responsable suit le même vaeiste — mais elle ne retire rien par elle-même : le signataire décide.
+## Features in detail
 
-1. **Le signataire retire la sienne.** Case *Administration du site → Compétences → VAE : réglages* : « Les responsables retirent leurs propres attestations » (décochée par défaut). Il retire ce qu'il a signé lui-même, jamais celle d'un collègue.
-2. **Un coordinateur retire n'importe laquelle.** La capability `tool/vae:withdrawany`, attribuée par l'administrateur à un rôle ou à une personne, dans le contexte des vaeistes qu'elle suit. Elle ne dispense pas de pouvoir **lire** le dossier.
-3. **Un responsable demande à un collègue.** Sur l'attestation d'un collègue, le responsable qui suit le vaeiste et peut attester voit « Demander le retrait au signataire » (tant que le signataire a un compte actif : supprimé ou suspendu, le dossier renvoie à l'administrateur). Le signataire est prévenu (s'il suit le vaeiste, ce qui est le cas d'un responsable rattaché par cohorte ; un lecteur de `viewany` seul voit les boutons en ouvrant le dossier, sans message), et voit deux boutons : **Accepter le retrait** (c'est un retrait ordinaire, il en choisit le motif) ou **Refuser** (le demandeur en est prévenu, qu'il suive ou non le vaeiste : la réponse suit la question ; l'attestation reste). Une demande à la fois ; une fois la réponse donnée, la demande elle-même n'est pas conservée (le journal des événements de Moodle garde seulement l'acte).
+### Getting started, the "VAE" link, the guides
 
-Ce qui ne change jamais : le motif est obligatoire et pris dans une liste fermée (erreur de signature, contenu contesté, demande de suppression de données) ; le vaeiste ne retire jamais une attestation sur son propre dossier ; une attestation reprise d'une archive n'a pas de signataire sur ce site, donc seuls l'administrateur et un détenteur de `withdrawany` la retirent ; le retrait efface le signataire, sa fonction, son énoncé et la date de signature — la déclaration du vaeiste n'est pas touchée.
+- **Getting started** (`setup.php`) lists the steps of putting the plugin into service in the order of the
+  installation guide, with their state ("Done", "To do", "For you to check"). **It writes nothing.** What cannot be
+  read (roles assigned, cohorts attached, terms of use published) stays "For you to check".
+- **"What you can do now"**: at the top of "My pathway" (the candidate) and "Followed candidates" (the manager), a box
+  says what is possible now, with a link: declare an activity, answer a precision, take up the dossier de faisabilité,
+  position oneself; for the manager, a number of declarations to attest, of answers to read, of deposits without an
+  opinion. Never a progress rate or a verdict; it writes nothing and names nobody.
+- **The "VAE" link in the top navigation bar** leads to `organisation.php`. It is shown only to whoever may open a tab
+  of that page (the candidate, the manager who follows at least one candidate, the direction that holds `viewany`), never
+  while "logged in as" another user.
+- **A "VAE" category** under *Site administration > Competencies*, "Getting started" first; the 20 settings of
+  *VAE: settings* are grouped under seven headings (attestations and reminders; dossiers; supporting pieces; AI
+  help; editable copies; positioning; import of the records).
+- **A one-page guide per role** (`guide.php`): under the title of each tab, a "Help" link opens the guide for
+  candidates, managers or the direction, served by the plugin from its language strings (English only in the package); a
+  role's guide opens for whoever may open that role's tab. It describes what is open on a site as installed, and gives
+  no verdict.
+- **Not verified**: the "VAE" category seen by an administrator or a direction on a real site (proved by the tests); the
+  guide for the direction read over HTTP; the texts of the guides, to be read again by a VAE practitioner.
 
-### Rattacher les responsables à leurs vaeistes, établissement par établissement
+### The dossier de faisabilité, deposits, opinions, precisions
 
-Un responsable ne lit que les dossiers des vaeistes qu'il suit — jamais ceux de tout le site. Le rattachement passe par un outil **déjà présent dans Moodle**, « Gestion des rôles de cohorte » (`tool_cohortroles`), qui donne un rôle à une personne dans le contexte de **chaque membre d'une cohorte**, et le tient à jour d'heure en heure.
+- **Sections with fields** from annex II of the French order of 3 July 2025: the plugin keeps the birth name, date of
+  birth, nationality, highest level of education, level and titles of certifications obtained, status and collective
+  agreement identifier; it reads the first names, usual name, email, address, city, country and phone from the Moodle
+  account without copying them; the gender, optional in the annex, is not taken. Every save is a version, comparable like
+  those of the texts. Reading by a third party needs `identityview`, separate from `draftview` and given to no
+  archetype: reading a candidate's texts does not open their date of birth. **No completeness check**: the asterisk says
+  what the official form requires, and a section is saved even incomplete. **Limit**: the lists of the annex were read
+  by a screen reader, not copied from the Journal officiel; to be compared with the text before any use in production.
+- **Text sections** have drafts saved automatically while typing (the external function `tool_vae_save_draft`, called
+  through `core/ajax`) and versions saved on demand, compared and restored.
+- **Deposit**: a dated milestone, hashed (SHA-256), of what the candidate has **saved**, never of a draft. It is not a
+  lock: the candidate keeps writing, and a new deposit is a new numbered milestone. The managers who follow the
+  candidate **and** hold `readdeposit` are notified (name and number, nothing of the sections) and read that milestone,
+  never the drafts or the versions.
+- **Opinion**: a manager who follows the candidate and holds `writeopinion` (with `readdeposit`) writes free text on one
+  deposit, dated, hashed, never rewritten; the candidate reads it with its author's name and is notified without the
+  text. The opinion stays attached to the deposit it comments. **The plugin does not say whether an opinion is
+  favourable**, and it is not the signature of the official form.
+- **Precision**: a manager who follows the candidate and may attest asks a question on a declaration before attesting;
+  the candidate answers once, with words. Both texts are dated, hashed and never rewritten; the candidate is notified
+  that a question waits, without the text. Neither a lock nor a verdict: the attestation does not wait for the answer.
+- **Reminder**: the administrator may set a number of days (`overduedays`, zero = off) after which the managers who
+  follow the candidate and may attest are reminded, once, that a declaration still waits; the message names the
+  candidate and a number, never the narrative. The page "Declarations awaiting an attestation" (`viewany`) lists them
+  by candidate, the oldest first, with the **number** of managers who would be notified (they follow the candidate, may
+  attest, and their account is neither suspended nor deleted), never their names; a zero says nobody would be notified,
+  and a box keeps only those candidates. To make sure someone is always notified, attach each candidate to a manager by
+  cohort.
+- Deposits, opinions, questions and answers are not in the export archive; they are in the export of personal data of
+  Moodle, which can be read but not reimported.
 
-1. **Une cohorte par établissement ou service** (*Administration du site → Utilisateurs → Cohortes*), contenant ses vaeistes.
-2. **Un rôle « Responsable VAE »**, créé depuis la page **Rôles VAE** (voir plus bas) ou à la main (*Utilisateurs → Permissions → Définition des rôles*) :
-   - contexte d'attribution : **Utilisateur**, et lui seul ;
-   - capabilities : `tool/vae:viewassigned` et `tool/vae:attest` au minimum ; le préréglage de la page **Rôles VAE** y ajoute `tool/vae:readdeposit` et `tool/vae:writeopinion`, que la grille « Acteurs et pouvoirs » attend du responsable.
-3. **Le rattachement** (*Utilisateurs → Permissions → Gestion des rôles de cohorte*) : tel responsable, rôle « Responsable VAE », telle cohorte. Un vaeiste ajouté plus tard à la cohorte est rattaché à la synchronisation suivante, au plus tard une heure après.
+### Archive, copies, backups
 
-### Créer les rôles du plugin : la page « Rôles VAE »
+- **The archive for the jury** (`export.php`, capability `export`): the declarations, the attestations, the record, a
+  `dossier.pdf`, the text sections of the dossier de faisabilité (`faisabilite.json`, latest saved version) and the
+  supporting pieces, under a manifest of SHA-256 hashes. **Never the identity, the status or the contact details**: the
+  archive keeps opaque identifiers. The sections go into the archive only for whoever may read them on screen. At
+  reimport, a section absent from the site comes back as version 1 ("Restored from the archive …"); **a section already
+  written on the site is never overwritten**; an archive without `faisabilite.json` reimports as before. The format is
+  described by the JSON schemas of `docs/schema/` (keys and file names in French, on purpose).
+- **An archive from another site.** Each site numbers its competencies the first time a dossier leaves it (archive,
+  copy, backup) or an archive is taken in, and the candidate's account receives its identifier at its first
+  declaration, export, copy or backup. An archive from another site is taken only if the receiving site has not already
+  numbered differently the competencies it names, and if the candidate's account has no identifier there yet; otherwise
+  it is refused whole, nothing is written, and the message gives the number of competencies in question and names the
+  first ten, sorted by code. The export and backup screens say these reserves. The plugin never matches two competencies
+  of two sites by itself: that is a judgement; a screen of correspondences validated by a person, and a complete archive
+  for oneself, are decided, **not built**.
+- **A line out of format** (a competency rank "c7" instead of "C7", left by a version before 0.46.0 or written in the
+  database; a new declaration on such a rank is refused) does not block the export nor the backup made from the screen:
+  the archive is produced with a warning that names the declaration and a mention in its `LISEZMOI.txt`. It **cannot be
+  corrected from Moodle** (the archive takes the rank written in the declaration, not the idnumber the competency bears
+  today); the warning comes back at each export while the declaration exists, and such an archive cannot be reimported
+  as it is (the editable copy remains possible). The log of each export keeps the number of lines in question. A piece
+  whose file is lost or altered, and a dossier too big to be read back, stay refused.
+- **Editable copies** (`document.php`): the candidate (and the direction) downloads the dossier as `.docx` or `.odt` to
+  read and correct it, with a sentence at the top that says it is **not** the archive delivered by the platform: the
+  sections of the dossier de faisabilité first (latest saved version), then the declarations and the attestations. Same
+  capability as the archive; the request is a POST with the session key; each download leaves an event (number of
+  declarations, format, hash of the data, never the text). Identity, contact details and status are in it only for the
+  candidate and whoever holds `identityview`; the sections only for whoever may read them on screen (the direction that
+  holds only `viewany` and `export` receives the copy without them); the titles of the pieces only for whoever may open
+  the pieces. The dates are in the candidate's time zone, whoever reads.
+- **Weekly copy** (setting `copyenabled`, off by default): on Monday night, a task writes a dated copy into the
+  candidate's own private files (folder `/vae/copies/`), only if the dossier changed, and keeps the last two. A deletion
+  request erases them with the dossier. Its legal basis and retention are to be set by the site before it is switched on
+  ([T-84](docs/T-84-conformite-rgpd.md), § 6).
+- **Back up on Moodle** (`importdossier`, and `moodle/competency:userevidencemanage` on the candidate) puts a dossier into
+  the administrator's private files. Every dossier is backed up automatically when the plugin is uninstalled **through
+  the administration page or `admin/cli/uninstall_plugins.php`**, never when the folder of the plugin is deleted first
+  (then nothing is saved and the tables are lost). It is reimported after reinstallation, once the records are imported
+  again, except when it carries a line out of format, when a dossier left the site since on the same competencies, or
+  when the candidate's account received a new identifier since. The backup is the normative archive: it does not hold
+  the deposits, opinions, precisions, earlier versions of the sections, the reflective journal nor the preparation of the
+  validation dossier; it holds the positionings of the structure, for a candidate who still has a declaration. A
+  candidate with no declaration has neither archive nor backup (`db/uninstall.php` says so). **The roles created by the
+  page "VAE roles" stay after the uninstallation, with their assignments, but emptied of their `tool/vae:*` rights** (the
+  core removes the rights of the capabilities that disappear), and a reinstallation does not fill them again (the page
+  never changes an existing role). To restore them: delete them (*Site administration > Users > Permissions > Define
+  roles*), then, the plugin installed again, create them from the page "VAE roles" and assign them again; or give their
+  rights back by hand.
 
-Les préréglages de rôles sont livrés avec le plugin, dans `presets/roles/` : trois rôles de base (`vaeiste`, `vae_responsable`, `vae_direction`) et deux rôles facultatifs, `vae_responsable_evaluateur` (le responsable, plus `evaluate`, niveau Utilisateur) et `vae_direction_certificatrice` (la direction, plus `certify`, niveau site, avec `viewany`).
+### Supporting pieces
 
-- **La page.** *Administration du site → Compétences → Rôles VAE* (`roles_install.php`), pour qui détient `moodle/role:manage`. Elle liste les trois rôles de base et les deux facultatifs et dit lesquels existent déjà.
-- **Rien sans demande.** Rien n'est créé en ouvrant la page, ni à l'installation. L'administrateur demande un rôle, un écran de confirmation liste ses droits, et le rôle n'est créé qu'après confirmation.
-- **Un rôle existant n'est jamais modifié** (même nom court). L'événement de création est celui du cœur de Moodle.
-- **Ce que le plugin refuse d'accorder** (`import`, `importdossier`, `identityview`, `useai`, `withdrawany`, `linkcourse`) l'est aussi à la création, même si un fichier de préréglage avait été modifié.
-- **`evaluate` et `certify` ne sont dans aucun des trois rôles de base**, seulement dans les deux facultatifs, à ne créer que si le site l'a décidé.
-- **Le plugin n'attribue rien.** Qui détient un rôle, et où (rôle de cohorte pour les responsables), se décide ensuite dans Moodle (partie 6 du [guide d'installation](docs/INSTALLATION-PAS-A-PAS.md)).
-- **L'import à la main reste possible** : *Définition des rôles → Importer* avec les fichiers de `presets/roles/`. Essayé le 5 novembre 2026 sur l'instance locale (formulaire lu, rien créé).
-- **Vérifié** : la page par PHPUnit (`role_installer_test.php`, 8 tests ; `role_presets_test.php` pour les préréglages) et Behat (`roles_install.feature`). **Non vérifié** : l'essai à la main dans l'interface, sur un site réel.
+A candidate may attach to a declaration a **file** (PDF, ODT, DOCX, JPEG, PNG) or a **link**, with a nature from a
+closed list (payslip, employment contract, employer's certificate, diploma or training certificate, job description,
+other) and an optional title. **The plugin does not read a piece, does not judge it and does not say it is enough.**
+**Closed by default** (`piecesopen`): to be opened only once the site has written how long such files are kept.
 
-Le responsable trouve ses vaeistes sous **« Mes vaeistes »**, sur son profil. Un lien en bas de cette page mène à l'onglet *Vaeistes suivis* de la page *Organisation*, qui ajoute à chaque vaeiste les fiches sur lesquelles il a déclaré et, si le droit du cœur le permet, ses plans de formation.
+- The file is chosen in **Moodle's file picker**. Its type is read **from its content**, never from its name; **the
+  original name is never kept** by the plugin (the file is stored, served and archived under an identifier), but the
+  file picker keeps it in the person's draft area until the form is sent, and the core antivirus reads it.
+- Limits: 5 MB per file, 5 active pieces per declaration, 30 MB per candidate (settings below these ceilings); macros,
+  scripts, embedded objects and outside relations are refused in a DOCX or an ODT, and actions that start on opening in
+  a PDF when they are readable. **A list of refusals, not a guarantee.**
+- The core antivirus is called; **with no antivirus configured, files are refused**, unless the administrator accepts it
+  in writing (`piecenoantivirus`). A SHA-256 hash is taken on reception and compared at each export. A link has no
+  hash (what is at an address can change); it is flagged when it carries a query or names an address that looks
+  private.
+- **Who reads**: the candidate, whoever may attest the candidate, the site administrator. Whoever may only read the
+  dossier sees the list (nature, type, size, hash, dates), not the title, and opens nothing. Download is always forced.
+- **Attestation**: the signature is refused if the pieces changed since the screen was shown; the signed list is kept
+  with the hash of each file and a box "I took note of the supporting pieces attached to this declaration." (a
+  declaration, not a fact). The screen says how many files the signatory opened, and that **opening is not reading**. A
+  piece added after the signature is marked so, and the managers who follow the candidate are notified (nothing of the
+  piece).
+- **Removal** is always possible for the candidate, before or after the attestation: the file, title and address are
+  erased; nature, type, size, hash and dates stay. The screen says what removal cannot reach: a copy already
+  downloaded, the recycle bin of the platform until it is emptied, an archive already given to a jury.
+- **In the archives** (`pieces.json`, schema `docs/schema/pieces.schema.json`): the archive the candidate exports and
+  the backup hold the files and the addresses; the export made by a third party, the PDF and the editable copy hold the
+  list only (the title of a piece follows the files). At reimport, the pieces come back through the same checks as a
+  person's upload; an archive that fails them is refused whole, by the name of the piece; **if pieces are closed on the
+  receiving site and the archive has pieces to restore, it is refused** (open, import again, close). A plugin older than
+  0.39.0 reimports the declarations and loses the pieces without saying so.
+- **What the plugin cannot do**: check that a document names nobody; see what a document keeps inside it (author,
+  dates, position of a photograph: metadata are not removed); know whether a manager read a piece.
 
-**Ne jamais attribuer ce rôle au niveau du site.** Il atteindrait alors le contexte de tous les utilisateurs. Le plugin s'en défend : `viewassigned` détenue au niveau du site **n'ouvre aucun dossier** (`access::follows()`), et `readdeposit`, `draftview` et `identityview` détenues sans `viewany` ni suivi n'ouvrent rien non plus : on ne lit un dépôt ou une version que d'un dossier que l'on peut consulter. Lire tous les dossiers a sa propre capability, `viewany`, réservée à la direction.
+### Rule of validation, "outside my activity", referents
 
-### Qui est prévenu, et de quoi
+- **Addresses of the rules of validation** (*Competencies > VAE > Rules of validation: addresses*): up to five per
+  record (the page of the national register, the order of the diploma), each with a short title and, if the
+  administrator says so, the day the page was checked. The plugin copies, reads and applies **no rule** (the national
+  export does not give the rule of validation in VAE). Shown on the dossier in one box above the whole coverage, never on
+  the line of a block, with a fixed sentence (the plugin does not apply the rule, does not say whether the dossier meets
+  it, does not check the addresses; the jury decides). The PDF and the editable copy write the addresses as text with
+  the same sentence; `referentiel.json` carries them (`regle_validation`). **Closed by default** (`refopen`): to be
+  opened only after a VAE practitioner has read the sentence and its place.
+- **"Outside my activity"**: a candidate may say that a competency or a block does not belong to their activity, with an
+  optional one-line note. A declaration, not an exemption: nobody signs it, it is counted nowhere, triggers no message
+  and changes nothing in the coverage; the jury decides whether a competency not practised counts. Shown in a box apart
+  from the coverage, read by the candidate, whoever follows them and whoever reads every dossier; only the candidate
+  sets and removes it. In the archive as `hors_activite.json`, reimported without overwriting. **Closed by default**
+  (`scopeopen`): what was said stays readable and can be removed.
+- **Referents of the blocks** (*Competencies > VAE > Referents of the blocs*): a rule of the site, written once, that
+  decides who is notified first of a declaration on a block (and of a piece added after a signature), among the managers
+  who follow the candidate: the referents of the block and of the whole record if they are among them, **all the
+  managers otherwise**. It gives and takes away no right. The reminder and the other messages are not routed. On *My
+  candidates*, a referent may count the declarations of one of their blocks; the list of candidates does not change.
 
-Treize messages, par la messagerie de Moodle — notification et courriel par défaut ; chacun les règle dans ses *Préférences de notification*. Tous partent de l'utilisateur « sans réponse » du site : aucun ne part au nom du vaeiste, dont l'adresse de courriel ne voyage donc jamais dans les en-têtes, quelle que soit la configuration du site (domaines de courriel autorisés) :
+### AI rewording help
 
-- au **responsable** qui suit le vaeiste et peut attester : une déclaration attend son attestation — à la déclaration, et de nouveau quand un responsable ou l'administrateur retire une attestation et que la déclaration attend à nouveau (l'effacement des données d'un signataire, à sa demande ou par l'approbation de la demande que Moodle crée à la suppression de son compte, a ses propres messages, plus bas dans cette liste) ;
-- au **vaeiste** : une de ses déclarations a été attestée ; une attestation a été retirée, avec le nom des responsables qui peuvent attester de nouveau ; une compétence de son dossier ne figure plus dans sa fiche ;
-- au **vaeiste**, quand l'effacement des données d'un responsable (à sa demande, ou par l'approbation de la demande que Moodle crée à la suppression de son compte), ou la suppression du compte d'une personne que nomme la signature d'une attestation reprise d'une archive, retire des attestations de ses déclarations : un seul message, qui ne dit ni de qui sont les données ni pourquoi (le dossier dit la date et le motif) ;
-- aux **responsables** qui suivent ce vaeiste et peuvent attester, dans le même cas : des déclarations attendent de nouveau une attestation, un seul message par vaeiste, sans le nom de la personne dont les données ont été effacées ; ces deux messages prennent les types de message qui existent déjà (« Attestations retirées de votre dossier », « Déclarations en attente de votre attestation »), donc les mêmes préférences de notification ;
-- au **signataire** : un collègue lui demande de retirer son attestation, et lequel ; ou la déclaration qu'il avait attestée a été détruite, parce que le vaeiste a supprimé la preuve d'acquis qui la portait dans l'écran de Moodle (« Plans de formation », « Preuves d'acquis »), qui ne sait rien du plugin (le nom du vaeiste et la référence, rien du récit) ;
-- au **responsable qui a demandé** : le signataire a refusé ;
-- au **responsable** qui suit le vaeiste et peut attester, **si l'administrateur a fixé un délai** (réglage « Rappeler aux responsables après ce nombre de jours », désactivé par défaut) : des déclarations attendent une attestation depuis ce nombre de jours ou plus — un message par vaeiste, au franchissement du délai, sans rappel répété ;
-- au **responsable** qui suit le vaeiste et peut lire les dépôts : un dépôt a été fait (sans son contenu) ;
-- au **responsable** qui suit le vaeiste et peut attester : une pièce justificative a été jointe à une déclaration qui porte déjà une signature, et que cette signature ne couvre pas (le nom du vaeiste et la référence, rien de la pièce) ;
-- au **vaeiste** : un responsable a écrit un avis sur un de ses dépôts ; un responsable lui demande une précision sur une déclaration (le message ne dit ni qui ni quoi : la question se lit et la réponse se donne dans le dossier) ; **une ligne de positionnement de la structure (évaluation ou certification) a été ajoutée à son parcours** (le message ne dit ni le statut, ni le motif, ni l'auteur : il rappelle que ce n'est pas une validation, renvoie au dossier et indique le délégué à la protection des données du site ; type de message « Lignes de positionnement de la structure écrites sur votre parcours »).
+A candidate may ask for **another wording of a text they wrote themselves** (a text section of the dossier de
+faisabilité, the preparation of the validation dossier, the situation of a declaration); never the reflective journal,
+never the identity. **Closed by default** (setting `aiopen`): to be opened only once the legal basis, the register, the
+retention period and the contract with the provider are written, and once a VAE practitioner and the keeper of the
+register have read the instruction sent and the text of the policy.
 
-**Aucun message ne reproduit le récit** — ni situation, ni cadre, ni période, ni énoncé. Le nom du vaeiste (pour son responsable), le nom d'un responsable (dans les deux messages qui le disent : celui qui demande, ceux qui reprennent), la référence de la compétence, une phrase fixe qui dit où agir et un lien vers le dossier : c'est tout. Le rôle « Responsable VAE » ci-dessus suffit, il n'y a rien d'autre à configurer. La direction, qui détient `viewany`, n'est pas prévenue : lire tous les dossiers n'est pas recevoir chaque déclaration.
+- **For the button to show**: the setting open; the capability `tool/vae:useai`, given by hand (no archetype; **a site
+  administrator passes every capability check, so the real lock is the setting**); **exactly one AI provider of Moodle
+  enabled for generating text** (with two, the core would try them one after the other).
+- **Three screens, always by POST** (`ai.php`): the **site's AI policy**, the core's text, accepted once for the whole
+  site; the **confirmation, at each sending, which cannot be switched off**, showing the exact text, the provider's
+  name, the number of characters and what is kept, and reminds to name nobody; the **result**, next to the original, to
+  be read again. **Nothing is saved by the plugin**: the candidate copies the proposal, or not, and saves it themself.
+  The button opens `ai.php` in a new tab, so the text being written is not lost; each confirmation carries a one-time
+  token and the mark of the provider named: reloading, a double click or a provider changed in between send nothing.
+- **Limits**: 3,000 characters by default (setting from 500 to 6,000), 25 calls a day by default (1 to 100), a pause of
+  30 seconds between two calls (fixed in the code). The plugin counts the calls in `tool_vae_aicall` (who and when,
+  never the text), kept two days and removed by the daily task.
+- **What the provider receives**: the text between two random markers, after the plugin's fixed instruction (the English
+  string `aiprompt` of the plugin, which asks for a rewording in clear French; it has not been approved again since it
+  became a language string); the system instruction the administrator set in the AI provider settings of Moodle, if
+  any; and, for the providers of the core that send one, an identifier the core derives from the account
+  (`hash('sha256', siteidentifier . userid)`).
+- **What stays in the core**: the text sent and the answer are kept by Moodle in its own tables, in the site's context,
+  in the candidate's name. **The plugin erases none of it.** Moodle empties them when a person approves a data deletion
+  request, provided the site creates those requests by itself (`automaticdeletionrequests` of `tool_dataprivacy`) and its
+  data registry does not define the purpose and category of the site; otherwise they must be erased by hand. The
+  confirmation screen says which case applies. Details: [personal data](docs/en/privacy.md).
 
-**Chaque message se termine par une phrase fixe qui dit où agir**, juste au-dessus du lien « Ouvrir le dossier » : par exemple, pour une déclaration en attente, « Ce message est automatique. Pour attester la déclaration ou poser une question, ouvrez le dossier avec le lien ci-dessous. » Les verbes suivent ce que le destinataire peut faire depuis le dossier : attester ou poser une question (déclaration en attente, rappel, déclarations qui attendent de nouveau), accepter ou refuser (demande de retrait), lire (dépôt, avis, pièce, attestation, refus, retrait, déclaration détruite, compétence sortie de sa fiche ; pour une ligne de positionnement, lire la ligne dans le dossier, et s'adresser au délégué à la protection des données du site pour la contester), lire la question et y répondre (précision). **Le nom du vaeiste n'est jamais dans l'objet** du message. L'expéditeur reste l'adresse « ne pas répondre » du site, et aucun message ne demande de répondre au courriel : l'action se fait dans le dossier, avec le lien.
+### Importing the certification records
 
-Les messages partent **par le cron** de Moodle, qui doit donc tourner : quelques minutes après l'acte en temps normal. Le départ d'une compétence attend **un jour** et n'est annoncé que s'il tient toujours — un fichier d'import tronqué, corrigé dans la journée, ne prévient personne. Les deux messages d'un effacement attendent environ **quinze minutes** après le dernier effacement qui concerne le vaeiste, pour qu'une série d'approbations n'en produise qu'un par destinataire.
+- **One screen, two ways** (*Competencies > VAE > VAE - pathway > Import records from France compétences*, capability
+  `import`): type up to twenty record numbers (`RNCP12345`, `RS1234`), then **upload** the ZIP of the export downloaded
+  from data.gouv.fr (Moodle's file picker), or click **"Fetch the latest export"**: the server fetches it, at that click
+  only. The plugin reads the ZIP without extracting it, shows each record's full published title, what Moodle already
+  holds and what the import will do, and **writes nothing before the confirmation**. A refused record (number absent,
+  record without a block, unexpected block code) is refused by name without blocking the others. Source, licence,
+  attribution and date are not typed again: the date is that of the export, read from the file name; an export older
+  than what Moodle holds is flagged and imported only if a box is ticked. The full title of a record longer than 100
+  characters is kept nowhere: the framework carries the number as its name. The authorship and the date of the record
+  are shown wherever the framework is presented; no competency title is reworded.
+- **A CSV file** of four columns (special case), and the command-line script `cli/convert_fiche.php` (a Moodle CLI
+  script, run on the server of the site, absolute paths) as a fallback.
+- **Not verified**: the "Fetch" way has never been run against the real data.gouv.fr (its tests use a simulated
+  response); the screen has never been clicked by a person on a real site.
+- **A record imported by mistake**: hide it in Moodle, delete the framework in Moodle if Moodle accepts it, then remove
+  the row of the record in the plugin ("Remove this row", capability `import`), offered only when Moodle no longer holds
+  the framework, no framework carries the code, and no candidate left any trace on it (declaration, "outside my
+  activity" mark, section of the validation dossier) nor the structure any positioning; the page says why when a trace
+  or a framework of the same code stops it. A confirmation lists what goes with the row (licence and attribution,
+  dates, addresses of rules, referents, marks, correspondences, successor); nothing is written into Moodle's frameworks,
+  and the row cannot be recovered (importing the record again creates a new one).
+- **Replaced records**: the administrator declares which record replaces which, sees what still holds the old one, and
+  decides the correspondences competency by competency; the candidate carries a declaration over by copy, and it must
+  be attested again. Nothing is moved by the plugin.
 
-Les notifications sont stockées, conservées et effacées par la messagerie de Moodle, selon sa propre échéance. Celle qui nomme un demandeur ou un vaeiste y reste donc après l'effacement de celui-ci : le plugin le déclare, il ne peut pas l'empêcher.
+### The organisation page: three tabs, numbers, never a verdict
 
-### Données personnelles
+`organisation.php` has three tabs, **each under its own right**; the same test decides what is shown and what the
+address accepts: a tab one may not open is refused, never replaced by another. The page reads no person's identifier
+from the address (besides the tab, its only parameter is the block chosen on "Followed candidates", checked against the
+reader's list); without a tab it opens on the first tab the reader may open, except for a holder of `viewany` who
+declared nothing, who lands on "Organisation". Numbers, dates and names, never a rate, a grand total or a colour that
+qualifies a person: only the line of a block adds up the declarations, pieces and attestations of its own line and of
+its competencies, and the screen says so; the only coloured badge is the word "Missing" of the grid of rights.
 
-L'API de confidentialité de Moodle est implémentée pour les vingt tables du plugin qui portent des données personnelles (dont `tool_vae_aicall`, qui et quand, sans texte, et `tool_vae_eval` et `tool_vae_certif`, les positionnements de la structure) ; deux autres, `tool_vae_obsolete` (identifiants de compétence et de source, date) et `tool_vae_ref` (adresses publiques des règles de validation), sont déclarées exemptées. Deux personnes figurent dans chaque attestation, et leurs droits vont en sens contraire :
+- **"My pathway"** (the candidate, never while logged in as another user): for each competency of the records the
+  candidate declared on, the declarations, pieces, attestations in force, the date of the last act, the courses, the
+  course activities and the learning plans of the core that carry it. A third party reads a plan only under
+  `moodle/competency:planview` or `planmanage` in the candidate's context (drafts under `planviewdraft` or
+  `planmanagedraft`), never a core rating.
+- **"Followed candidates"** (a manager who follows at least one candidate): per candidate, the records declared on, the
+  number of declarations and of those awaiting an attestation, and the learning plans where the core's right allows.
+- **"Organisation"** (`viewany`): the configuration of the scheme, **which shows no candidate**: per record, blocks,
+  competencies, courses, activities, plan templates, the **number of learning plans that cite it** (exact, no
+  threshold, drafts included: a small number can point to a person for whoever knows the site; risk accepted by the
+  project owner on 4 November 2026), referents and addresses of rules; then a grid "Actors and powers", the roles that
+  grant, remove or prohibit each right, the cohorts followed by a manager, and ten settings. **It shows, it sets
+  nothing.**
+- **Course activities**: "My pathway" says in which activity of which course each competency is worked on, and
+  "Organisation" gives the number of activities per record and their list in a `<details>` element. The attachment of an
+  activity to a competency is read (core table `competency_modulecomp`), never the rule the activity applies
+  (`ruleoutcome`, `overridegrade`), no person, no grade. An activity hidden or restricted for the reader (`uservisible`
+  of the core) stays listed without its name, type or link ("An activity that is not visible"); in a hidden course, the
+  names are given only to whoever holds `moodle/course:viewhiddencourses`. The plugin does not test enrolment: whether a
+  reader without a role in the course sees a name depends on the module and the roles of the site (decision of the
+  project owner, 4 November 2026).
+- **Actors and powers**: for each actor, the rights of the plugin they must hold and the roles of the site that give
+  them: four actors with an account (candidate, manager, direction, administrator of the scheme) and three without
+  (referent of a block, jury, certifier); three states per right (given, with the names of the roles; not given on
+  purpose, "No role"; **"Missing"**, a right expected that no role gives). `evaluate`, optional, never shows a lack. The
+  grid reads neither who holds a role nor overrides below the site: a right "given" is no proof that the right person
+  exercises it.
+- **Measured** (`tests/organisation_load_test.php`, 16 November 2026, PostgreSQL): "My pathway" grows by 3 database
+  reads per record declared on (114 reads for 30 records), "Followed candidates" by 1 read per candidate followed (122
+  reads for 100), "Organisation" by 1 read per distinct course and 2 per course carrying an activity (113 reads for 30
+  such courses); the "VAE" link costs 1 read. The hot spots are described in the changelog; **none is fixed**.
+- **Not verified**: the introductions and labels, to be read again by a VAE practitioner; accessibility in French and
+  with another theme than Boost; the reading cost on MariaDB or MySQL, on the whole page and on a real large site.
 
-- **effacer le vaeiste** supprime son dossier, qui est le sien, avec ses sauvegardes et ses copies modifiables (voir ci-dessous) ;
-- **effacer un responsable** ne supprime **pas** le dossier : son identité est retirée de l'attestation (identifiant, fonction, énoncé, date), qui est marquée retirée et datée, pour que le vaeiste garde une preuve qui dit « attesté, puis retiré ». Le vaeiste en est prévenu, et les responsables qui le suivent aussi (voir « Qui est prévenu, et de quoi ») ;
-- **effacer un responsable qui avait demandé un retrait** retire sa demande ; l'attestation, qui n'est pas la sienne, reste ;
-- **supprimer le compte** d'un responsable n'anonymise pas ses attestations sur le moment, mais Moodle, laissé à ses réglages, crée alors lui-même une demande de suppression de données au nom du compte (`automaticdeletionrequests` = 1), laissée en attente d'approbation (`automaticdatadeletionapproval` = 0) : l'approbation par le délégué à la protection des données anonymise toutes les attestations du compte (motif affiché « Demande de suppression de données ») et envoie les deux messages d'effacement décrits plus haut, au vaeiste et aux autres responsables qui le suivent. Les attestations qu'une archive reprise attribue à ce compte (par son identifiant opaque) sont, elles, retirées dès la suppression du compte, sans demande à approuver, avec les mêmes messages. Le site choisit — suspendre plutôt que supprimer, laisser la demande sans suite, désactiver la création automatique, ou accepter — et le délégué doit savoir ce que son approbation emporte ([T-84](docs/T-84-conformite-rgpd.md), § 3) ; une demande de retrait adressée à un signataire dont le compte est supprimé tombe, la signature restant ;
-- **un positionnement** (évaluation d'une compétence, certification d'un bloc) est un texte libre d'un tiers sur le vaeiste. **Effacer le vaeiste** supprime ses lignes des deux tables, avec leur historique. **Effacer l'auteur d'une ligne** (un responsable, un membre de la direction) vide son identifiant, et son identifiant opaque pour une ligne restaurée d'une archive, mais **garde la ligne et son texte** : le vaeiste garde la trace d'un positionnement dont l'auteur n'est plus nommé ; l'archive en attente de téléchargement est écartée, les sauvegardes et les copies datées sont refaites, et une copie déjà téléchargée reste hors d'atteinte. Dans l'export des données personnelles, le vaeiste reçoit toutes les lignes écrites sur lui, l'auteur seulement les siennes. Base légale : le contrat d'usage ; durée : celle du dossier, plus un effacement à la demande du délégué du site, sans purge automatique propre (décisions du 5 novembre 2026, [T-84](docs/T-84-conformite-rgpd.md), § 8) ;
-- l'export d'un demandeur contient sa demande (quelle déclaration, quelle fiche, quand), et rien du récit du vaeiste ni du signataire ; celui d'un signataire contient ses attestations et la référence des déclarations signées, jamais le récit ni le cadre du vaeiste ; celui d'un responsable qui a posé une question contient sa question, la date et l'empreinte de la réponse, jamais son texte ;
-- dans leur propre export, le vaeiste et le signataire trouvent qu'un retrait a été demandé et quand, jamais par qui (le signataire le sait par la notification, qui nomme le demandeur).
+### Evaluate a competency, certify a block: the positioning of the structure
 
-**Conformité (RGPD) : à la charge du site qui installe le plugin.** Le responsable de traitement est le site ; l'auteur du plugin ne reçoit aucune donnée. **À prévoir dans le contrat d'usage** (décision du 5 novembre 2026) : une clause qui informe le vaeiste que la structure écrit sur son parcours des lignes de positionnement (évaluation, certification), dit leur base légale (le contrat, article 6, paragraphe 1, point b) et leur durée (celle du dossier), et désigne le délégué à la protection des données du site comme voie de rectification, de limitation et d'opposition. **Comptes inactifs** : décision de l'administrateur du site, à réexaminer tous les 36 mois (formule à confirmer dans sa rédaction exacte) ; le plugin ne supprime aucun compte de lui-même, le réglage est celui de Moodle. Trois documents, fournis en projet à valider par le délégué à la protection des données du site : [`docs/T-84-conformite-rgpd.md`](docs/T-84-conformite-rgpd.md) (bases légales possibles par traitement, durées de conservation, droits des personnes dont la portabilité avant suppression du compte, fiche pour le registre, contrat du fournisseur d'IA), [`docs/MODELE-CONTRAT-USAGE-PLATEFORME.md`](docs/MODELE-CONTRAT-USAGE-PLATEFORME.md) (modèle de contrat d'usage de la plateforme, base légale de tous les traitements) et [`docs/AIPD-VAE.md`](docs/AIPD-VAE.md) (analyse d'impact : hébergement interne ou externe, avec ou sans certification HDS, et quatre modes de fournisseur d'IA). **Pour que le vaeiste puisse emporter son dossier avant la suppression de son compte, le site doit lui donner le droit `tool/vae:export`** (aucun rôle ne l'a par défaut). **L'archive n'emporte ni les dépôts du dossier de faisabilité, ni les avis des responsables, ni les questions de précision et leurs réponses** : le vaeiste les obtient par l'export de ses données personnelles de Moodle, qui se lit mais ne se réimporte pas. Pour qu'il puisse le demander lui-même, l'administrateur coche « Contacter le délégué à la protection des données » (réglage `contactdataprotectionofficer` de `tool_dataprivacy`, désactivé par défaut) et prévoit qui approuve les demandes d'export (le délégué, ou la case « Approbation automatique des demandes d'exportation de données », désactivée par défaut) ; sans cela, l'administrateur crée la demande à sa place (*Demandes de données → Nouvelle demande*).
+The cycle **declare, evaluate, certify** happens inside the structure. **Only the jury validates, outside the
+platform.** No setting opens the cycle: the two rights, given by hand, do.
 
----
+- **Evaluate** (`evaluate.php`, `evaluate`): a manager who follows the candidate gives **one competency** a status (*to
+  build*, *in the course of proof*, *sufficient for certification*, *withdrawn*) and a **written reason**, required
+  (4,000 characters at most). Never on oneself; the administrator, who follows nobody, does not evaluate. The record
+  must carry at least one declaration of the candidate.
+- **Certify** (`certify.php`, `viewany` and `certify`): the direction gives **one block** (or the whole record when it has
+  no block) the status *certified by the structure* or *withdrawn*, with the date of the decision (from 2000-01-01 to
+  today) and a written reason; an optional "valid until" date (from the day of the decision to 2100-01-01; without it the
+  certification never expires). **An alert, not a lock**: a competency of the block that is not "sufficient" is named,
+  and a reason for the alert is required; the server computes it again when it saves. Never on one's own dossier, the
+  administrator included.
+- **Added, never changed**: correcting or withdrawing adds a line; the last line holds; a line identical to the last is
+  refused. Each line carries the SHA-256 hash of what it says (it detects an accident; it is not tamper-proof); two
+  sends at once on the same candidate and record go through a lock. The dossier shows the line that holds, a "History"
+  link leads to the earlier ones, and the dossier flags competencies positioned after their block was certified.
+- **Who reads**: whoever reads the dossier, the candidate included. The section "Positioning of the structure" opens on
+  a warning that it is not a validation. A language test (`tests/positioning_test.php`) refuses the French words
+  "valid-", "acquis", "candidat", "taux", "note" and "score" in the texts of these screens ("valid-" and "score" in
+  English). The forms remind not to name any person accompanied
+  (`anonymiseshort`); it is a written reminder, not a check.
+- **The message to the candidate** (`positioningrecorded`): at each line, a message says only that a line was added,
+  recalls that it is not a validation, links to the dossier and names the site's data protection officer for a
+  rectification; **never the status, the reason or the author**. It leaves through the asynchronous task, only if the
+  candidate may still open the dossier and a line still exists; it can be switched off in the notification preferences.
+- **"To renew"** is computed when the page is read, at the reader's day, never written; renewing is adding a
+  certification line. The list "Certifications to renew" (`renewals.php`, `viewany` and `certify`) shows each
+  certification that holds and whose last day has passed, the oldest first; no total, no percentage, no colour.
+- **"Positioned on the old record"**: when a record replaces another and the administrator decided the equivalent of a
+  competency or a block, the new record shows, **read only**, the line that holds on the old one; nothing is copied.
+- **Archives**: `positionnement.json` (schema version 0.1.0, `officiel` always false: current state and full history)
+  is in the **archive of the structure** (`structure.php`, `issuestructure`, or a manager the direction authorized) and in
+  the backup, **never in the candidate's archive, PDF or copies** (decision of the project owner: the word of the
+  structure has its own booklet). At reimport, lines come back key by key (record, rank), all or nothing; a key that
+  already has a line on the site is left; at most 5,000 lines.
+- **Decisions of the project owner, who is also the data protection officer of the site the author runs, 5 November
+  2026**: legal basis, the terms of use; information, a clause of the terms of use and the message above; retention,
+  that of the dossier; a challenge goes to the site's data protection officer, with no screen
+  ([T-84](docs/T-84-conformite-rgpd.md), § 8).
+- **Not verified**: the words of the statuses, "to renew" and "valid until", to be read again by a VAE practitioner; the
+  message sent by the mail server of a real site; the accessibility of these screens (no axe-core scenario).
 
-## Où en est le développement
+### Self-positioning and work situations
 
-| Lot | Contenu | État |
-|---|---|---|
-| **0** | Squelette, capabilities, garde sur le sous-système, passerelle | **fait** |
-| ~~1~~ | *Passerelle* — fusionnée dans le lot 0 : la garde sur le sous-système lui appartient | — |
-| **2** | `db/install.xml` (6 tables au lot 2, 22 aujourd'hui), `identity_map` (ULID), **Privacy API** | **fait** |
-| **3** | Déclaration — critères 1, 2, 3 et atomicité | **fait** |
-| **4** | Attestation et retrait — critère 1 bis | **fait** (0.4.0) |
-| **5** | Observateur de suppression — critère 8 ; puis raccordement (0.5.1) et ancre (0.6.0) | **fait** (0.5.0) |
-| **6** | Import CSV — critère 5 | **fait** (0.6.5) |
-| 7 | Import par numéro, table `passage`, tâche de détection des orphelins — changement de version d'une fiche sans perdre les dossiers (T-30) | **en cours** — lots 1 et 2 faits (0.24.0, 0.25.0) : l'administrateur déclare quelle fiche en remplace une autre, voit ce qui tient encore l'ancienne, et décide les correspondances compétence par compétence ; rien n'est déplacé. Lot 3 fait (0.26.0) : le vaeiste reporte lui-même une déclaration sur la nouvelle fiche, par copie, sur la correspondance décidée ; elle redevient « à attester » et l'ancienne garde son attestation. La filiation voyage dans l'archive d'export (0.27.0) |
-| **7 bis** | **Rattacher un responsable à ses vaeistes** (R1) — capability `viewassigned`, page « Mes vaeistes », rattachement par cohorte via `tool_cohortroles` | **fait** (0.7.0) |
-| **7 ter** | **Prévenir les bonnes personnes** (R2) — quatre notifications, aucun extrait de récit ; voir « Qui est prévenu, et de quoi » | **fait** (0.7.1) |
-| **8** | Export normatif et réimport — critère 6 ; porte aussi la version figée du dossier (R4) | **fait** (0.8.0, 0.8.1) — schéma pivot reconstruit, export, réimport avec vérification des empreintes ; critère 6 redéfini le 12/10/2026 |
-| **8 bis** | Sauvegardes sur Moodle, fiches rattachées aux cours | **fait** (0.8.2) |
-| **8 ter à 8 quinquies** | Revues complètes et corrections : sécurité, registre des archives, un seul refus d'attester | **fait** (0.8.3 à 0.8.5, 0.10.1) |
-| **9** | Restitution, accessibilité — critères 4, 7 ; couverture par compétence, sans seuil (R3) | **en cours** — couverture (R3) faite (0.9.0) : tableau sur le dossier, visible du seul vaeiste ; version imprimable (R4) faite (0.10.0) : `dossier.pdf` dans chaque archive, sous empreinte, sans couverture ; restitution et passe d'accessibilité à faire |
-| **10** | Vérification RGPD de bout en bout — critère 9 | **en cours** — déclaration faite au lot 2 ; demande de retrait couverte (0.12.2), relecture contradictoire faite ; reste le parcours complet d'une demande d'accès sur un vrai site |
-| 11 | Documentation, `VERSIONS.md` | **en cours** — glossaire et [FAQ par rôle](docs/FAQ.md) faits (0.22.0) ; `VERSIONS.md` à faire |
-| — | **Nom** : composant `tool_vae` (0.11.0), nom affiché « VAE - cheminement » (0.11.1) | **fait** |
-| — | **Premier essai sur un vrai Moodle 5.3** : pied de page du PDF (0.11.2), récit en texte brut (0.11.3) | **fait** |
-| — | **Retrait délégué** : réglage, `withdrawany`, demande au signataire, vaeiste et responsables prévenus (0.12.0) | **fait** |
-| — | **Lisibilité** : une déclaration d'un seul tenant dans le PDF, intitulé de la compétence sur la page (0.12.1) | **fait** |
-| — | **RGPD de la demande de retrait** (0.12.2) | **fait** |
-| — | **Brouillons et versions** des rubriques (T-81, 0.14.0), **copie Word et ODT** (T-82, T-83, 0.15.0) | **fait** |
-| — | **Dossier de faisabilité** : rubriques, identité et statut, export, engagement (T-10, 0.15.1 à 0.20.0) | **fait** |
-| — | **Dépôt** (T-21, 0.19.0), **avis du responsable** (0.21.0), **précision avant attestation** (T-20, 0.22.0) | **fait** |
-| — | **Pièces justificatives** (T-13) : table, fichiers et liens, antivirus, retrait (0.37.0) ; lecture par le responsable, liste signée, message (0.38.0) ; archive, sauvegarde, import, PDF et copies (0.39.0) | **fait**, fermé par défaut |
-| — | **Import des fiches depuis France compétences** (T-31) : un écran, deux voies (dépôt du fichier zip, ou récupération par le serveur), aperçu, confirmation, refus par fiche, deux événements, MC-30 (0.47.0) | **écrit** ; Behat vert en local pour le dépôt, jamais cliqué par une personne, voie « Aller chercher » jamais jouée contre le vrai data.gouv.fr |
-| — | **Page Organisation** (T-90) : onglets « Mon parcours », « Vaeistes suivis », « Organisation » ; activités de cours ; grille « Acteurs et pouvoirs » (numéros de version 2026110301 à 2026110402) | « Mon parcours » et « Vaeistes suivis » **commités, CI verte** (MariaDB, PostgreSQL, migration) ; « Organisation », les activités et la grille **commités** le 5 novembre 2026 (`8a055b1`), CI verte sur le sommet `6652a97` |
-| — | **Cycle interne** (T-90) : évaluer une compétence, certifier un bloc, archive `positionnement.json` (2026110402) ; date « valable jusqu'au », liste « À renouveler », lecture sur l'ancienne fiche (2026110403) ; message au vaeiste à chaque ligne et rappel sur les formulaires (2026110404) | **commité** le 5 novembre 2026 (`1203ecd`, `e9d8733`, `927a33b`) ; série rejouée en local sur le build 2026110404 : PHPUnit 92 fichiers, 0 échec ; Behat hors JavaScript, 155 scénarios ; phpcs, 0 erreur ; **CI verte sur le sommet `6652a97`**, sur MariaDB et sur PostgreSQL (PHPUnit 1727 tests ; Behat 156 scénarios, dont le scénario JavaScript, avec axe-core) et migration ; relectures indépendantes ; usage par de vrais vaeistes : jamais |
+- **Self-positioning** (`selfposition.php`, `positionself`, given to the role Vaeiste): the candidate says where they
+  stand on each element of the record, at every level, by **one of four steps whose words the site chooses**
+  (`selfposlabel1` to `selfposlabel4`; by default "I am discovering", "I practise with help", "I act on my own", "I master
+  it and I pass it on"), with an optional justification (10,000 characters at most). Added, never changed; 200 lines at
+  most per element; a send identical to the last line is refused; nothing is computed from it (no total, rate,
+  threshold, sorting or gap). The page shows the word of the structure next to it, without a computed gap, and the
+  counts of declarations and pieces. Only the candidate writes, on their own dossier; managers who follow them and the
+  direction read. In `autopositionnement.json`: in the candidate's archive, the export by a third party and the backup,
+  **never in the archive of the structure**. **Not verified**: the effect on real candidates (self-censorship).
+- **Work situations** (`situations.php`, `situation.php`, `consent.php`): a title, a period, a setting, a text in
+  versions, tags on the elements of the record, pieces. Only the candidate writes them, when the preparation of the
+  validation dossier is open (`validationopen`). Bounds: 30 situations per record, 200 versions per situation, 5 pieces
+  per situation, 200 annotations per target, 400 consents given per candidate.
+- **"Where I stand"**: a panel says, for each element of the record, the number of situations and declarations that
+  carry it, with a link to the reverse view; counts, never a total or a percentage.
+- **Consent and annotations**: the candidate gives a manager who follows them a dated consent, by name, that can be
+  withdrawn; the manager may then annotate (`annotate`, following and consent checked at each writing); only the
+  author removes an annotation. Two messages without free text: `noteadded` to the candidate, `consentgiven` to the
+  manager. The site administrator is refused on the situations and on the drafts, versions and history of the
+  preparation of the validation dossier.
+- **Archives**: `situations.json` and `pieces-situations/` in the candidate's archive and the backup, and in the export
+  of a third party only when that third party may read the preparation of the validation dossier. Seven tables,
+  declared column by column to the privacy provider. **Not verified**: the pieces of situations, the withdrawal of
+  consent and the two messages on a real site.
 
-Le blueprint complet est le **PRP**, hors dépôt. **Il est introuvable au 11 octobre 2026** — ni sur claude.ai, ni sur GitHub, ni sur le disque de travail —, pas plus que `DECISIONS.md` et `SOCLE-JLM.md` : les critères 1 à 10 ne sont définis nulle part dans ce dépôt. Le schéma pivot `preuve.schema.json`, perdu lui aussi, a été **reconstruit à partir du code** dans `docs/schema/`, champ par champ, avec la source de chaque règle (voir son `LISEZMOI.md`). Si l'original revient, il prime.
+### Two acts, and withdrawing an attestation
 
-L'ancien plugin `mod_referentiel` (Jean Fruitet, 2016), dont un portage vers 4.5 avait été commencé, est **archivé** sur la branche `archive/portage-mod_referentiel` de ce dépôt. Ce qui méritait d'en être repris est décrit, sous forme d'idées, dans `docs/INVENTAIRE-mod_referentiel.md`.
+| Act | Who | Capability | Core API |
+|---|---|---|---|
+| **Declaration** | the candidate, on themself | `tool/vae:declare` | `create_user_evidence()` and attachment |
+| **Attestation** | the manager | `tool/vae:attest` | **none**: a row of the plugin |
 
-**Le lot 8 n'est pas reportable** : l'export normatif est la contrepartie de la dérogation `DER-referentiel-001`. Un plugin livré sans export est un plugin livré hors dérogation.
+- The attestation, a row of the plugin, can be **withdrawn without destroying the candidate's evidence**: the dossier
+  then says that an attestation existed and was withdrawn on such a date for such a reason, and that it no longer holds;
+  **only if no other attestation holds on the declaration**, it adds once that the declaration was not changed and that
+  the candidate may ask a manager to attest it again. Same rule on screen, in the PDF and in the copies.
+- The narrative typed in the form is **plain text**: tags are removed. An archive reimported may carry a narrative in
+  Markdown; the HTML format is refused everywhere.
+- **Withdrawing**: by default only the site administrator withdraws. Three more ways: the signatory withdraws their own
+  (setting `managerwithdrawown`, off by default); a coordinator withdraws any (`withdrawany`, given in the context of the
+  candidates they follow; it does not dispense from reading the dossier); a manager who follows the candidate asks the
+  signatory, who accepts (an ordinary withdrawal) or refuses; one request at a time, not kept once answered. The reason
+  is required and taken from a closed list (signature error, content disputed, data deletion request); the candidate
+  never withdraws an attestation on their own dossier; an attestation restored from an archive has no signatory on the
+  site, so only the administrator and a holder of `withdrawany` withdraw it.
+- **A record hidden in Moodle** (*Visible: No*) accepts no new declaration and no carry-over; the candidate reads a
+  message written for them (title and code of the record, that it is hidden, to ask their manager), with no
+  administration path. A form opened before the hiding gives back the text already written. Declarations already made
+  do not change; restoring an archive and "outside my activity" are not concerned.
 
----
+### Who is notified
 
-## Glossaire
+Fifteen message types (`db/messages.php`), through Moodle messaging (notification and email by default; each person
+sets them in their notification preferences), all sent from the site's "no-reply" user, so the candidate's email
+address never travels in the headers:
 
-| Mot | Ce qu'il veut dire ici |
-|---|---|
-| **Déclaration** | Ce que le vaeiste dit avoir fait dans son activité, rattaché à une compétence d'une fiche de certification. Elle se rédige, puis un responsable l'**atteste**. |
-| **Attestation** | L'acte d'un responsable qui, ayant relu le récit, confirme la déclaration. Elle se **retire**, elle ne se modifie pas ; une nouvelle attestation est un nouvel acte. |
-| **Fiche de certification** | Le référentiel de compétences d'un diplôme ou d'un titre (RNCP, RS), importé depuis l'export de France compétences (déposé ou récupéré), ou par CSV. |
-| **Dossier de faisabilité** | Ex-« livret 1 » : la demande de recevabilité. Le plugin aide à le rédiger ; il ne dit jamais s'il est recevable. |
-| **Dossier de validation** | Ex-« livret 2 » : le dossier de preuves. Sa préparation (rubriques, bloc par bloc) est dans le plugin (T-11, lot 1) ; le reste du dossier n'y est pas encore. |
-| **Rubrique** | Une partie du dossier de faisabilité (objectifs, parcours, expériences…). De texte, ou à champs (identité, statut). |
-| **Brouillon / version** | Le brouillon est enregistré tout seul et n'est pas une version ; une version est enregistrée à la demande, se compare et se restaure. |
-| **Dépôt** | Un jalon daté et empreinté du dossier de faisabilité tel qu'enregistré. Le vaeiste continue d'écrire ; un nouveau dépôt est un nouveau jalon. |
-| **Avis** | Texte libre d'un responsable sur un dépôt précis ; jamais réécrit ; le plugin ne dit pas s'il est favorable. |
-| **Précision** | Question d'un responsable sur une déclaration non attestée, et réponse du vaeiste ; ni verrou ni verdict. |
-| **Positionnement** | Ce que la structure dit, par écrit, daté et attribué : où en est une compétence (**évaluation**, par un responsable qui suit le vaeiste) ou un bloc (**certification**, par la direction). Ajouté et jamais modifié ; la dernière ligne fait foi. **Ce n'est pas une validation** : seul le jury valide, hors de la plateforme. |
-| **À renouveler** | Une certification dont la date « valable jusqu'au », facultative, est passée au jour où l'on lit. Calculé à la lecture, jamais écrit ; renouveler, c'est ajouter une ligne de certification. |
-| **Pièce justificative** | Un fichier ou un lien joint à une déclaration, avec une nature d'une liste fermée. Le plugin ne la lit pas ni ne la juge ; il garde l'empreinte d'un fichier et la liste de celles qu'une signature couvrait. |
-| **Empreinte** | Ici, toujours le **SHA-256** d'un contenu : elle prouve qu'un texte ou une archive n'a pas changé. (Chez Fruitet, dans `mod_referentiel`, le mot désignait un nombre de validations : autre chose.) |
-| **Archive** | L'export figé du dossier, avec son manifeste d'empreintes et un PDF imprimable, pour le jury ; vérifiée par ses empreintes ; reprise possible par un autre site seulement s'il n'a pas déjà numéroté autrement les compétences qu'elle nomme et si le compte du vaeiste n'y a pas déjà d'identifiant, et refusée à l'import si elle porte la mention d'une ligne hors format ; sans les dépôts du dossier de faisabilité, les avis des responsables ni les questions de précision. |
-| **Suivre** | Détenir `viewassigned` dans le contexte utilisateur du vaeiste, directement ou par cohorte. C'est la seule façon de lire le dossier d'un autre sans `viewany`. |
+- to the **manager** who follows the candidate and may attest: a declaration awaits their attestation (again after a
+  withdrawal); a reminder after the number of days set (`overduedays`); a piece was added after a signature; to the
+  manager who may read the deposits: a deposit was made;
+- to the **candidate**: a declaration was attested; an attestation was withdrawn; a competency of the dossier left its
+  record; an opinion was written on a deposit; a precision is asked; a line of positioning was added; an annotation was
+  added;
+- to the **signatory**: a colleague asks them to withdraw their attestation; the declaration they attested was destroyed
+  (the candidate deleted the core evidence); to the **manager who asked**: the signatory refused;
+- to the **manager** to whom the candidate gave consent: the consent was given.
 
----
+**No message reproduces the narrative**: the candidate's name (for their manager), the reference of the competency, a
+fixed sentence that says where to act, and a link to the dossier. **The candidate's name is never in the subject.**
+Messages leave **from cron**, a few minutes after the act; the departure of a competency from its record waits one day
+and is announced only if it still holds; the two messages of an erasure wait about fifteen minutes, so that a series of
+approvals gives one per recipient. The direction (`viewany`) is not notified of each declaration. The notifications are
+stored and erased by Moodle messaging, on its own schedule.
 
-## Limites connues
+## Personal data
 
-Ce qui n'est **pas** réglé à ce jour — plusieurs points viennent de l'essai du 13 octobre ; la liste de travail du dépôt de travail les suit un à un :
+The Moodle Privacy API is implemented: the provider (`classes/privacy/provider.php`) declares **all 31 tables** of
+`db/install.xml`, column by column, and links the core subsystems the plugin uses (competencies, messaging, files, AI).
+Retention follows the existence of the candidate's Moodle account: the dossier is erased after the account is deleted
+(at the first cron run that follows the deletion), or when a data deletion request is approved. **GDPR compliance is the
+responsibility of the site that installs the plugin**: the site is the data controller, and the author of the plugin
+receives no data. English summary: [docs/en/privacy.md](docs/en/privacy.md).
 
-- **Sélecteur de dates** : trois listes déroulantes (jour, mois, année), de cinquante ans en arrière jusqu'à l'année en cours ; un sélecteur mois-année n'est pas fait (T-55).
-- **Pièces justificatives** (T-13) : faites (0.37.0 à 0.39.0), fermées par défaut ; reste à valider l'amendement 4 du DER et à écrire la durée de conservation (T-84) avant de les ouvrir. Périmètre décidé le 14 octobre 2026 (D-1 à D-4 de la liste de travail) : aider à rédiger sans jamais juger, la décision du jury hors du plugin.
-- **Archive d'un autre site** : refusée en entier si le site d'accueil a déjà numéroté autrement une compétence qu'elle nomme, ou si le compte du vaeiste y a déjà un identifiant (voir « Archive venue d'un autre site ») ; l'écran de correspondance validée par une personne et l'archive complète pour soi sont décidés, pas construits.
-- **Page Organisation et cycle interne** (T-90) : textes, mots des statuts, « à renouveler » et « valable jusqu'au » à faire relire par un accompagnateur VAE ; base légale (contrat d'usage) et durée de conservation décidées le 5 novembre 2026 ; article 22 : confirmé par le DPO du site le 6 novembre 2026 (T-84, § 2) ; accessibilité (axe-core) non contrôlée sur ces pages ; le nombre de plans de formation de l'onglet « Organisation » est exact et sans seuil (voir « La page Organisation »).
-- **Paquet 4.5** : à la 0.9.6 ; il n'est plus maintenu (décision du 27 octobre 2026) et ne doit pas être installé sur un site réel ; il n'a de toute façon ni PDF, ni tableau de couverture, ni retrait délégué.
+- **Two persons are in every attestation, and their rights go opposite ways.** Erasing the candidate erases their
+  dossier, backups and copies. Erasing a manager does **not** erase the dossier: their identity is taken off the
+  attestation, which is marked withdrawn and dated, so that the candidate keeps "attested, then withdrawn"; the candidate
+  and the other managers are notified. Deleting a manager's account does not anonymise their attestations at once:
+  Moodle, left to its settings, files a data deletion request that waits for approval; the attestations an archive
+  attributes to that account (by an opaque identifier) are withdrawn at the first cron run after the deletion.
+- **A positioning** is a third party's text about the candidate: erasing the candidate erases its lines; erasing its
+  author empties the author's identifier but keeps the line and its text.
+- **No field asks for a name**: the descriptions of work situations describe the professional's activity, never a
+  person accompanied. A reminder, which cannot be hidden, sits on the free texts, and the manager reads before attesting;
+  the plugin cannot know whether a first name is fictitious.
+- For the candidate to take the dossier away before the account is deleted, the site must give them `export` (no role
+  has it by default).
 
----
+Three documents are provided as drafts, to be validated by the site's data protection officer. They **stay in French**
+because they are documents of French law, written for French sites (the VAE is a French scheme): a summary in English
+heads each of the first two.
+[docs/AIPD-VAE.md](docs/AIPD-VAE.md) (data protection impact assessment),
+[docs/MODELE-CONTRAT-USAGE-PLATEFORME.md](docs/MODELE-CONTRAT-USAGE-PLATEFORME.md) (model terms of use of the
+platform), [docs/T-84-conformite-rgpd.md](docs/T-84-conformite-rgpd.md) (legal bases, retention, rights).
 
-## Architecture — la règle qui prime
+## External services
 
-Ce plugin déroge au modèle noyau/pont du socle JLM : tout vit dans Moodle, sous GPLv3. Écart documenté par **`docs/derogations/DER-referentiel-001-modele-natif.md`**.
+- **France compétences open data** (data.gouv.fr): fetched only when an administrator clicks "Fetch the latest export",
+  from two hosts fixed in the code (`www.data.gouv.fr`, `static.data.gouv.fr`, `classes/local/fiche_fetcher.php`), over
+  https; no personal data leaves; nothing scheduled calls it. Uploading the ZIP works with no network at all.
+- **AI providers of Moodle core**, only if the site opens the rewording help and configures a provider.
+- Details, and how a reviewer can test without network: [docs/en/external-services.md](docs/en/external-services.md).
 
-La contrepartie est **MC-5** : `classes/local/competency_gateway.php` est le **seul** fichier du plugin autorisé à nommer le sous-système de compétences. C'est le rôle d'amortisseur du pont, transposé à l'intérieur du modèle natif — quand Moodle change, un seul fichier est repris.
+## Architecture
 
-**Plans du cœur** : la page « Mon parcours » lit les plans de formation et les compétences de cours du cœur. Le vaeiste les lit sur lui-même ; un tiers ne les lit que sous `moodle/competency:planview` ou `planmanage` dans le contexte du vaeiste, et les brouillons sous `planviewdraft` ou `planmanagedraft` (le responsable qui suit le vaeiste, dans l'onglet *Vaeistes suivis*, n'en lit que le nom et le statut) ; jamais une évaluation. Les deux règles sont décrites dans « La page Organisation : trois onglets, des nombres, jamais un verdict ».
+- `classes/local/competency_gateway.php` is the **only** file of the plugin allowed to call the competency subsystem
+  (`scripts/check-gateway.sh`, in the repository, fails otherwise); `classes/local/fiche_fetcher.php` is the only one
+  allowed to open a network connection (`scripts/check-network-door.sh`, in the repository).
+- **Output**: the pages are drawn by output classes (`classes/output/`, 104 classes) and Mustache templates
+  (`templates/`, 104 templates), through the plugin's renderer. The HTML that the PDF library reads (the PDF of the
+  archive, `classes/local/pdf_renderer.php`) is drawn by one template, `templates/pdf_blocks.mustache`, through
+  `$OUTPUT->render_from_template()`; `classes/local/document_writer.php` writes the Word and OpenDocument files, which
+  are not HTML, and has no template.
+- JavaScript: three AMD modules (`amd/src/`). The autosave of a draft calls the external function
+  `tool_vae_save_draft` (`db/services.php`), the only web service of the plugin, for AJAX only.
+- No PHP superglobal is read; the three uploads use the file picker of Moodle.
+- Observers only queue an ad hoc task (`db/events.php`, `classes/observer.php`, `classes/notification_observer.php`): the
+  purge after a deleted account or evidence runs from cron, and the scheduled task `reconcile_orphans` catches up with
+  what a task that never ran would have removed; a message is queued by its observer when the event names its one
+  recipient, and otherwise its recipients are found at the first cron run after the event.
+
+## Development and tests
+
+The commands below need the GitHub repository: `scripts/`, the `Makefile` and `phpcs.xml.dist` are in it, not in the ZIP
+package installed on a site.
 
 ```bash
-make mc5       # échoue si un autre fichier appelle le cœur
-make privacy   # échoue si une table n'est ni déclarée au provider RGPD, ni exemptée
+git clone https://github.com/jeanlouismartinez/moodle-tool_vae.git
+cd moodle-tool_vae
+make doctor      # what is missing on this computer, and what it prevents
+make validate    # every check that runs offline
 ```
 
----
+- Checks of the project (`scripts/`): `check-gateway.sh`, `check-core-writes.sh`, `check-network-door.sh`,
+  `check-secrets.sh`, `check-schema.mjs`, `check-doc-links.mjs`, `check-english-comments.mjs`, `codestyle.sh`.
+- Tests, from the root of a Moodle 5.3 site where the plugin is installed:
+  `vendor/bin/phpunit --testsuite tool_vae_testsuite` and
+  `php public/admin/tool/behat/cli/run.php --tags=@tool_vae` (after the usual initialisation of the PHPUnit and Behat
+  sites of Moodle). With the plugin installed from the package, the tests that need the development files or that read
+  only French are skipped, and the French checks of the other tests are not made: `lang/fr` is not in the package.
+- Code and comments are in English (`make english` fails on a comment written in French). Identifiers are in English
+  (the classes of the feasibility dossier are `feasibility_*`, those of the correspondences between a replaced record and
+  the record that replaces it `correspondence_*`), except French words of the domain that some names keep on purpose:
+  `fiche` and `bloc` (the RNCP record and its blocs: `fiche_converter`, `for_fiches()`, `bloc_of()`), `vaeiste`,
+  `reflexion` and `regard` (`reflexion_overview`, `selfpos_regard`); and the names that stored data or links point to:
+  the database columns (`fichecode`, `ficherang`…), the values stored in them (the document type `faisabilite`), the
+  table `tool_vae_passage` and the event `passage_changed` (named in the logs), the pages and their addresses
+  (`faisabilite.php`, `passage.php`), and the export format, whose schemas keep French keys and file names
+  (`faisabilite.json`). The text of
+  the pages, forms and messages comes from the language files, with one exception: the title "Bloc " followed by the
+  rank, which `classes/local/fiche_converter.php` (`SHORT_TITLE`) gives to a bloc whose published label is too long or
+  carries markup, as the name of the competency it creates; it stays in French on purpose, "Bloc" being the official
+  term of the RNCP data of France compétences, and `competency_gateway::label_of()` recognises that name to show the
+  published label in its place. Every PHP, JavaScript, CSS and Mustache file carries the GPL v3 header; the shell scripts
+  of `scripts/` do not.
+  Comment the why, not the what.
+- Test data: invented records only (`tests/fixtures/README-fixtures.md`).
 
-## Régime du projet
+## Documentation
 
-**Régime 2 — Production.** Des personnes réelles s'en serviront, et des données personnelles réelles y seront saisies : celles du vaeiste et celles du responsable qui atteste. Il n'a pas encore servi à de vrais vaeistes.
+- In English: this file; [installation and first setup](docs/en/installation.md); [personal data](docs/en/privacy.md);
+  [external services](docs/en/external-services.md).
+- In French: [README.fr.md](README.fr.md); [docs/INSTALLATION-PAS-A-PAS.md](docs/INSTALLATION-PAS-A-PAS.md) (first
+  installation, step by step); [docs/FAQ.md](docs/FAQ.md) (questions and answers by role);
+  [docs/IMPORT-FICHES-FRANCE-COMPETENCES.md](docs/IMPORT-FICHES-FRANCE-COMPETENCES.md) (importing the records);
+  [docs/T-84-conformite-rgpd.md](docs/T-84-conformite-rgpd.md), [docs/AIPD-VAE.md](docs/AIPD-VAE.md),
+  [docs/MODELE-CONTRAT-USAGE-PLATEFORME.md](docs/MODELE-CONTRAT-USAGE-PLATEFORME.md) (personal data);
+  [docs/BRANCHES.md](docs/BRANCHES.md) (branches and supported Moodle versions);
+  [docs/schema/LISEZMOI.md](docs/schema/LISEZMOI.md) (the export format).
+- [CHANGELOG.md](CHANGELOG.md): what changed in each version (older entries in French).
+- Screenshots: none in the repository; they are on the page of the plugin in the plugins directory.
 
-Le projet avait été inscrit en régime 3 au motif que les descriptions de situations de travail porteraient des données de santé de tiers. **Ce n'est pas le cas** : elles décrivent l'activité du professionnel, jamais une personne accompagnée. Trois contrôles y concourent — aucun champ nominatif proposé, rappel d'anonymisation non masquable sur les trois champs libres, relecture par le responsable à l'attestation. Le rappel invite à désigner, au besoin, une personne accompagnée par un prénom fictif ; le plugin ne peut pas savoir si un prénom est fictif, le contrôle reste donc la relecture du responsable.
+## Known limits
 
-**Bascule en régime 3 avant la première distribution du plugin.**
+- **Date picker**: three drop-down lists (day, month, year), fifty years back.
+- **An archive from another site** is refused whole when the receiving site numbered a competency differently or
+  already knows the account; a screen of correspondences validated by a person is decided, not built.
+- **Texts to be read again by a VAE practitioner**: the words of the statuses, "to renew", "valid until", the
+  introductions of the organisation page and of the guides.
+- **Accessibility**: axe-core checks the three tabs of the organisation page, "Getting started" and the guide for
+  candidates, not the other screens (dossier, declaration, evaluation, certification, import).
+- **Supporting pieces** are closed by default until the site writes how long such files are kept.
+- **Without JavaScript**, the file picker of Moodle falls back on the core's file manager; not tried.
 
----
+## Compatibility: LTS releases only
 
-## Compatibilité — LTS uniquement
+A VAE dossier is built over months and read by a jury years later: the platform that holds it must still receive
+security fixes that day. An LTS release has three years of them, an intermediate release eighteen months.
 
-**Ce plugin ne fonctionne que sur les versions LTS de Moodle, et sur une seule à la fois par paquet.**
+| Moodle | Status | Branch |
+|---|---|---|
+| 4.5 LTS | **package no longer maintained**, not to be installed on a real site | `MOODLE_405` |
+| 5.0, 5.1, 5.2 | **never**: intermediate releases | none |
+| 5.3 LTS | **supported** | `main`, followed by `MOODLE_503` |
 
-Ce n'est pas une prudence de développeur, c'est une conséquence de ce que le plugin porte. Un dossier de VAE se construit sur des mois et se lit devant un jury des années plus tard : la plateforme qui le détient doit encore recevoir des correctifs de sécurité ce jour-là. Une LTS en apporte trois ans, une version intermédiaire dix-huit mois — moins que ce qu'il faut pour conduire un parcours puis attendre son jury.
-
-| Version | Statut | Support de sécurité jusqu'au | Branche de ce dépôt |
-|---|---|---|---|
-| Moodle 4.5 LTS | **paquet non maintenu**, à ne pas installer sur un site réel | 4 octobre 2027 (support de Moodle lui-même) | `MOODLE_405`, consultable |
-| Moodle 5.0, 5.1, 5.2 | **jamais** — versions intermédiaires | — | aucune |
-| Moodle 5.3 LTS | **prise en charge** | 1er octobre 2029 | `main`, suivie par `MOODLE_503` |
-
-**Les deux paquets ont vécu côte à côte depuis le 12 octobre 2026 ; le paquet 4.5 n'est plus maintenu depuis la décision du 27 octobre 2026** : plus aucun correctif n'est promis jusqu'au 4 octobre 2027, fin du support de Moodle 4.5, et il ne faut pas l'installer sur un site réel. La branche `MOODLE_405` reste consultable, et la tâche `migration` s'en sert encore : le passage de Moodle 4.5 à Moodle 5.3 est prouvé à chaque poussée sur `main` et `MOODLE_503` (et sur toute branche qui en est issue), sur PostgreSQL seulement ; une poussée sur `MOODLE_405` ne lance que les tests 4.5 : voir [docs/BRANCHES.md](docs/BRANCHES.md).
-
-**La règle est déclarée, puis verrouillée.** `version.php` déclare `$plugin->supported = [503, 503]` sur le paquet 5.3 et `[405, 405]` sur le paquet 4.5. Dans Moodle, `supported` n'est qu'une déclaration : hors de cette plage, la page des plugins affiche un avertissement, et l'installation reste possible. Ce qui refuse vraiment, c'est `requires` (version minimale : 5.3.0 sur le paquet 5.3, 4.5.0 sur le paquet 4.5) et `$plugin->incompatible` (première branche refusée). Chaque paquet déclare les deux : **le paquet 5.3 refuse Moodle 5.4 et au-delà (`incompatible = 504`), le paquet 4.5 refuse Moodle 5.0 et au-delà (`incompatible = 500`).** Un administrateur qui met à jour le cœur vers une version intermédiaire trouve le plugin bloqué, au lieu de le voir tourner là où personne ne l'a testé. À chaque nouvelle LTS testée, le paquet correspondant relève ce nombre (décidé le 13 octobre 2026).
-
-**Aucun des deux paquets n'élargit sa plage pour absorber l'autre** : annoncer une compatibilité que personne ne teste est pire que ne rien annoncer, et l'intégration continue ne construit que la branche sur laquelle elle tourne — plus, ici, le passage de 4.5 à 5.3.
-
----
+`version.php` declares `supported = [503, 503]`, `requires` 5.3.0 and `incompatible = 504`. In Moodle, `supported` is only
+a declaration (outside it the plugins page shows a warning); `requires` and `incompatible` refuse: an administrator who
+upgrades the core to an intermediate release finds the plugin blocked rather than running where nobody tested it.
+Neither package widens its range to swallow the other: announcing a compatibility nobody tests is worse than announcing
+none. The Moodle 4.5 package is no longer maintained (decision of 27 October 2026); its branch stays readable. See
+[docs/BRANCHES.md](docs/BRANCHES.md).
 
 ## Licence
 
-**GPLv3 ou ultérieure** — voir `LICENSE`. C'est la licence de Moodle lui-même : le plugin est donc compatible GPL. **Titulaire des droits : Jean-Louis Martinez, jeanlouis@martinez.pro** (le nom et l'adresse portés par l'en-tête de chacun des fichiers PHP, confirmés par lui le 28 octobre 2026). Décision du porteur du 28 octobre 2026 : le plugin reste sous cette licence.
+**GNU GPL v3 or later**: see [LICENSE](LICENSE) and the header of each source file; the licence of Moodle itself.
+Copyright holder: Jean-Louis Martinez, jeanlouis@martinez.pro (decision of the project owner of 28 October 2026: the
+plugin stays under this licence).
 
-**Cette décision ne lève pas PO-2**, parce que PO-2 ne porte pas sur la licence du plugin mais sur celle des **données** importées (voir ci-dessous).
+The certification records are **data** published by France compétences under the *Licence Ouverte 2.0*. **None of it is
+in this package**: the administrator uploads the export or has the server fetch it, and the data lives in the site's
+database. The test files of `tests/fixtures/` are invented (codes `RS00000` and `RNCP99001`, labels written for the
+tests), as `tests/fixtures/README-fixtures.md` explains.
 
-Le référentiel importé est une **donnée** : fiches du RNCP et du Répertoire spécifique, produites par **France compétences**, publiées sous **Licence Ouverte 2.0**. **Elle n'est jamais livrée avec le code** : l'administrateur la dépose (le fichier zip de l'export) ou la fait récupérer à la demande par le serveur (sur clic, depuis data.gouv.fr), et elle vit dans la base du site, pas dans l'arbre du plugin. Paternité et date de mise à jour affichées partout où le référentiel est présenté ; aucun intitulé de compétence n'est reformulé.
+## Glossary
 
-> **Point non levé.** La Licence Ouverte 2.0 ne déclare de compatibilité qu'avec la LO antérieure, l'Open Government Licence britannique, CC-BY et ODC-BY — jamais avec une licence copyleft. À faire trancher par un conseil **avant toute diffusion publique** (`docs/MEMO-JURIDIQUE.md`, à produire). La voie « Aller chercher le dernier export » ne met aucune donnée dans le dépôt ni dans la distribution, et **ne tranche pas ce point** (point ouvert PO-2).
-
----
-
-## Conventions
-
-- **Nom du dépôt : `moodle-tool_vae`**, selon la convention Moodle `moodle-{type}_{nom}`. Renommé le 13 octobre 2026 ; l'ancien nom, `moodle-tool_referentiel`, redirige vers le nouveau.
-- Code, commentaires et noms **en anglais** dans le plugin ; documentation et échanges en français. Exceptions voulues : le format d'archive et son schéma pivot (clés et fichiers en français), et les scripts de contrôle de `scripts/`.
-- Aucune chaîne visible en dur : fichiers de langue, sans exception.
-- En-tête de licence GPLv3 dans chaque fichier PHP du plugin ; les six scripts shell de `scripts/` (`doctor.sh`, `mc2-ecriture-coeur.sh`, `mc5-passerelle.sh`, `sortie-reseau.sh`, `standard-moodle.sh`, `verifier-secrets.sh`) n'en portent pas encore ; les scripts PHP et JavaScript en portent un.
-- Commenter le **pourquoi**, pas le **ce que**.
-
----
+| Word | What it means here |
+|---|---|
+| **Declaration** | What the candidate says they did in their work, attached to a competency of a certification record. It is written, then a manager **attests** it. |
+| **Attestation** | The act of a manager who, having read the narrative, confirms the declaration. It is **withdrawn**, never changed; a new attestation is a new act. |
+| **Certification record** (*fiche*) | The competency framework of a diploma or title (RNCP, RS), imported from the France compétences export (uploaded or fetched) or from a CSV file. |
+| **Dossier de faisabilité** | Formerly "livret 1": the request for admissibility. The plugin helps to write it; it never says whether it is admissible. |
+| **Validation dossier** | Formerly "livret 2": the dossier of evidence. Its preparation (sections, block by block) is in the plugin; the rest of it is not yet. |
+| **Section** | A part of the dossier de faisabilité (aims, path, experiences…), of text or with fields (identity, status). |
+| **Draft / version** | The draft is saved on its own and is not a version; a version is saved on demand, compared and restored. |
+| **Deposit** | A dated and hashed milestone of the dossier de faisabilité as saved. The candidate keeps writing; a new deposit is a new milestone. |
+| **Opinion** | A manager's free text on one deposit; never rewritten; the plugin does not say whether it is favourable. |
+| **Precision** | A manager's question on a declaration not yet attested, and the candidate's answer; neither a lock nor a verdict. |
+| **Positioning** | What the structure says, in writing, dated and attributed: where a competency stands (**evaluation**, by a manager who follows the candidate) or a block (**certification**, by the direction). Added, never changed; the last line holds. **Not a validation**: only the jury validates, outside the platform. |
+| **To renew** | A certification whose optional "valid until" date has passed on the day one reads. Computed when read, never written. |
+| **Supporting piece** | A file or a link attached to a declaration, with a nature from a closed list. The plugin neither reads nor judges it; it keeps the hash of a file and the list of those a signature covered. |
+| **Hash** | Here, always the **SHA-256** of a content: it proves that a text or an archive has not changed. |
+| **Archive** | The frozen export of the dossier, with its manifest of hashes and a printable PDF, for the jury; checked by its hashes; taken by another site under conditions; without the deposits, the opinions or the precisions. |
+| **Follow** | Holding `viewassigned` in the candidate's user context, directly or by cohort: the only way to read another person's dossier without `viewany`. |
 
 *Fil d'Argent — Jean-Louis Martinez, jeanlouis@martinez.pro*

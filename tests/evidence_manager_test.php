@@ -127,6 +127,18 @@ final class evidence_manager_test extends \advanced_testcase {
     /**
      * Criterion 1 - the declaration lands where it should, and nowhere else.
      */
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     public function test_a_declaration_creates_core_evidence_linked_to_the_competency(): void {
         global $DB;
 
@@ -386,21 +398,43 @@ final class evidence_manager_test extends \advanced_testcase {
      *
      * Found on a real Moodle 5.3 on 14 October 2026: the core template wrote the error id first and
      * the browser kept only that one, so the reminder was no longer read with the field. The merge
-     * itself runs in the browser; what is checked here is that the script names each field and each
-     * reminder, merges (the existing attribute is read, not overwritten) and never lists an id the
-     * page does not have.
+     * itself runs in the browser, in the module tool_vae/reminder_pointers (lot Q4); what is checked
+     * here is what the page hands it (each field with each of its reminders, as the page asked) and
+     * that the module, in its source and in its built file, still carries the three properties the
+     * old test held to the script: it reads the existing attribute rather than overwriting it, adds
+     * an id once, and skips an id the page does not have. The merge itself is NOT played in a
+     * browser: tests/behat/javascript_modules.feature sees the attribute the server already writes.
      */
     public function test_the_reminder_script_merges_the_reminder_into_the_attribute_of_a_field(): void {
-        $script = \tool_vae\form\reminder_pointers::script([
+        global $PAGE;
+        $this->resetAfterTest();
+
+        \tool_vae\form\reminder_pointers::apply([
             'id_situation' => ['tool_vae_anonymise_situation', 'tool_vae_anonymise'],
         ]);
 
-        $this->assertStringContainsString('"id_situation"', $script);
-        $this->assertStringContainsString('"tool_vae_anonymise_situation"', $script);
-        $this->assertStringContainsString('"tool_vae_anonymise"', $script);
-        $this->assertStringContainsString('getAttribute("aria-describedby")', $script);
-        $this->assertStringContainsString('ids.indexOf(t)<0', $script, 'An id already there is not added twice.');
-        $this->assertStringContainsString('document.getElementById(t)', $script, 'An id with no target is skipped.');
+        $end = $PAGE->requires->get_end_code();
+        $this->assertSame(1, preg_match(
+            '~require\(\[\'tool_vae/reminder_pointers\'\], function\(amd\) \{amd\.init\((.*?)\); M\.util\.js_complete~s',
+            $end,
+            $match
+        ), 'The page asks for the module that merges the reminders.');
+        $this->assertSame(
+            ['id_situation' => ['tool_vae_anonymise_situation', 'tool_vae_anonymise']],
+            json_decode($match[1], true),
+            'Each field is handed each of its reminders, in order.'
+        );
+
+        $source = file_get_contents(dirname(__DIR__) . '/amd/src/reminder_pointers.js');
+        $this->assertStringContainsString('getAttribute("aria-describedby")', $source, 'The existing attribute is read.');
+        $this->assertStringContainsString('ids.indexOf(t) < 0', $source, 'An id already there is not added twice.');
+        $this->assertStringContainsString('document.getElementById(t)', $source, 'An id with no target is skipped.');
+        $this->assertStringContainsString('setAttribute("aria-describedby"', $source, 'The merged list is written back.');
+
+        $built = file_get_contents(dirname(__DIR__) . '/amd/build/reminder_pointers.min.js');
+        $this->assertStringContainsString('getAttribute("aria-describedby")', $built, 'The built file reads the attribute.');
+        $this->assertStringContainsString('indexOf(', $built, 'The built file does not add an id twice.');
+        $this->assertStringContainsString('getElementById(', $built, 'The built file skips an id with no target.');
     }
 
     /**
@@ -433,7 +467,7 @@ final class evidence_manager_test extends \advanced_testcase {
         $record = (new evidence_manager())->declare_activity((int) $this->candidate->id, $this->submission());
         $row = $DB->get_record('tool_vae_evidence', ['id' => $record->id], '*', MUST_EXIST);
 
-        $html = \tool_vae\local\presenter::declaration($row, \context_user::instance((int) $this->candidate->id));
+        $html = self::render(new output\declaration($row, \context_user::instance((int) $this->candidate->id)));
 
         $this->assertStringContainsString('Repérer les facteurs de risque de chute', $html);
         $this->assertStringContainsString('RNCP36832-C03', $html, 'The code stays: it is what an archive names.');

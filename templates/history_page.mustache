@@ -1,0 +1,73 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/history_page
+
+    The page of the versions of a section, below its heading: the section, the way back, then "no version yet", or the form
+    that compares two versions and one small form per version that can be restored, outside it (a form cannot hold
+    another). The hidden fields of a form touch: those line breaks are carried by comments.
+
+    Every text comes from the context, worded by tool_vae\output\history_page. The template holds no logic. The texts are
+    escaped (double braces). Two keys are HTML (triple braces): emptyhtml, a notification of the core
+    ($output->notification()); tablehtml, the table drawn by the template tool_vae/table (its fields by
+    tool_vae/history_cell).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * line - string, the section or the work situation
+    * back - false, or an object {url, label}: the way back
+    * emptyhtml - false, or HTML: no version yet
+    * compare - false, or an object {action, draftid, tablehtml, label}: the form that compares two versions
+    * restores - array of objects {action, id, sesskey, number, workingat}: the forms that restore a version
+
+    Example context (json):
+    {
+        "line": "Section: Objectives",
+        "back": {"url": "https://example.com/admin/tool/vae/section.php", "label": "Back to the section"},
+        "emptyhtml": false,
+        "compare": {"action": "https://example.com/admin/tool/vae/compare.php", "draftid": 5,
+            "tablehtml": "<table class=\"generaltable\"><tr><td>Version 2</td></tr></table>", "label": "Compare"},
+        "restores": [{"action": "https://example.com/admin/tool/vae/history.php?draftid=5", "id": "tool-vae-restore-1",
+            "sesskey": "abc", "number": 1, "workingat": 0}]
+    }
+}}
+<p>{{line}}</p>
+{{#back}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/back}}
+{{#emptyhtml}}
+{{{emptyhtml}}}
+{{/emptyhtml}}
+{{#compare}}
+<form method="get" action="{{action}}"><input type="hidden" name="draftid" value="{{draftid}}">
+{{{tablehtml}}}
+<button type="submit" class="btn btn-primary">{{label}}</button>
+</form>
+{{/compare}}
+{{#restores}}
+<form method="post" action="{{action}}" id="{{id}}"><input type="hidden" name="sesskey" value="{{sesskey}}">{{!
+}}<input type="hidden" name="action" value="restore"><input type="hidden" name="number" value="{{number}}">{{!
+}}<input type="hidden" name="workingat" value="{{workingat}}"></form>
+{{/restores}}

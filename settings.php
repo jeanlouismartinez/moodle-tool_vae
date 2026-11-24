@@ -17,10 +17,13 @@
 /**
  * Administration page declaration.
  *
- * The parent category is 'competencies', not 'tools': 'tools' is only created when
- * $hassiteconfig is true, so adding to it makes the entry vanish silently - with a
- * debugging notice, nothing more - for any administrator who is not a site administrator.
- * 'competencies' is created unconditionally in admin/settings/top.php.
+ * The pages of the plugin are filed in a category of their own, 'toolvaefolder' ("VAE", lot S4), itself filed under
+ * 'competencies', not 'tools': 'tools' is only created when $hassiteconfig is true, so adding to it makes the entry vanish
+ * silently - with a debugging notice, nothing more - for any administrator who is not a site administrator.
+ * 'competencies' is created unconditionally in admin/settings/top.php. For the same reason the category 'toolvaefolder' is
+ * created under no condition, before any page: a direction that holds tool/vae:viewany alone, a manager of roles, an importer
+ * must each find it, or their pages have no parent to be filed under. A category none of whose pages a reader may open is
+ * not shown to that reader (core_admin\setting\tree\category::check_access()).
  *
  * The external page name must be unique across the entire admin tree, hence the prefix.
  *
@@ -29,32 +32,26 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use core_admin\setting\tree\category;
+
 defined('MOODLE_INTERNAL') || die();
+
+$ADMIN->add('competencies', new category('toolvaefolder', new lang_string('adminfolder', 'tool_vae')));
 
 if ($hassiteconfig) {
     $settings = new admin_settingpage('tool_vae_settings', new lang_string('settingspage', 'tool_vae'));
+    // Seven groups, each under a heading whose text says in one sentence per setting what it opens or fixes (lot S4). The
+    // headings are not settings: they store nothing, and the names and defaults below are those of before the lot.
+    $settings->add(new admin_setting_heading(
+        'tool_vae_groupattest',
+        new lang_string('settingsgroupattest', 'tool_vae'),
+        new lang_string('settingsgroupattest_desc', 'tool_vae')
+    ));
     $settings->add(new admin_setting_configcheckbox(
         'tool_vae/managerwithdrawown',
         new lang_string('managerwithdrawown', 'tool_vae'),
         new lang_string('managerwithdrawown_desc', 'tool_vae'),
         0
-    ));
-    // The weekly copies of each dossier in its candidate's private files (T-83).
-    $settings->add(new admin_setting_configcheckbox(
-        'tool_vae/copyenabled',
-        new lang_string('copyenabled', 'tool_vae'),
-        new lang_string('copyenabled_desc', 'tool_vae'),
-        0
-    ));
-    $settings->add(new admin_setting_configselect(
-        'tool_vae/copyformat',
-        new lang_string('copyformat', 'tool_vae'),
-        new lang_string('copyformat_desc', 'tool_vae'),
-        'docx',
-        [
-            'docx' => new lang_string('documentdocx', 'tool_vae'),
-            'odt' => new lang_string('documentodt', 'tool_vae'),
-        ]
     ));
     // The reminder of the declarations that wait for an attestation (T-22). Zero: off.
     $settings->add(new admin_setting_configtext(
@@ -63,6 +60,11 @@ if ($hassiteconfig) {
         new lang_string('overduedays_desc', 'tool_vae'),
         0,
         PARAM_INT
+    ));
+    $settings->add(new admin_setting_heading(
+        'tool_vae_groupdossiers',
+        new lang_string('settingsgroupdossiers', 'tool_vae'),
+        new lang_string('settingsgroupdossiers_desc', 'tool_vae')
     ));
     // The preparation of the validation dossier (T-11): closed until the administrator opens it. Its titles and helps
     // are provisional until a companion has read them, and the manager's reading of what is deposited comes with the
@@ -89,29 +91,6 @@ if ($hassiteconfig) {
         new lang_string('scopeopen_desc', 'tool_vae'),
         0
     ));
-    // The reformulation aid (T-70): closed until the legal basis, the register, the retention and the contract with the provider
-    // are written (T-84), and the policy and the instruction sent have been read. Even open, it takes a capability given by hand.
-    $settings->add(new admin_setting_configcheckbox(
-        'tool_vae/aiopen',
-        new lang_string('aiopen', 'tool_vae'),
-        new lang_string('aiopen_desc', 'tool_vae'),
-        0
-    ));
-    // The ceilings of the aid. The code keeps them between bounds whatever is typed here.
-    $settings->add(new admin_setting_configtext(
-        'tool_vae/aimaxchars',
-        new lang_string('aimaxchars', 'tool_vae'),
-        new lang_string('aimaxchars_desc', 'tool_vae'),
-        \tool_vae\local\ai_assistant::CHARS_DEFAULT,
-        PARAM_INT
-    ));
-    $settings->add(new admin_setting_configtext(
-        'tool_vae/aidaily',
-        new lang_string('aidaily', 'tool_vae'),
-        new lang_string('aidaily_desc', 'tool_vae'),
-        \tool_vae\local\ai_assistant::DAILY_DEFAULT,
-        PARAM_INT
-    ));
     // The addresses of the rules of validation (T-41): closed until an accompanying person in VAE has read the sentence that
     // frames them and its place on the dossier. The addresses can be entered before; nothing is shown to a candidate.
     $settings->add(new admin_setting_configcheckbox(
@@ -119,6 +98,11 @@ if ($hassiteconfig) {
         new lang_string('refopen', 'tool_vae'),
         new lang_string('refopen_desc', 'tool_vae'),
         0
+    ));
+    $settings->add(new admin_setting_heading(
+        'tool_vae_grouppieces',
+        new lang_string('settingsgrouppieces', 'tool_vae'),
+        new lang_string('settingsgrouppieces_desc', 'tool_vae')
     ));
     // The supporting pieces (T-13): closed until amendment 4 of the derogation is validated and the retention of such files
     // is written (T-84). The limits are held by the code: a file no larger than 30 MB in all for a candidate, because an
@@ -147,6 +131,61 @@ if ($hassiteconfig) {
         new lang_string('piecenoantivirus_desc', 'tool_vae'),
         0
     ));
+    $settings->add(new admin_setting_heading(
+        'tool_vae_groupai',
+        new lang_string('settingsgroupai', 'tool_vae'),
+        new lang_string('settingsgroupai_desc', 'tool_vae')
+    ));
+    // The reformulation aid (T-70): closed until the legal basis, the register, the retention and the contract with the provider
+    // are written (T-84), and the policy and the instruction sent have been read. Even open, it takes a capability given by hand.
+    $settings->add(new admin_setting_configcheckbox(
+        'tool_vae/aiopen',
+        new lang_string('aiopen', 'tool_vae'),
+        new lang_string('aiopen_desc', 'tool_vae'),
+        0
+    ));
+    // The ceilings of the aid. The code keeps them between bounds whatever is typed here.
+    $settings->add(new admin_setting_configtext(
+        'tool_vae/aimaxchars',
+        new lang_string('aimaxchars', 'tool_vae'),
+        new lang_string('aimaxchars_desc', 'tool_vae'),
+        \tool_vae\local\ai_assistant::CHARS_DEFAULT,
+        PARAM_INT
+    ));
+    $settings->add(new admin_setting_configtext(
+        'tool_vae/aidaily',
+        new lang_string('aidaily', 'tool_vae'),
+        new lang_string('aidaily_desc', 'tool_vae'),
+        \tool_vae\local\ai_assistant::DAILY_DEFAULT,
+        PARAM_INT
+    ));
+    $settings->add(new admin_setting_heading(
+        'tool_vae_groupcopies',
+        new lang_string('settingsgroupcopies', 'tool_vae'),
+        new lang_string('settingsgroupcopies_desc', 'tool_vae')
+    ));
+    // The weekly copies of each dossier in its candidate's private files (T-83).
+    $settings->add(new admin_setting_configcheckbox(
+        'tool_vae/copyenabled',
+        new lang_string('copyenabled', 'tool_vae'),
+        new lang_string('copyenabled_desc', 'tool_vae'),
+        0
+    ));
+    $settings->add(new admin_setting_configselect(
+        'tool_vae/copyformat',
+        new lang_string('copyformat', 'tool_vae'),
+        new lang_string('copyformat_desc', 'tool_vae'),
+        'docx',
+        [
+            'docx' => new lang_string('documentdocx', 'tool_vae'),
+            'odt' => new lang_string('documentodt', 'tool_vae'),
+        ]
+    ));
+    $settings->add(new admin_setting_heading(
+        'tool_vae_groupselfpos',
+        new lang_string('settingsgroupselfpos', 'tool_vae'),
+        new lang_string('settingsgroupselfpos_desc', 'tool_vae')
+    ));
     // The four steps the vaeiste positions themselves on (lot 1a): words, not marks, the same for the whole site. A step
     // renamed here does not change the lines already written, which keep the label they were written with.
     for ($step = 1; $step <= \tool_vae\local\selfpos_scale::COUNT; $step++) {
@@ -163,6 +202,12 @@ if ($hassiteconfig) {
     // its name, which a site that renamed it never matches (competency_gateway::default_competence_scale()). Only the scales
     // of the whole site are offered: a course's own scale is never taken.
     if ($ADMIN->fulltree) {
+        // The heading of the group is under the same condition, or it would stand alone.
+        $settings->add(new admin_setting_heading(
+            'tool_vae_groupimport',
+            new lang_string('settingsgroupimport', 'tool_vae'),
+            new lang_string('settingsgroupimport_desc', 'tool_vae')
+        ));
         global $DB;
         $scales = [0 => new lang_string('importscaleauto', 'tool_vae')];
         foreach ($DB->get_records('scale', ['courseid' => 0], 'name ASC', 'id, name') as $scale) {
@@ -176,21 +221,53 @@ if ($hassiteconfig) {
             $scales
         ));
     }
-    $ADMIN->add('competencies', $settings);
+}
+
+// The pages are filed below in the order of the installation guide, "Getting started" first; each keeps the condition it
+// had before the category existed (lot S4). The category itself is filed above under no condition: see the comment at the
+// top of this file.
+
+if ($hassiteconfig || has_capability('tool/vae:import', context_system::instance())) {
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
+        'toolvae_setup',
+        new lang_string('setupheading', 'tool_vae'),
+        new moodle_url('/admin/tool/vae/setup.php'),
+        'tool/vae:import'
+    ));
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
+        'toolvae',
+        new lang_string('pluginname', 'tool_vae'),
+        new moodle_url('/admin/tool/vae/index.php'),
+        'tool/vae:import'
+    ));
+}
+
+// The VAE roles, created from the presets shipped with the plugin: for whoever may manage roles.
+if ($hassiteconfig || has_capability('moodle/role:manage', context_system::instance())) {
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
+        'toolvae_roles',
+        new lang_string('rolesheading', 'tool_vae'),
+        new moodle_url('/admin/tool/vae/roles_install.php'),
+        'moodle/role:manage'
+    ));
+}
+
+if ($hassiteconfig) {
+    $ADMIN->add('toolvaefolder', $settings);
 }
 
 if ($hassiteconfig || has_capability('tool/vae:viewany', context_system::instance())) {
-    $ADMIN->add('competencies', new admin_externalpage(
-        'toolvae_pending',
-        new lang_string('pendingheading', 'tool_vae'),
-        new moodle_url('/admin/tool/vae/pending.php'),
-        'tool/vae:viewany'
-    ));
     // The configuration of the scheme (T-90): the address carries the tab, so that the menu opens "Organisation".
-    $ADMIN->add('competencies', new admin_externalpage(
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
         'toolvae_organisation',
         new lang_string('orgtabsite', 'tool_vae'),
         new moodle_url('/admin/tool/vae/organisation.php', ['tab' => 'site']),
+        'tool/vae:viewany'
+    ));
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
+        'toolvae_pending',
+        new lang_string('pendingheading', 'tool_vae'),
+        new moodle_url('/admin/tool/vae/pending.php'),
         'tool/vae:viewany'
     ));
 }
@@ -201,7 +278,7 @@ if (
     has_capability('tool/vae:viewany', context_system::instance())
     && has_capability('tool/vae:certify', context_system::instance())
 ) {
-    $ADMIN->add('competencies', new admin_externalpage(
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
         'toolvae_renewals',
         new lang_string('renewalsheading', 'tool_vae'),
         new moodle_url('/admin/tool/vae/renewals.php'),
@@ -215,7 +292,7 @@ if (
     has_capability('tool/vae:viewany', context_system::instance())
     && has_capability('tool/vae:issuestructure', context_system::instance())
 ) {
-    $ADMIN->add('competencies', new admin_externalpage(
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
         'toolvae_bookletauth',
         new lang_string('bookletauthheading', 'tool_vae'),
         new moodle_url('/admin/tool/vae/booklet_authorize.php'),
@@ -223,39 +300,23 @@ if (
     ));
 }
 
-// The VAE roles, created from the presets shipped with the plugin: for whoever may manage roles.
-if ($hassiteconfig || has_capability('moodle/role:manage', context_system::instance())) {
-    $ADMIN->add('competencies', new admin_externalpage(
-        'toolvae_roles',
-        new lang_string('rolesheading', 'tool_vae'),
-        new moodle_url('/admin/tool/vae/roles_install.php'),
-        'moodle/role:manage'
-    ));
-}
-
 if ($hassiteconfig || has_capability('tool/vae:import', context_system::instance())) {
-    $ADMIN->add('competencies', new admin_externalpage(
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
         'toolvae_supersession',
         new lang_string('supersessionheading', 'tool_vae'),
         new moodle_url('/admin/tool/vae/supersession.php'),
         'tool/vae:import'
     ));
-    $ADMIN->add('competencies', new admin_externalpage(
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
         'toolvae_referents',
         new lang_string('referentheading', 'tool_vae'),
         new moodle_url('/admin/tool/vae/referents.php'),
         'tool/vae:import'
     ));
-    $ADMIN->add('competencies', new admin_externalpage(
+    $ADMIN->add('toolvaefolder', new admin_externalpage(
         'toolvae_refs',
         new lang_string('refheading', 'tool_vae'),
         new moodle_url('/admin/tool/vae/refs.php'),
-        'tool/vae:import'
-    ));
-    $ADMIN->add('competencies', new admin_externalpage(
-        'toolvae',
-        new lang_string('pluginname', 'tool_vae'),
-        new moodle_url('/admin/tool/vae/index.php'),
         'tool/vae:import'
     ));
 }

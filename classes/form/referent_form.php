@@ -41,7 +41,7 @@ class referent_form extends \moodleform {
 
         $mform->addElement('select', 'bloc', get_string('referentbloc', 'tool_vae'), $options);
         $mform->addRule('bloc', null, 'required', null, 'client');
-        $mform->setType('bloc', PARAM_RAW_TRIMMED);
+        $mform->setType('bloc', PARAM_TEXT);
 
         // By username: a name that is typed is checked by the server, and nobody is searched for in a list of the whole site.
         $mform->addElement('text', 'username', get_string('referentusername', 'tool_vae'), ['size' => 30]);

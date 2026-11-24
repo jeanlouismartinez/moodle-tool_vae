@@ -4,6 +4,432 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Versionnage s
 
 ---
 
+## [2.5.03 — build 2026112200] — 2026-11-22
+
+*This entry is written in English (the review of the plugins directory reads English); the older entries stay in
+French.* It gathers the changes made for the review MMR-520 of the Moodle plugins directory (tickets 1 to 7 and the rules
+of the directory), since build 2026111900. Builds 2026111901 (the external function of the autosave) and 2026112200 (this
+one) carry them; 2026112200 exists because classes, templates and strings were added and removed after 2026111901 without
+a new number, and a site needs a new number to rebuild its caches.
+
+### Changed
+
+- **Output: Mustache templates and output classes** (ticket 4). The pages no longer write HTML in PHP: 104 templates under
+  `templates/` and 104 output classes under `classes/output/`, rendered by `tool_vae\output\renderer`; no text, right,
+  link, reading order or CSS class changed (each page proved to draw the same DOM as before, page by page and account by
+  account). The HTML that the PDF library reads (the PDF of the archive, `classes/local/pdf_renderer.php`) is drawn by the
+  template `pdf_blocks` through `$OUTPUT->render_from_template()`: the table of the head and of each declaration is laid out
+  with `style` attributes instead of the `cellpadding` and `width` attributes that HTML 5 no longer has, and the pages of
+  the PDF keep the same content (compared with the previous code on the decompressed content of the pages, and on the HTML
+  chunk by chunk, in the 262 tests that build or read an archive).
+  `classes/local/document_writer.php` writes Word and OpenDocument files, not HTML, and keeps no template.
+- **Observers only queue an ad hoc task** (ticket 3). The four internal observers (account deleted, evidence deleted or
+  changed, framework deleted) queue `purge_deleted_account`, `purge_deleted_evidence`, `check_changed_evidence` or
+  `release_deleted_framework` with identifiers only; the work runs from cron (`classes/local/deletion_followup.php`).
+  **The purge after a deleted account now happens at the first cron run that follows the deletion**, no longer during the
+  deletion. A failed task is shown in the task logs and run again; the scheduled task `reconcile_orphans` also clears the
+  traces of accounts whose task never ran and releases the provenance rows of frameworks that are gone.
+- **Notification callbacks read nothing in the request** (ticket 3, the same rule applied to the fourteen observers of
+  messages). They left `classes/notifier.php` for `classes/notification_observer.php`, which `db/events.php` names: each
+  keeps the identifiers of its event and queues one ad hoc task at most (none for the withdrawal of an annotation or of a
+  consent, which tells nobody, as before), with no database call and no loop in the file (`tests/observer_guard_test.php`,
+  `tests/notification_observer_test.php`, which measures 0 database reads during each callback). When the event names the
+  one recipient (an opinion, a positioning line, an annotation, a consent, a request for precision, an attestation, a
+  request to withdraw and its refusal), the callback queues the message itself, as before; otherwise (a declaration, a
+  deposit, a piece added, a withdrawal, a competency leaving its record) it queues `queue_notifications`, and **the
+  recipients are found at the first cron run after the event**, no longer in the request (already so, earlier in this
+  review, for a withdrawal and a departure), with the same rules (followers, rights, referents of the bloc, attestation in force,
+  asked from cron for a piece) and the same messages (`tests/notification_recipients_test.php`, the same lists on the code
+  before and after the change). The event `withdrawal_requested` carries the moment of the request in `other`
+  (`requestedat`), so that its callback does not read it from the database.
+- **Messages of the schema validator in the language files** (rule of the directory: no hard-coded text). The refusal of
+  an archive whose file the schema refuses names the faulty field in the language of the person who imports
+  (`schemaerror*` strings, English and French), no longer in English written in the code; the same errors are found, with
+  the same JSON pointers (`schema_validator::errors()` gives the pointer apart, which the export reads).
+- **Autosave through an external function** (ticket 5): `tool_vae_save_draft` (`db/services.php`,
+  `classes/external/save_draft.php`), called through `core/ajax`.
+- **Uploads through Moodle's file picker** (rule of the directory on superglobals): the piece of a declaration, the piece
+  of a situation and the import of the France compétences export. No PHP superglobal is read any more
+  (`tests/superglobal_guard_test.php`). The file name is cleaned; the plugin still never keeps the original name, but the
+  file picker keeps it in the person's draft area until the form is sent.
+- **Role names from language strings**: `rolename_<shortname>` and `roledesc_<shortname>`; in English "VAE direction",
+  "VAE certifying direction", "VAE manager", "VAE evaluating manager", "Vaeiste"; French names unchanged; short names
+  unchanged; an installed role is never renamed.
+- **The instruction sent to the AI** is the English string `aiprompt` of the plugin (it asks for a rewording in clear
+  French), read from the file shipped with the plugin; **it is a new wording of an approved text, to be approved again**.
+- **`document.php`** (editable copies) requires the session key; the buttons of the dossier send a POST.
+- **Strict parameter types** for codes and ranks (`PARAM_ALPHANUMEXT`, `PARAM_ALPHANUM`, `PARAM_TEXT`); the free texts
+  that stay raw say why in a comment.
+- **Privacy**: `tool_vae_obsolete` and `tool_vae_ref` are declared (no longer exempted); 16 more columns declared; all
+  31 tables of `db/install.xml` are declared, column by column.
+- **CSS** scoped by `.path-admin-tool-vae`.
+- **English everywhere in the code**: comments, identifiers (31 French identifiers renamed, for example
+  `tests/fixtures/fiche-exemple.csv` → `fiche-example.csv`); the keys of the export format stay French. Then seven classes
+  and four methods (decision of the project owner, 22 November 2026): `faisabilite_catalog`, `faisabilite_fields`,
+  `faisabilite_overview`, `faisabilite_page` → `feasibility_*`; `passage_manager`, `passage_page`,
+  `passage_decision_form` → `correspondence_*`, with their files, their three templates (`templates/feasibility_page`,
+  `correspondence_page`, `correspondence_decision_form`: the HTML they draw is the same) and their test files;
+  `next_actions::vaeiste()` → `candidate()`, `referent_manager::blocs()` → `bloc_ranks()`, `organisation_cell::fiches()`
+  and `organisation_site::fiches()` → `records()`. Kept French, on purpose: the database columns and the values stored
+  in them, the table `tool_vae_passage`, the event `passage_changed`, the pages `faisabilite.php` and `passage.php`, the
+  keys and file names of the export format, and the words of the domain `fiche`, `bloc`, `vaeiste`, `reflexion`, `regard`.
+- **The package ships English only** (decision of the project owner, 22 November 2026): `.gitattributes` leaves
+  `lang/fr` out of the package; `lang/fr/tool_vae.php` stays in the repository, and the project owner intends the French
+  of the plugin to come from AMOS, the translation tool of Moodle (not done to date). Where `lang/fr` is absent, the tests
+  that read French only are skipped and the French checks of the other tests are not made; in the repository nothing is
+  skipped.
+- **Maturity beta** (`MATURITY_BETA`, decision of the project owner, 22 November 2026), the build number unchanged.
+- **"Bloc "**, the title given to a bloc whose published label is too long (`fiche_converter::SHORT_TITLE`), stays French
+  on purpose (decision of the project owner, 22 November 2026): the official term of the RNCP data, recognised by
+  `competency_gateway::label_of()`; a comment and the README say so.
+- **Command line**: `cli/convert_fiche.php` (a Moodle CLI script, run on the server; messages from language strings)
+  replaces `scripts/convertir-fiche-rncp.php`.
+- **Development files**: the checks of `scripts/` renamed in English (`check-*.sh`, `check-*.mjs`, `codestyle.sh`), the
+  targets of the `Makefile` too (`make validate`, `make doc-links`, `make network-door`…); `.gitattributes` leaves
+  `scripts/`, `Makefile`, `phpcs.xml.dist`, the CI files and the working documents of `docs/` out of the package (it
+  keeps `docs/schema`, read at run time, and the documents the README links to).
+- **Continuous integration on GitHub**: MySQL 8.4 added to the matrix next to PostgreSQL and MariaDB; **added, not run**.
+- **Documentation**: `README.md` (English, complete: bug tracker, source code, installation from the ZIP, requirements,
+  databases, roles and capabilities, external services, privacy, usage by role) and `README.fr.md` (the same, in French);
+  three English pages `docs/en/installation.md`, `docs/en/privacy.md`, `docs/en/external-services.md`; mentions of an
+  internal environment removed from the published files.
+- **Remarks of the code analysis (PHPMD of `moodle-plugin-ci`, which does not fail a build) that were only form.** The 37
+  methods `get_objectid_mapping()` and `get_other_mapping()` of the events always answer false: they are documented
+  `@return false` (they said `@return bool`, and the rule asks a boolean method to be named `is...()` or `has...()`; the
+  names are those of the event API of the core). Four variables never read (a global in `structure_archive`, three loops
+  in `positioning_section`, `situation_facts` and `remind_pending`) and three in the tests are gone; the methods that a
+  class and two tests call by their name (`'draw_' . $kind`, `'act_' . $name`, `'scenario_' . $text`) are `protected`,
+  not `private`, so that no tool takes them for dead code. No behaviour changed. The complexity and size measures of the
+  same tool (about 700 remarks) are not worked on.
+
+### Removed
+
+- Three public methods: `remove_record_form::leaves()`, `exporter::warnings_html()`, `text_diff::html()` (their HTML
+  is drawn by templates).
+- The classes `tool_vae\local\ai_screens`, `attest_screen`, `next_actions_screen`, `role_guide_screen`, `setup_screen` and
+  `raw_request`, the templates `role_guide` and `setup_screen` (now `guide_page` and `setup_page`), the entry point
+  `autosave.php`.
+- `scripts/migration/` (no longer run), `scripts/verifier-langue.php` and `scripts/verifier-privacy.php` (now the PHPUnit
+  tests `lang_strings_test` and `privacy_coverage_test`), `.moodle-plugin-ci.yml`.
+
+### Verified, and not verified
+
+- Upgrade step 2026112200: `tests/role_installer_test.php` (the last step of `db/upgrade.php` is the number of
+  `version.php`) seen red with `version.php` raised alone, green once the step was added; each step of `db/upgrade.php`
+  ends with its own savepoint, in rising order, the last one being `version.php`'s (script of the maintainer).
+- `php admin/cli/upgrade.php` on the local instance (Moodle 5.3.0, PostgreSQL 17) from 2026111901 to 2026112200.
+- The two unexpected `debugging()` notices of a first local run of PHPUnit on MySQL ("Attempt to send msg from a provider
+  tool_vae/declarationpending that is inactive or not allowed", in two tests of `observer_test`) are explained: on MySQL
+  and MariaDB, where PHPUnit opens no transaction, the messages of the set-up waited in the queue, and the two tests ran
+  it in the PHP process that had just deleted the account, with the rights of a manager read before the deletion still
+  in cache. The two tests now empty those caches before running the queue, as a new cron process starts with none (cron
+  itself does not empty them between two tasks). Seen with the notices on MySQL and MariaDB before the change, without
+  after it.
+- New tests, seen failing on the code before the change, then passing: the refusal of an archive told in French and in
+  English (`dossier_importer_test`); the callbacks of a declaration, a piece, a deposit and a request to withdraw read the
+  database in the request (`notification_observer_test`: 19, 17, 10 and 1 reads before, 0 after), and no callback file holds
+  a database call or a loop (`observer_guard_test`). A new test run on the code before AND after the change, with the same
+  result: the messages queued once cron has found the recipients are those the request queued
+  (`notification_recipients_test`).
+- The package of this build installed on new local sites with MySQL 8.4 and MariaDB 11.4, on 23 November 2026: PHPUnit
+  passes without any notice; skipped there: the test that needs a PostgreSQL trigger, the test that needs the development
+  files, and the tests that read French only (`lang/fr` is not in the package). Behat ran on both on 22 November 2026,
+  with an earlier package of this build (without JavaScript after the corrections of that day: schema messages,
+  notification callbacks, the two tests; with JavaScript before them), not with this one.
+- On a new local site at the developer debug level, earlier the same day, before the last corrections: the 45 pages of
+  the plugin for four roles and 62 forms, uploads and downloads, without any warning, notice or `debugging()` call.
+- The complete suites (PHPUnit, Behat with and without JavaScript) are run on this tree before the package is made; this
+  entry does not carry their numbers. **Not verified**: MySQL in the CI (added, not run), the continuous integration of
+  this build, `moodle-plugin-ci` itself (its steps were run one by one by equivalents; `phpdoc` and `phpmd` not run), a
+  session in a browser on a real site.
+- **Corrected (decision of the project owner, 22 November 2026)**: a process that runs the ad hoc tasks with the
+  functions of Moodle's cron, and in which the rights of a manager were read before an account was deleted, showed that
+  `debugging()` call when it then sent that manager a pending declaration of the deleted account (no message was sent,
+  the task said "not sent"; shown on two disposable local sites, MySQL 8.4 and MariaDB 11.4, with
+  `\core\cron::run_adhoc_tasks()` in one process). `notifier::deliver()` now refuses a pending declaration about a
+  deleted account before it reads any right, as every other message already did. New test
+  (`notifier_test::test_a_declaration_of_an_account_deleted_after_its_recipients_were_found_is_not_sent`, the same steps
+  in one process, the caches of rights not emptied): seen failing with that `debugging()` call on the code before the
+  change on PostgreSQL 17, MariaDB 11.4 and MySQL 8.4, passing after it on the three. Not tried on a real site.
+
+---
+
+## [2.5.03 — build 2026111900] — 2026-11-19
+
+**Numéro de build choisi par le porteur : 2026111900.** Le paquet publié s'appelle `tool_vae-2026111900`, et le numéro interne (`version.php`) le suit. Aucun changement de code : `db/upgrade.php` ne fait qu'enregistrer le numéro (aucun changement de schéma, de droit ni de donnée) et purge les caches. Essai du 19 novembre 2026 : `php admin/cli/upgrade.php` sur l'instance locale a porté `tool_vae` de 2026111801 à 2026111900 ; `role_installer_test` (qui lit `version.php`) : 15 essais, 77 assertions, verts ; standard de codage Moodle sans erreur. L'intégration continue de ce commit n'est pas encore lue. **Nom du dépôt GitHub** (documentation seulement) : le dépôt public `tool_vae` devient `moodle-tool_vae` (convention Moodle, point de la revue MMR-520) ; l'ancienne adresse redirige vers le nouveau nom ; README.fr.md et FAQ sont alignés. Les `$id` des schémas, qui contiennent `github.com/jeanlouismartinez/moodle-tool_vae/…`, ne changent pas : un identifiant de schéma est stable, et ce nom est maintenant celui du dépôt public.
+
+---
+
+## [2.5.03 — builds 2026111800 et 2026111801] — 2026-11-18
+
+**Essai réel sur lavae.org (version 2026111606), puis deux corrections.** L'essai a joué, en administrateur puis « connecté en tant que » responsable et direction, les gestes des trois rôles : déclaration, auto-positionnement, rubrique du dossier de faisabilité, dépôt, journal, pièce en lien, attestation et son retrait, avis, évaluation, certification d'un bloc, référents, adresses de règles, sauvegarde, lien fiche-cours, import d'un fichier CSV (accepté, et refusé sans la colonne `rang`). Aucune erreur technique à l'écran. Non joué : dépôt d'une pièce par fichier (aucun antivirus), réimportation d'une archive.
+
+**Numéros 2026111800 et 2026111801.** Ils ne changent ni schéma, ni droit, ni donnée : `db/upgrade.php` ne fait qu'enregistrer le numéro (ce qui fait purger les caches, donc relire les chaînes). L'étape 2026111800 manquait dans le premier paquet installé sur un site d'essai ; la 2026111801 est la copie idempotente que joue un site qui porte déjà le premier numéro. Vérifié le 19 novembre 2026 : intégration continue du commit `e02db71` verte sur GitHub (PostgreSQL, MariaDB) et sur une seconde intégration continue de l'auteur (PHPUnit 2 150 essais, 17 423 assertions ; Behat 204 scénarios, 2 849 pas, sur PostgreSQL) ; paquet installé sur le site d'essai, numéro enregistré 2026111801.
+
+**Légende du tableau « Déclarations en attente d'attestation ».** Même défaut que celui du tableau « Vaeistes suivis » : pas de légende pour un lecteur d'écran. Ajoutée dans `pending.php` (masquée), avec la chaîne `pendingcaption` en français et en anglais. Essai : un scénario Behat de `pending_unreached.feature`, vu échouer avant l'ajout, puis passer (3 scénarios).
+
+**Guide du responsable ouvert par `role=responsable`.** Le message d'un guide refusé dit « le vaeiste, le responsable et la direction », mais l'adresse du guide du responsable portait le nom `manager` : taper `responsable` donnait « Ce guide n'existe pas ». `role_guide::named()` fait de `responsable` le rôle `manager` ; tout autre mot reste refusé comme rôle inconnu. Essai : `test_the_french_name_of_the_manager_opens_the_guide_of_the_manager`, vu échouer puis passer. Suite PHPUnit complète : 2 150 essais, 17 424 assertions, verts (MariaDB et PostgreSQL non rejoués en local).
+
+---
+
+## [2.5.03 — mesures et correctifs du 17 novembre 2026, sans changement de numéro] — 2026-11-17
+
+**Coût du lien « VAE » mesuré : aucun changement de code.** Le lien est demandé sur chaque page ; `access::follows_anyone()` passe chaque attribution de rôle de la personne, dans un contexte d'utilisateur, par `access::follows()`. Le coût en lectures de la base était déjà borné par `tests/entry_link_test.php` (une lecture au plus pour 30 attributions sans le droit de suivre) ; restait le travail du processeur, jamais chronométré. Mesure du 17 novembre 2026 (PostgreSQL 17, Moodle 5.3.0, arbre de travail, caches vidés puis droits et rôles relus comme sur une page) pour une personne qui a un rôle sans `tool/vae:viewassigned` sur N vaeistes : 50 lignes 1,5 ms, 500 lignes 3,9 ms, 2 000 lignes 15,1 ms, une lecture de base à chaque fois, réponse « personne suivi » à chaque fois. Seuil fixé avec JLM : 50 ms pour 2 000 lignes ; il n'est pas atteint, donc le filtre de la requête qui était envisagé (ne garder que les rôles qui portent le droit de suivre) n'est pas écrit. Non mesuré : un serveur chargé ou une base MariaDB ; l'essai de mesure lui-même n'est pas gardé (il crée 2 000 comptes).
+
+**Légende du tableau « Vaeistes suivis ».** C'était le seul tableau de la page Organisation sans légende : un lecteur d'écran ne disait pas à quoi il sert. Ajouté dans `organisation_screen::followed()` une légende masquée à l'écran, comme celle des autres tableaux de la page (`$table->caption`, `$table->captionhide`), et la chaîne `orgfollowedcaption` en français et en anglais. Aucune colonne, aucune ligne, aucun droit ne change. Essai : `organisation_screen_test::test_followed_has_a_hidden_caption`, vu rouge avant le code, vert après. Joué en local le 17 novembre 2026 : 113 essais PHPUnit des écrans de la page (1 714 assertions), Behat `organisation_followed` 8 scénarios, `next_actions` 5, `entry_link` 6, `accessibility` (avec JavaScript et axe-core) 5, phpcs 0/0, contrôles statiques verts. Non rejoué : la suite PHPUnit complète ; non vérifié : MariaDB. Les tableaux des autres pages (`candidates.php`, `pending.php`, `journal.php`…) n'ont pas de légende non plus ; ce lot ne les touche pas.
+
+**Intégration continue.** Le job « migration » (passage du paquet 4.5 au paquet 5.3) est retiré des deux fichiers de CI, sur décision de JLM du 17 novembre 2026 : cette migration ne sera pas utilisée, et le job échouait sur Forgejo pour un défaut de résolution de nom du poste. `scripts/migration`, ses essais et la documentation restent en place.
+
+---
+
+## [2.5.03 — build 2026111606] — 2026-11-16
+
+**Un guide d'une page par rôle, servi par le plugin (lot S5).** Le brief demandait trois guides courts, lisibles sans connaître Moodle, pour le vaeiste, le responsable et la direction, tirés de la partie 12 du guide d'installation et du glossaire, avec un lien « Aide » depuis l'onglet de chaque rôle. Aucun document de guide n'entre dans le dépôt : les trois guides sont des chaînes de langue, en français et en anglais, servies par une page du plugin, `guide.php?role=vaeiste|manager|direction`. Le guide d'un rôle s'ouvre pour qui peut ouvrir l'onglet de ce rôle sur la page Organisation (« Mon parcours », « Vaeistes suivis », « Organisation »), par les mêmes prédicats et avec les mêmes refus, y compris en session « Se connecter en tant que » pour le guide du vaeiste ; un rôle inconnu est refusé, jamais remplacé. La page ne lit ni n'écrit aucune donnée de personne et ne prend aucun identifiant dans l'adresse. Chaque guide dit où trouver le plugin aujourd'hui (le lien « VAE » de la barre du haut), décrit seulement des gestes qui existent et sont ouverts sur un site tel qu'il est installé, dit en une ligne que l'administrateur peut ouvrir d'autres fonctions, et ne donne aucun verdict (« seul le jury valide »). Les tableaux et le bandeau des onglets ne changent pas.
+
+### Ajouté
+- `guide.php`, `classes/local/role_guide.php` (les données d'un guide, sans HTML, et le droit de l'ouvrir), `classes/local/role_guide_screen.php` et `templates/role_guide.mustache` (en-tête GPL, `@template`, contexte d'exemple en JSON).
+- 138 chaînes de langue `guide*` en français et en anglais : les trois guides (titre, introduction, sections, pas numérotés, mots à connaître) et le lien « Aide ».
+- `organisation_screen::guide_link()` : le lien « Aide : le guide du vaeiste / du responsable / de la direction » près du titre de chaque onglet, pour qui peut ouvrir ce guide.
+- Essais : `tests/role_guide_test.php` (contenu des trois guides, clés dans les deux langues, aucun « candidat » ni « % » en français, droit de chaque guide égal à celui de l'onglet pour un vaeiste, un responsable, la direction et une personne sans droit, refus en « Se connecter en tant que », rôle inconnu refusé, lien « Aide » dans l'onglet, rendu de la page et du gabarit) ; `tests/behat/role_guide.feature` (5 scénarios) ; un scénario axe-core de plus dans `tests/behat/accessibility.feature` (le guide du vaeiste) ; les pages « Guide vaeiste », « Guide manager », « Guide direction » dans le résolveur de `tests/behat/behat_tool_vae.php`.
+
+### Modifié
+- `organisation.php` : le lien « Aide » sous le titre de l'onglet.
+- `version.php` : 2026111606 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée ; elle fait purger les caches, donc relire les chaînes et le gabarit).
+
+### Vérifié
+- Le 16 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), arbre de travail : `role_guide_test` rouge avant le code (17 essais, 15 erreurs « Class "tool_vae\local\role_guide" not found », 1 échec « gabarit absent »), puis **OK (17 essais, 1 220 assertions)** ; avec les essais de la page Organisation et du lien « VAE » (`role_guide|organisation_screen|organisation_gate|organisation_test|entry_link`) **OK (112 essais, 1 609 assertions)** ; Behat : `role_guide.feature` **5 scénarios, 49 pas**, tous les scénarios sans JavaScript du plugin **190 scénarios, 2 614 pas**, verts ; `accessibility.feature` dans un vrai navigateur **5 scénarios, 128 pas**, verts (axe-core sans défaut sur le guide du vaeiste), et tous les scénarios avec JavaScript du plugin **13 scénarios, 225 pas**, verts ; gabarit rendu avec son contexte d'exemple et validé par le validateur Nu ; Grunt `gherkinlint` sans avertissement ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques verts.
+
+### Non vérifié
+- Les guides lus en français dans un navigateur : les scénarios lisent l'anglais ; le texte français est vérifié par les essais (présence, mots interdits) et doit être relu par le porteur.
+- L'étape « Mustache » de la CI de Moodle elle-même (approche locale seulement).
+
+### Documentation
+- README en deux niveaux (lot Q2) : `README.md` devient une présentation courte en anglais (134 lignes au lot Q2, 138 après la documentation finale : ce que fait le plugin et ce qu'il ne fait pas, état alpha, prérequis, installation, rôles et droits, données personnelles, documents publiés, licence), pour le répertoire des plugins de Moodle ; tout le texte français d'avant est dans `README.fr.md`, copié à l'octet près du `README.md` du commit `5218a68` (empreinte SHA-256 identique), avec une seule ligne ajoutée en tête qui renvoie à la version anglaise ; les sept lignes que le lot Q1 réécrit ensuite (renvois vers des documents non publiés) sont notées à la ligne suivante.
+- Plus aucun renvoi vers un document absent (lot Q1) : un fichier publié ne renvoie plus qu'à un document publié (les sept de `docs/` et `docs/schema/`). Les renvois vers les guides d'usage, la liste de travail, le banc d'essai, les notes de conception, les fiches de relecture, l'inventaire de `mod_referentiel`, la fiche de dérogation et le mémo juridique (qui n'existe pas) sont remplacés, dans `README.fr.md`, ce journal, les documents publiés, `Makefile`, `scripts/doctor.sh` et des commentaires de code et d'essais, par une phrase qui dit ce que le lecteur doit savoir ; la FAQ reprend le texte du modèle de lettre de l'employeur et de la consigne du forum d'entraide (sept lignes de l'ancien README réécrites, aucune information retirée). `scripts/doctor.sh` contrôle la fiche de dérogation et le mémo juridique là où le dossier des dérogations existe (dépôt de travail) et dit ailleurs que ces contrôles ne s'appliquent pas. Nouveau contrôle `scripts/verifier-renvois.mjs` (`make renvois`, appelé par `make valider`) : il échoue, une ligne par renvoi fautif, quand un fichier publié renvoie à un document de `docs/` absent ou non publié.
+- Protocole d'essai réel (lot Q9) : un document de travail du porteur, non publié, tiré de la répétition générale du guide d'installation (partie 12), dit pour quatre personnes (administrateur, vaeiste, responsable, direction) ce qu'on leur demande, ce qu'on note et où elles butent, avec une grille de synthèse en faits. Écrit et relu contre le guide et le code ; jamais joué à l'écran, l'essai relève du porteur.
+- Documentation finale des lots S3 à S5 et Q1 à Q10 (17 novembre 2026). Guide d'installation : en-tête au build 2026111606 avec ce qui a été essayé et ce qui ne l'a pas été, « Démarrage en dix étapes » en tête (dans l'ordre de la page « Mise en route », chaque ligne renvoyant à sa partie), chemins de menu sous *Compétences → VAE*, la page « Mise en route » et l'ordre des pages de la catégorie (partie 5), les sept groupes de la page de réglages (partie 9, avec les quatre paliers d'auto-positionnement qui manquaient au tableau), le lien « VAE » de la barre du haut et le lien « Aide » des onglets (parties 7, 12 et 14 ; les liens du profil restent), et la durée de l'archive : celle que le vaeiste produit lui-même est gardée tant que son compte existe, celle d'un tiers 24 heures (le guide disait 24 heures pour toutes). FAQ : une partie « Pour tous » (où trouver le plugin, l'aide de chaque rôle, l'encadré « Ce que vous pouvez faire maintenant »), chemins de menu, renvoi au glossaire de `README.fr.md`, et la lecture des versions enregistrées par le rôle « Direction VAE » que propose le plugin. `README.fr.md` : état au build 2026111606 avec les chiffres des suites jouées en local le 17 novembre 2026, une section sur les lots S1 à S5, les chemins de menu, l'accessibilité et le coût de lecture tels que les lots Q7 et Q8 les ont mesurés, les lots S1 à Q10 dans « Où en est le développement », et deux phrases qui disaient à tort qu'axe-core avait tourné (dix-huit lignes de l'ancien README réécrites par cette documentation, vingt-cinq avec le lot Q1, chacune notée mot pour mot hors du dépôt ; chaque information gardée ou corrigée). `README.md` remis d'accord. `Makefile` : le message de `make valider` ne cite plus de chiffres datés, il renvoie à ce journal. Nom de l'étape Behat des deux fichiers de CI : « dont les scénarios @javascript et axe-core », vrai depuis le lot Q7.
+
+### Vérifié (suites complètes sur l'état final)
+- Le 17 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), arbre de travail au build 2026111606, après la réinitialisation des sites d'essai : suite PHPUnit complète **OK (2 148 essais, 17 414 assertions)** en 35 min 37 s ; Behat sans JavaScript **190 scénarios, 2 614 pas**, verts, en 6 min 26 s ; Behat avec JavaScript, dans un vrai navigateur, **13 scénarios, 225 pas**, verts, en 3 min 26 s, dont les scénarios d'accessibilité axe-core ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques verts. Jouées l'une après l'autre, seules sur le conteneur. **Non vérifié** : MariaDB et l'étape Mustache de la CI, lues seulement après le commit.
+
+---
+
+## [2.5.03 — build 2026111605] — 2026-11-16
+
+**Gabarits Mustache pour les écrans des lots S1 et S2 (lot Q10, qualité : rien ne change à l'écran).** Le brief demandait d'évaluer, pour les seules pages créées par les lots S1 et S2, des gabarits Mustache à la place du HTML construit en PHP, et d'y renoncer si cela compliquait ces lots. L'évaluation est concluante : les deux écrans gardent le même HTML (mêmes balises, classes, identifiants, textes et liens ; seuls des blancs entre balises diffèrent) et leurs essais gardent leur sens, sans retouche d'une seule assertion. La page « Mise en route » est écrite par `templates/setup_screen.mustache`, le bandeau « Ce que je peux faire maintenant » (ses deux blocs, vaeiste et responsable) par `templates/next_actions.mustache`. La logique reste en PHP : le contrôle du droit qu'un lien demande (`has_capability`), le singulier ou le pluriel, la phrase « rien en attente » ; les gabarits ne contiennent aucune chaîne en dur ni aucun contrôle de droit, et échappent une seule fois, comme avant. Le reste du plugin, qui construit son HTML en PHP, n'est pas réécrit : c'est hors du périmètre du brief.
+
+### Ajouté
+- `templates/setup_screen.mustache` et `templates/next_actions.mustache`, avec leur docblock (en-tête GPL, `@template`, variables du contexte, contexte d'exemple en JSON).
+- Essais : dans `tests/setup_screen_test.php` et `tests/next_actions_screen_test.php`, un essai chacun qui rend le gabarit avec le contexte d'exemple de son docblock et vérifie que le rendu n'est pas vide.
+
+### Modifié
+- `classes/local/setup_screen.php` et `classes/local/next_actions_screen.php` : mêmes méthodes publiques, mêmes signatures, même HTML rendu ; elles construisent un contexte (textes déjà rédigés, adresses non échappées) et appellent `render_from_template`. Elles n'emploient plus `html_writer`.
+- `version.php` : 2026111605 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée ; elle fait purger les caches, donc relire les gabarits).
+
+### Vérifié
+- Le 16 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), arbre de travail : les deux essais nouveaux rouges avant les gabarits (2 échecs sur 17 essais : fichier de gabarit absent), puis les essais des deux écrans et de leurs données (`setup_screen`, `setup_checklist`, `next_actions_screen`, `next_actions`) **OK (66 essais, 378 assertions)** ; ancien et nouveau rendu comparés sur les mêmes données (Mise en route vue par l'administrateur et par un lecteur sans droit, une étape en deux parties du guide avec un texte à échapper, les deux blocs pleins, au singulier et vides) : identiques une fois retirés les blancs entre balises (10 871 octets chacun) ; chaque gabarit rendu avec son contexte d'exemple et validé par le validateur Nu, sans erreur ; Behat : `setup.feature` **4 scénarios, 33 pas**, `next_actions.feature` **5 scénarios, 60 pas**, `settings_tree.feature` **2 scénarios, 22 pas**, `organisation.feature` **7 scénarios, 105 pas**, `organisation_followed.feature` **8 scénarios, 120 pas**, verts ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques verts.
+
+### Non vérifié
+- L'étape « Mustache » de la CI de Moodle (`moodle-plugin-ci mustache`) elle-même : elle n'est jouée qu'après un commit ; ici, son approche locale (rendu du contexte d'exemple et validateur Nu).
+
+### Qualité du paquet (sans effet sur le site)
+- Contrôle d'accessibilité axe-core des écrans à tableaux (lot Q7). Aucun contrôle axe-core n'avait jamais tourné sur ce plugin : le pas `the page should meet accessibility standards` n'existait dans aucun scénario. Ajouté : `tests/behat/accessibility.feature` (étiquettes `@javascript` et `@accessibility`), quatre scénarios sur des tableaux remplis, chacun lit d'abord une cellule puis demande le contrôle de la page entière avec le jeu par défaut du cœur (WCAG 2.2 A et AA, section 508, ARIA) : « Mon parcours » d'un vaeiste (tableau de la fiche avec déclarations, cours, activité, plan, et bandeau « Ce que je peux faire maintenant ») ; « Vaeistes suivis » d'un responsable qui en suit trois (tableau et bandeau) ; « Organisation » de la direction (fiches, grille des acteurs, droits, cohortes avec une cohorte rattachée par la page « Cohort roles management » du cœur, réglages) ; « Mise en route » de l'administrateur. Axe n'a relevé aucun défaut, ni dans le HTML du plugin ni dans celui du cœur ou du thème : aucun code n'est corrigé, aucune région n'est restreinte, d'où l'absence de version. Vérifié le 16 novembre 2026 dans un vrai navigateur (chromium sans écran, « Accessibility: Yes » au démarrage) : **4 scénarios, 104 pas, verts** ; le contrôle peut échouer : sans l'étiquette `@accessibility` (copie du site seulement), le cœur lève « Accessibility tests using Axe must have the @accessibility tag » ; avec une image sans `alt` ajoutée dans la copie du site au nom de chaque vaeiste suivi, le scénario « Vaeistes suivis » est rouge sur « 3 violations of rule 'image-alt' » ; copie restaurée ensuite. Sans JavaScript, les 185 scénarios du plugin (2 565 pas) restent verts ; essais PHPUnit des écrans **OK (151 essais, 900 assertions)**. **Non vérifié** : l'interface en français, le thème autre que Boost, les écrans hors de ces quatre (dossier, déclaration, pages d'import) ; axe ne contrôle qu'une partie des critères WCAG (pas l'ordre de lecture ni la clarté des textes).
+- Mesure de charge de la page Organisation (lot Q8). Le README disait le coût de lecture de la page non mesuré sur un grand site. Ajouté : `tests/organisation_load_test.php`, qui compte les lectures de la base (`perf_get_reads()`) des trois onglets et du lien « VAE » de la barre : `organisation::for_candidate()` (« Mon parcours », lu par le vaeiste), `organisation::followed()` suivi de `next_actions::for_manager()` (« Vaeistes suivis », lu par un responsable, comme `organisation.php` les appelle), `organisation::site()` (« Organisation », lu par une direction qui n'a que `viewany`) et `organisation::entry_url()`. Chaque onglet est lu sur un petit jeu, puis le jeu grandit d'une dimension à la fois, et l'on compte de nouveau. Mesure à froid : chaque appel est fait une fois, puis les caches de contextes, de droits et d'informations de cours de la requête sont vidés (comme au début d'une page) et le second appel est compté ; les caches d'application du cœur restent chargés, comme sur un site en service. L'essai affirme une borne par dimension, écrite à partir de la mesure : égalité entre les deux tailles là où rien ne croît, plafond par élément ajouté ailleurs, jamais un nombre absolu. Aucune classe du plugin n'est modifiée. Avec la variable d'environnement `TOOL_VAE_LOAD_REPORT=1` (par exemple `TOOL_VAE_LOAD_REPORT=1 vendor/bin/phpunit --filter organisation_load_test`), l'essai écrit sur la sortie d'erreur le tableau ci-dessous ; sans elle, il n'écrit rien. Mesures du 16 novembre 2026 (PostgreSQL 17, Moodle 5.3.0, arbre de travail) :
+
+| Onglet | Ce qui grandit | Petite taille | Grande taille | Lectures (petite) | Lectures (grande) | Lectures par élément ajouté |
+|---|---|---|---|---|---|---|
+| Mon parcours | fiches déclarées | 2 | 30 | 30 | 114 | 3 |
+| Mon parcours | compétences par fiche (30 fiches) | 1 | 5 | 114 | 114 | 0 |
+| Mon parcours | plans | 1 | 5 | 114 | 122 | 2 |
+| Mon parcours | cours distincts liés | 1 | 30 | 122 | 151 | 1 |
+| Vaeistes suivis | vaeistes suivis | 10 | 100 | 32 | 122 | 1 |
+| Vaeistes suivis | vaeistes suivis : la liste seule (`access::followed_candidates()`) | 10 | 100 | 21 | 111 | 1 |
+| Vaeistes suivis | plans par vaeiste (100 vaeistes) | 1 | 5 | 122 | 122 | 0 |
+| Vaeistes suivis | fiches par vaeiste (3 fiches distinctes en tout) | 1 | 3 | 122 | 124 | 1 par fiche distincte |
+| Lien « VAE » de la barre (responsable) | vaeistes suivis | 10 | 100 | 1 | 1 | 0 |
+| Organisation | fiches | 2 | 30 | 26 | 26 | 0 |
+| Organisation | cours distincts liés | 1 | 30 | 26 | 55 | 1 |
+| Organisation | cours portant une activité | 1 | 30 | 55 | 113 | 2 |
+| Organisation | activités dans un même cours | 1 | 30 | 113 | 113 | 0 |
+| Organisation | cohortes | 1 | 30 | 113 | 113 | 0 |
+
+  Ce qui croît, et avec quoi (requêtes lues une à une dans le journal SQL de l'essai) : « Mon parcours » croît de 3 lectures par fiche déclarée (son nom, `competency_gateway::framework_name()`, et ses compétences, `list_framework_competencies()`, lues deux fois : dans `organisation::for_candidate()` et dans `coverage::for_candidate()`), de 2 par plan (`plan_competency_ids()`, « one query per plan » dit le code) et de 1 par cours distinct (le contexte du cours, pour le droit de voir ses compétences) ; il ne croît pas avec le nombre de compétences d'une fiche. « Vaeistes suivis » croît de 1 lecture par vaeiste suivi, toute dans la liste (le contexte de chaque vaeiste, lu par `access::follows()`, décision D9) ; la suite de la page retrouve ces contextes en cache ; les plans de tous les vaeistes sont lus d'un coup, et chaque fiche distincte coûte son nom. Le lien « VAE » coûte 1 lecture, quel que soit le nombre de vaeistes suivis. « Organisation » ne croît ni avec les fiches, ni avec les cohortes, ni avec les activités d'un même cours ; il croît de 1 lecture par cours distinct (son contexte) et de 2 par cours qui porte une activité (`get_fast_modinfo()`, appelé par `organisation::describe_activity()`, lit la ligne du cours et charge d'un coup les contextes de ses activités).
+
+  Points chauds constatés, du plus lourd au plus léger sur le grand jeu, **sans correction** :
+  1. « Vaeistes suivis », `classes/local/access.php`, `followed_candidates()` : de 10 à 100 vaeistes suivis, 90 lectures de plus (32 → 122), une par contexte de vaeiste. Proposition au porteur : lire les contextes dans la même requête, comme le fait déjà `follows_anyone()` (`context_helper::get_preload_record_columns_sql()` puis `preload_from_record()`) ; l'onglet ne croîtrait plus avec le nombre de vaeistes suivis (gain attendu de l'ordre de 100 lectures pour 100 vaeistes, non mesuré).
+  2. « Mon parcours », `classes/local/organisation.php`, `for_candidate()`, et `classes/local/coverage.php`, `for_candidate()` : de 2 à 30 fiches déclarées, 84 lectures de plus (30 → 114), 3 par fiche. Proposition au porteur : lire les noms et les compétences de toutes les fiches en une requête chacun, comme `site()` le fait déjà par `framework_summaries()` et `competencies_of_frameworks()`, et passer à `coverage` les compétences déjà lues (gain attendu de l'ordre de 85 lectures pour 30 fiches, non mesuré).
+  3. « Organisation » et « Mon parcours », cours : 1 lecture par cours distinct (`organisation::readable_courses()`, par `competency_gateway::can_view_course_competencies()`), 29 lectures pour 30 cours ; et, sur « Organisation », 2 de plus par cours qui porte une activité (`organisation::describe_activity()`, `get_fast_modinfo()`), 58 lectures pour 30 cours. Proposition au porteur : charger les contextes des cours dans la requête de `competency_gateway::courses_with_competencies()` ; le coût de `get_fast_modinfo()` est celui du cœur.
+  4. « Mon parcours », `organisation::for_candidate()` : 2 lectures par plan (`competency_gateway::plan_competency_ids()`), 8 pour 5 plans. Léger : un vaeiste a peu de plans. Pas de proposition.
+  5. « Vaeistes suivis », `organisation::add_fiches()` : 1 lecture par fiche distincte déclarée par les vaeistes suivis (`framework_name()`), 2 pour 2 fiches ajoutées à 100 vaeistes (200 déclarations). Léger. Pas de proposition.
+
+  Durée de l'essai : 6,5 s (3 essais, 35 assertions), 8 s avec le démarrage de PHPUnit. **Non vérifié** : MariaDB (seulement en CI ; les bornes sont des égalités entre tailles et des plafonds par élément, pas des nombres absolus) ; la page entière (`organisation.php` appelle aussi `default_tab()`, `require_tab()` et `tabs()`, qui relisent la liste des vaeistes suivis : non compté ici) ; les cours cachés (le jeu n'a que des cours visibles) ; le temps de réponse (l'essai compte des lectures, pas des millisecondes) ; un vrai grand site (les tailles sont celles du brief : 30 fiches, 30 cours, 100 vaeistes, 5 plans).
+
+---
+
+## [2.5.03 — build 2026111604] — 2026-11-16
+
+**Le JavaScript des pages en modules AMD (lot Q4, qualité : rien ne change à l'écran).** Quatre scripts étaient écrits dans le PHP et émis par `js_init_code` : l'enregistrement automatique d'une rubrique de dossier (`section.php`) et d'une situation de travail (`situation_screen::autosave()`), les rappels d'anonymisation reliés à leurs champs (`reminder_pointers`) et le bouton de confirmation de l'aide de l'IA qui ne part qu'une fois (`ai.php`). Ce sont désormais trois modules construits, servis par le cœur depuis `amd/build` : `tool_vae/autosave`, `tool_vae/reminder_pointers` et `tool_vae/submit_once`. Leur code est celui des scripts, ligne à ligne. Les deux écritures de l'enregistrement automatique ne font plus qu'un module, qui reçoit de la page ce qui les distinguait : le champ du texte (`id_text` ou `id_content`) et l'exception d'un envoi vers un nouvel onglet (le bouton de l'aide, sur une rubrique seulement). La clé de session est toujours passée par la page. Le plugin n'appelle plus `js_init_code` nulle part.
+
+### Ajouté
+- `amd/src/autosave.js`, `amd/src/reminder_pointers.js`, `amd/src/submit_once.js` et leur construction `amd/build/*.min.js` et `*.min.js.map` (Grunt du cœur, ESLint sans avertissement).
+- `situation_screen::autosave_config()` : ce que la page passe au module d'enregistrement automatique, pour une situation et pour une rubrique.
+- Essais : `tests/javascript_modules_test.php` (4 essais : le module demandé et ses arguments pour une situation et pour une rubrique, la table des rappels par formulaire, la taille des arguments sous le seuil du cœur sur le formulaire qui porte le plus de rappels) ; `tests/behat/javascript_modules.feature` (5 scénarios avec un vrai navigateur : enregistrement automatique sur une rubrique, sur une rubrique après un appel de l'aide dans un nouvel onglet, sur une situation ; rappels reliés aux champs de la déclaration, chacun une fois ; envoi de la confirmation de l'aide).
+
+### Modifié
+- `ai.php`, `section.php`, `classes/local/situation_screen.php`, `classes/form/reminder_pointers.php` : appellent `js_call_amd` ; `reminder_pointers::script()` disparaît avec le script qu'elle écrivait.
+- `tests/evidence_manager_test.php` : l'essai des rappels (T-72) vérifie ce que la page passe au module (chaque champ et ses rappels) et que la source et le fichier construit du module portent encore les trois propriétés de l'ancien essai (lecture de l'attribut existant, pas de doublon, identifiant sans cible ignoré) ; la fusion elle-même n'est PAS jouée dans le navigateur (le scénario Behat voit l'attribut que le serveur écrit déjà).
+- `.gitignore` : `amd/build` et `*.min.js` ne sont plus ignorés (le cœur sert la construction, la CI la compare à la source).
+- `version.php` : 2026111604 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée).
+
+### Vérifié
+- Le 16 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), arbre de travail : `javascript_modules_test` et l'essai adapté de `evidence_manager_test` rouges avant les modules (1 erreur, 4 échecs : méthode absente, aucun module demandé), puis, avec les essais des situations, des brouillons et de l'aide de l'IA, **OK (162 essais, 1235 assertions)** ; Behat dans un vrai navigateur (chromium sans écran) : `javascript_modules.feature` **5 scénarios, 78 pas, verts** sur les anciens scripts puis sur les modules, et rouge (3 scénarios d'enregistrement automatique en échec) quand le module construit `amd/build/autosave.min.js` est neutralisé dans la copie du site, ce qui montre que le site de test sert la construction ; sans JavaScript : `ai.feature` **8 scénarios, 115 pas**, `faisabilite.feature` **5 scénarios, 67 pas**, `situation.feature` **7 scénarios, 152 pas**, `draft_history.feature` **3 scénarios, 41 pas**, verts ; Grunt du cœur (`amd`, `gherkinlint`) sans avertissement, `amd/build` à jour ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques verts.
+- Taille des arguments passés à `js_call_amd` : 147 caractères pour la table des rappels du formulaire qui en porte le plus (la déclaration, deux champs et deux rappels chacun), moins de 300 pour l'enregistrement automatique, loin du seuil de 1024 au-delà duquel le cœur avertit.
+
+### Non vérifié
+- Le scénario des rappels lit l'attribut tel que la page le donne sans erreur de champ : le cas d'un champ revenu en erreur (T-72), où le module ajoute les rappels après l'identifiant de l'erreur, n'est pas joué dans le navigateur (les erreurs de ces champs sont d'abord arrêtées par la vérification du navigateur).
+
+### Qualité du paquet (sans effet sur le site)
+- `version.php` allégé (lot Q5), de 196 à 70 lignes. Retirés : les commentaires d'historique, un par version (lots 7 ter à 8 quinquies, 0.13.0 à 0.47.0, 01.5.3, builds 2026110301 à 2026111603, 2.5.03). Chaque fait qu'ils portaient se lit dans ce journal ; ceux qui n'y étaient pas y ont été ajoutés avant le retrait : l'entrée « builds 2026110301 à 2026110404 », et la raison du numéro de version dans les entrées 0.7.1 (monté deux fois), 0.8.0, 0.8.1, 0.8.2, 0.8.3, 0.8.4 (étape 2026101302 du paquet 5.3, 2026101203 sur le paquet 4.5) et 0.10.1. Restent : l'en-tête, la contrainte de la migration 4.5 → 5.3 (le numéro 4.5 reste sous 2026101403, copie idempotente de l'étape 2026101311, comme le disent `db/upgrade.php` et `docs/BRANCHES.md` ; l'ancien commentaire disait encore 2026101311), la règle de numérotation de `version` et de `release`, ce qui explique `requires` (2026100500.00, Moodle 5.3.0), `supported`, `incompatible` (LTS seulement, deux paquets, `MOODLE_405` plus maintenu) et `maturity`, la note de licence, et un renvoi à ce journal pour l'historique. Aucune valeur ne change. Vérifié le 16 novembre 2026 : le contrôle du lot, rouge avant (196 lignes), dit ensuite que `component`, `requires`, `supported`, `incompatible`, `maturity` et `release` n'ont pas changé (ni `version`, 2026111604) et que les 37 numéros de version cités par l'ancien fichier sont tous dans ce journal ; essais `role_installer` (dont le dernier point de sauvegarde égal à la version lue dans `version.php`) **OK (15 essais, 77 assertions)** ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques verts.
+- En-tête GPL de Moodle (lot Q6) sur les cinq scripts qui ne l'avaient pas : `scripts/convertir-fiche-rncp.php`, `scripts/verifier-langue.php`, `scripts/verifier-privacy.php`, `scripts/migration/seed.php` et `scripts/migration/verify.php`. Les quatorze lignes de `lib.php`, à l'identique, suivies d'une ligne vide, juste après `<?php` ; rien d'autre ne change (15 lignes ajoutées par fichier, aucune retirée), et pas de contrôle `MOODLE_INTERNAL` : ces scripts tournent hors de Moodle. Tous les fichiers PHP du plugin portent désormais l'en-tête. Vérifié le 16 novembre 2026 : contrôle du lot rouge avant (les cinq scripts nommés), puis vert sur 370 fichiers PHP ; `verifier-langue.php` et `verifier-privacy.php` joués hors de Moodle par les contrôles statiques, verts, et syntaxe de tous les fichiers PHP sans erreur ; `convertir-fiche-rncp.php` du dernier commit et celui-ci joués hors de Moodle sur huit cas (sans argument, fichier illisible, les cinq fiches des exports inventés de `tests/fixtures/` et un numéro absent ; trois refus) : mêmes codes de retour, mêmes sorties et mêmes fichiers écrits, à l'octet. **Non vérifié** : `seed.php` et `verify.php` ne tournent que dans le job `migration` de la CI (un Moodle 4.5 puis un Moodle 5.3) ; ici, syntaxe seulement.
+
+---
+
+## [2.5.03 — build 2026111603] — 2026-11-16
+
+**Un seul lecteur de la requête telle que PHP l'a reçue (lot Q3, qualité : rien ne change à l'écran).** Le plugin lisait directement les superglobales à cinq endroits : les trois dépôts de fichier (`piece.php`, `situation.php`, `import_fiches.php`, avec la détection d'un dépôt plus gros que `post_max_size`), le script d'enregistrement automatique (`autosave.php`, POST seulement) et la lecture d'un paramètre envoyé comme tableau (`hidden_frameworks`). Ces lectures passent désormais par une seule classe, `tool_vae\local\raw_request`, dont le commentaire dit une fois pour toutes pourquoi elles existent. Les pages gardent l'ordre de leurs contrôles, le moment où le dépôt est pris (avant que le formulaire soit construit) et leurs messages : `errorpiecenofile`, `errorpiecetoolarge` (avec la taille) et `errorpiecefile` pour les pièces et les situations ; `fiche_refusal::ZIP_MISSING` et `fiche_refusal::UPLOAD` pour l'import, où un fichier trop gros reste un `UPLOAD`.
+
+### Ajouté
+- `classes/local/raw_request.php` : `is_post()`, `upload()`, `post_emptied()`, `upload_state()` (aucun fichier, champ envoyé en tableau, trop gros, en erreur, reçu ; `$checkuploaded` pour les essais) et `single_param()`.
+- Essais : `tests/raw_request_test.php` (5 essais : chaque état d'un dépôt, le POST vidé par `post_max_size` et rien d'autre, le paramètre lu comme une seule valeur, POST ou non ; les superglobales sont remises dans leur état d'origine).
+
+### Modifié
+- `piece.php`, `situation.php`, `import_fiches.php`, `autosave.php`, `classes/local/hidden_frameworks.php` : appellent `raw_request` et ne lisent plus aucune superglobale ; leurs commentaires renvoient à la classe.
+- `fiche_import::upload_path()` : même signature, même comportement, l'état du dépôt lu par `raw_request::upload_state()`.
+- `version.php` : 2026111603 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée).
+
+### Vérifié
+- Le 16 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), arbre de travail : `raw_request_test` rouge avant la classe (5 essais en erreur, classe introuvable), puis **OK (5 essais, 36 assertions)** ; avec les essais du dépôt, des référentiels cachés, du consentement, des pièces, des situations et des brouillons **OK (190 essais, 1967 assertions)**, sans changer `fiche_import_test`, `framework_hidden_test`, `consent_manager_test` ni `piece_manager_test` ; Behat sans navigateur : `piece.feature` (dépôt réel d'un fichier) **6 scénarios, 76 pas, verts**, `import_fiches.feature` (dépôt réel d'un export et ses refus) **16 scénarios, 181 pas, verts**, `situation.feature` **6 scénarios, 130 pas, verts**, `draft_history.feature` **3 scénarios, 41 pas, verts**, `framework_hidden.feature` **7 scénarios, 105 pas, verts** ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques verts.
+
+### Non vérifié
+- Aucun scénario ne dépassait `post_max_size` : ce chemin est prouvé par les essais de `raw_request` et par la relecture, pas à l'écran. Les deux autres chemins d'abord écrits ici ont été joués ensuite : un scénario ajouté à la relecture dépose réellement un fichier sur `situation.php` (`situation.feature` **7 scénarios, 152 pas, verts** ; rouge quand `raw_request::upload()` est neutralisé dans la copie du site, puis copie restaurée), et `autosave.php` est appelé dans un vrai navigateur par `javascript_modules.feature` (build 2026111604).
+
+---
+
+## [2.5.03 — build 2026111602] — 2026-11-16
+
+**Réglages groupés sous des titres, pages d'administration rangées dans une catégorie « VAE » (lot S4).** Les 20 réglages de la page « VAE : réglages » sont rangés sous sept titres, dans cet ordre : attestations et rappels ; dossiers de faisabilité et de validation ; pièces justificatives ; aide de l'IA ; copies modifiables ; positionnement ; import des fiches. Chaque titre porte un texte qui dit, en une phrase par réglage du groupe, ce que ce réglage ouvre ou fixe pour le vaeiste ; les descriptions de chaque réglage restent telles quelles. La page de réglages et les dix pages du plugin sont rangées dans une catégorie « VAE » sous *Compétences*, « Mise en route » en premier, puis la page du plugin, les rôles, les réglages, l'organisation, les déclarations en attente, les certifications à renouveler, les responsables autorisés, les fiches remplacées, les référents et les règles de validation. Aucun nom de réglage ni de page ne change, aucun type, aucune valeur par défaut, aucune condition d'affichage ; la mise à jour n'écrit aucune valeur.
+
+### Ajouté
+- Catégorie d'administration `toolvaefolder` (« VAE ») sous `competencies`, créée sans condition avant toute page : une direction qui n'a que `tool/vae:viewany`, une personne qui n'a que `moodle/role:manage` ou que `tool/vae:import` y trouve ses pages ; une catégorie dont la personne ne peut ouvrir aucune page ne lui est pas montrée (le cœur, `category::check_access()`).
+- Sept titres de groupe (`admin_setting_heading`, noms `tool_vae_group*`, qui ne stockent rien) ; celui de l'import est, comme son réglage, sous `$ADMIN->fulltree`.
+- Chaînes `adminfolder`, `settingsgroup*` et `settingsgroup*_desc` (15 clés, en français et en anglais).
+- Essais : `tests/settings_tree_test.php` (5 essais : les 20 réglages avec leur nom complet et leur valeur par défaut d'avant le lot, les sept titres et l'ordre exact titre puis réglages, une phrase par réglage dans le texte de chaque titre, les onze pages de la catégorie dans l'ordre, ce que trouve chaque droit), `tests/behat/settings_tree.feature` (2 scénarios).
+
+### Modifié
+- `settings.php` : réglages regroupés, pages rangées dans la catégorie ; commentaire d'en-tête mis à jour.
+- `tests/integration_test.php` : la page `toolvae` doit être dans la catégorie `toolvaefolder`, elle-même enfant direct de `competencies` (même sens : la page est rangée sous Compétences).
+- `tests/behat/lot0_skeleton.feature` : chemin « Competencies > VAE > VAE - pathway ».
+- Chaîne `errornocompetencescale` : chemin « Administration du site, Compétences, VAE, VAE : réglages ».
+- `version.php` : 2026111602 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée).
+
+### Vérifié
+- Le 16 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), arbre de travail : `settings_tree_test` rouge avant le code (4 essais sur 5 en échec : 0 titre au lieu de 7, catégorie absente ; l'essai des 20 réglages et de leurs valeurs par défaut passait déjà sur l'ancien `settings.php`, ce qui prouve la liste attendue), puis vert ; essais de l'arbre et voisins (`settings_tree`, `integration_test`, `renewal_report`, `organisation_site`, `setup_checklist`, `setup_screen`) **OK (95 essais, 550 assertions)** ; `tests/behat/settings_tree.feature` rouge avant le code (2 scénarios en échec), puis **2 scénarios, 22 pas, verts** ; `lot0_skeleton.feature` avec le navigateur piloté **5 scénarios, 29 pas, verts** ; `setup.feature` **4 scénarios, 33 pas, verts** ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques verts ; gherkinlint vert ; fins de ligne LF.
+- Mutations jouées puis restaurées : la page `toolvae` remise directement sous `competencies` rend `integration_test` rouge ; la catégorie créée seulement pour `$hassiteconfig` rend rouge l'essai des droits (la direction qui n'a que `viewany` ne trouve plus ses pages).
+
+### Non vérifié
+- MariaDB : CI après le commit. (La mise à jour d'un site déjà installé en 2026111601, d'abord laissée à la relecture, a ensuite été faite sur le site local le 16 novembre 2026 : des valeurs de configuration du plugin, seule la ligne `version` change.)
+- L'ancien chemin « Competencies > VAE - pathway » passe encore dans `lot0_skeleton.feature` : le pas du cœur trouve le lien sur la page de la catégorie *Compétences*, qui liste aussi les pages des sous-catégories ; le scénario ne prouve donc pas à lui seul la place de la page, que prouvent `integration_test` et `settings_tree_test`.
+
+---
+
+## [2.5.03 — build 2026111601] — 2026-11-16
+
+**Un lien « VAE » dans la barre du haut de Moodle (lot S3).** À côté de « Tableau de bord » et « Mes cours », un lien « VAE » mène à `organisation.php`. Il n'est montré qu'à qui peut ouvrir un onglet de cette page (le vaeiste, le responsable qui suit au moins un vaeiste, la direction qui détient `viewany`), jamais en session « Se connecter en tant que ». La page choisit l'onglet comme avant ; compétences désactivées, le lien n'est montré qu'au titre de `viewany` et porte `tab=site`, comme le lien du profil. Sur les trois onglets, « VAE » est l'entrée active de la barre. Les quatre liens du profil (`lib.php`) ne changent pas. Aucun droit, aucune table, aucun réglage, aucun cache ajouté. La conception du lot S3 est gardée dans le dépôt de travail du porteur.
+
+### Ajouté
+- `db/hooks.php` : un seul écouteur, sur `\core\hook\navigation\primary_extend` ; classe `hook_callbacks` (clé du nœud `toolvae`). L'écouteur se tait pendant l'installation ou une mise à jour du site, et tant que le plugin n'est pas installé ; une erreur de la règle est signalée aux développeurs et le lien est omis, sans casser la page.
+- `organisation::entry_url()` : la règle du lien (connecté et non invité ; pas de « Se connecter en tant que » ; `viewany` ; puis, compétences activées, son propre dossier ou au moins un vaeiste suivi), du test le moins coûteux au plus coûteux, arrêt au premier oui.
+- `access::follows_anyone()` : « suit-il au moins un vaeiste ? » en une requête qui rapporte aussi les contextes (préchargés), chaque ligne passée par `access::follows()`, même garde que `followed_candidates()` (inchangée).
+- Chaîne `navlink` (« VAE » en français et en anglais).
+- Essais : `tests/entry_link_test.php` (16 essais : la règle cas par cas, l'invariant avec `organisation::tabs()`, la borne de coût, le nœud de la barre, le silence pendant une mise à jour), `tests/behat/entry_link.feature` (4 scénarios sans JavaScript, puis 2 avec JavaScript ajoutés à la relecture : 6 scénarios).
+
+### Modifié
+- `organisation.php` : `$PAGE->set_primary_active_tab()` avec la clé du nœud, sur les trois onglets ; rien d'autre ne change.
+- `version.php` : 2026111601 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée ; elle fait relire au cœur la liste des hooks).
+
+### Vérifié
+- Le 16 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), arbre de travail : `entry_link_test` rouge avant le code (16 erreurs, méthodes absentes), puis vert ; essais du lien, des liens du profil et de la page **OK (53 essais, 208 assertions)** ; essais voisins (`organisation`, `next_actions`, `access_test`, `setup_screen`, `integration_test`, `candidates`) **OK (239 essais, 1 177 assertions)** ; `tests/behat/entry_link.feature` **4 scénarios, 33 pas, verts** ; suite Behat du plugin sans JavaScript **182 scénarios, 2 521 pas, verts** ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles statiques (MC-5, MC-2, MC-30, secrets, chaînes, RGPD, syntaxe) verts ; fins de ligne LF.
+- Lectures SQL de la règle, mesurées par `perf_get_reads()` sur une page dont le cœur a déjà lu les droits et le contexte de la personne : responsable qui suit 1 vaeiste **1**, qui en suit 30 **1**, personne qui a 30 rôles sans droit dans des contextes d'utilisateur **1**, personne sans aucun rôle **1**, direction **0**, vaeiste **0**.
+- Mutations jouées puis restaurées : sans le préchargement des contextes, l'essai de borne devient rouge (2, 2 et 31 lectures) ; sans la garde « Se connecter en tant que », quatre essais deviennent rouges ; sans `set_primary_active_tab()`, trois scénarios Behat sur quatre deviennent rouges (aucune entrée active).
+
+### Non vérifié
+- MariaDB : CI après le commit. Le rendu avec JavaScript avait d'abord été laissé à la CI ; il a ensuite été joué en local dans un vrai navigateur (chromium sans écran) par deux scénarios ajoutés à la relecture (le vaeiste suit le lien « VAE » de la barre et arrive sur « Mon parcours » ; une personne sans droit du plugin n'a pas le lien) : `entry_link.feature` **6 scénarios, 48 pas, verts**, le 16 novembre 2026.
+- La mise à jour d'un site déjà installé en 2026111600 (l'étape est vide).
+- Essai du cœur `lib/tests/navigation/views/primary_test.php`, cas « admin » : il attend exactement les entrées du cœur et voit aussi `toolvae` dès que le plugin est installé (l'administrateur détient `viewany`). Il n'est pas joué par la CI du plugin.
+
+---
+
+## [2.5.03 — build 2026111600] — 2026-11-16
+
+**Bandeau « Ce que je peux faire maintenant » (lot S2).** En tête de l'onglet « Mon parcours » (le vaeiste) et de l'onglet « Vaeistes suivis » (le responsable) de `organisation.php`, un bandeau dit ce qui est possible maintenant, avec un lien : jamais une progression, un pourcentage, un « N sur M » ni un verdict. Il n'écrit rien et ne nomme personne (un nombre et un lien). Aucune page n'est ajoutée ni supprimée (`dossier.php`, `candidates.php`, `pending.php` restent). La conception et le plan suivi du lot S2 sont gardés dans le dépôt de travail du porteur.
+
+### Ajouté
+- Classe `next_actions` (calcul, sans HTML ni écriture). Vaeiste : « Déclarer une activité » (aucune déclaration), « Répondre aux précisions demandées » (une précision sans réponse, avec son nombre au pluriel seulement ; un lien direct si une seule), « Reprendre mon dossier de faisabilité » (brouillon non versionné), « Se positionner » (aucun niveau d'auto-positionnement ne tient). Responsable : déclarations à attester (lien `candidates.php`), réponses à ses propres questions encore à lire sur une déclaration non attestée (lien vers la plus ancienne), dernier dépôt de faisabilité de chaque vaeiste sans avis (lien `deposit.php` du plus ancien). Une action n'est offerte que si le lecteur détient le droit (les prédicats du plugin sont appelés, jamais recopiés) ET si la règle, lue dans les tables, est vraie. Une requête par ligne, jamais une par vaeiste.
+- Classe `next_actions_screen` : rendu du bandeau ; une liste vide dit une phrase neutre, sans félicitation ni compteur à zéro.
+- 15 chaînes `nextactions*` en français et en anglais.
+- Essais : `tests/next_actions_test.php` (33), `tests/next_actions_screen_test.php` (8), `tests/behat/next_actions.feature` (5 scénarios).
+
+### Modifié
+- `organisation.php` : appel du bandeau en tête des deux onglets (sept lignes) ; rien d'autre ne change.
+- `version.php` : 2026111600 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée).
+
+### Corrigé avant le commit (relecture indépendante)
+- La ligne « réponses à lire » n'appelait aucun prédicat de droit : un vaeiste que le lecteur ne suit plus pouvait y figurer si la liste était fournie telle quelle. Elle passe maintenant par `access::can_view()`, le droit de la page qu'elle ouvre (essais rouges d'abord).
+- L'exclusion du propre dossier du lecteur n'était protégée par aucun essai : essai ajouté (rouge quand le filtre est retiré).
+- Le bouton du vaeiste lisait « précisions demandées (1) » pour une seule précision : singulier sans nombre, pluriel avec nombre (clé `nextactionsactions_answer`).
+- La phrase du vaeiste sans action (« Rien à faire de plus en ce moment. ») concluait que tout était fait, ce qui peut être faux (un dossier de faisabilité jamais commencé n'est pas une action proposée) : elle parle désormais du bandeau et non du parcours (« Aucune action n'est signalée ici en ce moment. » ; « No action is flagged here at the moment. »), sur décision de JLM du 16/11.
+- Deux cas de bord ajoutés aux essais : auto-positionnement retiré puis reposé sur le même nœud, et dépôt ancien avec avis suivi d'un dernier sans avis.
+
+### Vérifié
+- Le 16 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0), sur l'état final : suite PHPUnit complète **OK (2 095 essais, 15 967 assertions)** ; suite Behat hors JavaScript **178 scénarios, 2 488 pas, verts** (jouées l'une après l'autre, seules sur le conteneur) ; trois mutations de la classe (sans l'exclusion du lecteur, clé de nœud sur le rang seul, sans le filtre de lecture des réponses) rendues rouges puis restaurées ; standard de codage Moodle 0 erreur 0 avertissement sur l'arbre de travail ; contrôles de `make valider` rejoués un à un (`make` absent du poste) : MC-5, MC-2, MC-30 (231 fichiers), chaînes de langue, RGPD 31 tables, secrets, tous verts ; fins de ligne LF ; relecture indépendante du lot (aucun défaut critique ; quatre constats importants, tous traités ci-dessus). Le changement de texte de la phrase du vaeiste sans action est venu après ces suites complètes : rejoués ensuite `next_actions_screen_test` (8 essais, 112 assertions, rouge avant le changement puis vert), `next_actions_test` (33 essais), `tests/behat/next_actions.feature` (5 scénarios, 60 pas), phpcs 0/0, chaînes de langue, RGPD, LF.
+- Pages lues par HTTP sur l'instance avec des comptes d'essai : le responsable qui suit un vaeiste de 7 déclarations dont 1 attestée lit « 6 déclarations à attester » (recoupé par une requête SQL séparée), le lien s'ouvre (200) ; un vaeiste qui a déjà déclaré, sans niveau, sans précision ouverte et sans brouillon lit seulement « Se positionner », lien vers `selfposition.php` ; un lecteur qui ne suit personne est refusé sur l'onglet « Vaeistes suivis ». Rendu regardé dans le navigateur intégré sur des copies sauvegardées des deux pages, sans scripts.
+
+### Non vérifié
+- MariaDB ; le scénario `@javascript` de `lot0_skeleton` ; le vérificateur PHPDoc officiel : ils se lisent dans la CI, après le commit.
+- Sur l'instance réelle, les lignes « Déclarer une activité », « Répondre aux précisions », « Reprendre mon dossier », la phrase d'absence d'action et la ligne « dépôts sans avis » n'ont pas été vues (aucun compte d'essai dans ces états) : elles reposent sur PHPUnit et Behat.
+- Le rendu dans une session vivante du navigateur (hiérarchie des titres, contraste) ; la mise à jour d'un autre site que l'instance locale (celle-ci porte la version 2026111600, lue par `admin/cli/cfg.php` ; l'étape est vide).
+- Un vaeiste suspendu que le lecteur suit reste compté dans les trois lignes : aucune décision écrite.
+
+---
+
+## [2.5.03 — build 2026111500] — 2026-11-15
+
+**Page « Mise en route » (lot S1).** L'administrateur lit sur une page, dans l'ordre du guide d'installation, les étapes de la mise en service, chacune avec son état en mots (« Fait », « À faire », « À vérifier par vous ») et, s'il peut l'ouvrir, le lien vers l'écran qui la règle. La page n'écrit rien, ne conclut rien (ni total, ni pourcentage, ni message de fin) et ne lit aucune donnée personnelle. La conception et le plan suivi du lot S1 sont gardés dans le dépôt de travail du porteur.
+
+### Ajouté
+- Page `setup.php` (« Mise en route » / « Getting started »), entrée d'administration `toolvae_setup` (droit `tool/vae:import`), placée après `toolvae` sans déplacer aucune entrée existante.
+- Classe `setup_checklist` : huit étapes calculées sans HTML ni écriture (compétences activées, cron passé depuis moins de 24 heures, trois rôles de base par leur nom court, droits attendus donnés par un rôle du site, rôles attribués et cohortes rattachées, au moins une fiche importée dont le référentiel existe, contrat d'usage et politique de confidentialité, antivirus quand le dépôt de pièces est ouvert). Les étapes « rôles attribués » et « contrat d'usage » ne sont jamais « Fait ».
+- Classe `setup_screen` : rendu de la liste ; un lien n'est affiché que si le lecteur a le droit de l'écran visé, sinon le nom de l'écran et le droit qu'il demande, en texte.
+- Chaînes `setup*` en français et en anglais ; essais `tests/setup_checklist_test.php` (16), `tests/setup_screen_test.php` (7), `tests/behat/setup.feature` (4 scénarios).
+
+### Modifié
+- `organisation::role_rights()`, publique, extraite de `site_powers()` (droits donnés par les rôles et réglages, sans personne ni cohorte) ; `site_powers()` rend le même objet qu'avant (deux essais ajoutés à `tests/organisation_site_test.php`).
+- `index.php` : un lien vers la page, avant le contrôle des compétences ; rien d'autre ne change.
+- Résolveurs de pages Behat (`tests/behat/behat_tool_vae.php`) : page `Setup`.
+- Cinq libellés anglais de droits (`vae:evaluate`, `vae:viewassigned`, `vae:writeopinion`, `vae:attest`, `vae:viewany`) : « candidate » devient « vaeiste » ; les lignes d'essai qui les citent (`organisation_followed.feature`, `organisation_site.feature`, `access_control.feature`, `organisation_screen_test.php`) suivent. Environ 120 autres occurrences de « candidate » restent dans `lang/en/tool_vae.php`.
+- `version.php` : 2026111500 ; `db/upgrade.php` : une étape vide (aucun changement de schéma, de droit ni de donnée).
+
+### Vérifié
+- Le 15 novembre 2026 sur l'instance locale (PostgreSQL 17, Moodle 5.3.0) : site d'essai en version **2026111500** (lue par `admin/cli/cfg.php`) ; suite PHPUnit complète sur l'état final **OK (2 053 essais, 15 749 assertions)** ; suite Behat hors JavaScript **173 scénarios, 2 428 pas, verts** (jouées l'une après l'autre, seules sur le conteneur) ; après quoi trois changements de texte et d'essai (libellés anglais de `vae:attest` et `vae:viewany`, essai `givingroles`, garde `bg-success`) ont été rejoués : PHPUnit `setup_|organisation|access` 194 essais verts, Behat `setup`, `organisation_site`, `organisation_followed`, `access_control` verts, essai `givingroles` rouge sous mutation puis vert ; standard de codage Moodle 0 erreur 0 avertissement ; contrôles de `make valider` rejoués un à un (`make` absent du poste) : syntaxe des 14 fichiers touchés, MC-5, MC-30, chaînes de langue, RGPD 31 tables, secrets, tous verts ; fins de ligne LF ; schémas non rejoués (aucun changement de schéma).
+- Page ouverte dans un navigateur, compte administrateur, dans trois états réels : état courant ; compétences décochées dans « Fonctions avancées » (étape 1 « À faire », les sept autres calculées) puis recochées (« Fait ») ; antivirus ClamAV configuré (étape 8 « Fait ») puis remis comme avant (« À vérifier par vous »). Les sept liens affichés s'ouvrent (réponse 200, sans erreur). Aucune capture conservée.
+
+### Non vérifié
+- MariaDB ; le scénario `@javascript` de `lot0_skeleton` ; le vérificateur PHPDoc officiel : ils se lisent dans la CI, après le commit.
+- La page vue par un lecteur qui n'a que `tool/vae:import` : prouvée par essai PHPUnit et par le scénario Behat du refus, pas ouverte dans un navigateur.
+- L'étape « antivirus » dit « Fait » dès que l'antivirus est configuré, sans savoir s'il fonctionne (le chemin essayé n'existait pas dans le conteneur).
+
+---
+
 ## [2.5.03 — build 2026110409] — 2026-11-09
 
 **Publication.** Build préparé pour la publication du plugin sous l'étiquette 2.5.03 : dépôt public GitHub `jeanlouismartinez/tool_vae` et répertoire des plugins de Moodle ; le dépôt privé `moodle-tool_vae` (plateforme lavae.org) porte le même commit. **Aucun changement de code** par rapport au build 2026110408 : deux textes d'écran, deux commentaires, un essai et la documentation. Décisions du porteur du 9 novembre 2026 au soir : numéro de build neuf pour la publication ; maturité alpha gardée ; l'administrateur du site garde la possibilité de certifier ; la sauvegarde reste entière (positionnements de la structure, auto-positionnement et situations, annotations et accords compris) et l'administrateur qui la détient peut la lire.
@@ -26,7 +452,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Versionnage s
 
 ## [2.5.03 — build 2026110408] — 2026-11-09
 
-**Situations de travail dans le livret (priorité 1, lot 1b).** Le vaeiste décrit lui-même ses situations de travail : un titre, une période, un cadre, un texte en versions (avec son brouillon en cours), des étiquettes sur les éléments de son référentiel à partir du deuxième niveau (« ce dont cette situation témoigne »), des pièces (fichier ou lien, avec la « partie concernée »). Il donne, nominativement, un accord daté et retirable à un responsable qui le suit, pour que celui-ci annote ses situations et son auto-positionnement (la lecture reste celle du dossier : les responsables qui le suivent et la direction). **Rien n'est validé, rien n'est calculé** : une annotation est la parole d'un responsable, sans valeur de validation, et chaque écran le dit ; seul le jury valide, hors de la plateforme. Conception : `docs/superpowers/specs/2026-11-08-situation-de-travail-1b-design.md` ; plan suivi : `docs/superpowers/plans/2026-11-08-1b-situation-de-travail.md` (seize tâches, chacune relue par deux relecteurs indépendants puis corrigée rouge-vert ; registre hors dépôt).
+**Situations de travail dans le livret (priorité 1, lot 1b).** Le vaeiste décrit lui-même ses situations de travail : un titre, une période, un cadre, un texte en versions (avec son brouillon en cours), des étiquettes sur les éléments de son référentiel à partir du deuxième niveau (« ce dont cette situation témoigne »), des pièces (fichier ou lien, avec la « partie concernée »). Il donne, nominativement, un accord daté et retirable à un responsable qui le suit, pour que celui-ci annote ses situations et son auto-positionnement (la lecture reste celle du dossier : les responsables qui le suivent et la direction). **Rien n'est validé, rien n'est calculé** : une annotation est la parole d'un responsable, sans valeur de validation, et chaque écran le dit ; seul le jury valide, hors de la plateforme. La conception et le plan suivi du lot 1b sont gardés dans le dépôt de travail du porteur (plan en seize tâches, chacune relue par deux relecteurs indépendants puis corrigée rouge-vert ; registre hors dépôt).
 
 ### Ajouté
 - Pages `situations.php` (les situations d'une fiche, et la **vue inverse** : les situations et déclarations qui portent sur un élément), `situation.php` (une situation : détails enregistrés par leur propre bouton, texte avec ses versions et son brouillon en cours, étiquettes dans le panneau de la fiche, pièces, annotations reçues), `consent.php` (l'accord donné à un responsable, son historique). Une situation s'écrit quand la préparation du dossier de validation est ouverte (`validationopen`) et sur une fiche proposée, **sans déclaration préalable** ; fermée ou cachée, elle reste lisible. Le vaeiste seul écrit, crée, verse, supprime (la suppression retire étiquettes, liens, versions et brouillon ; la pièce reste ; les annotations deviennent « situation supprimée », toujours lisibles).
@@ -72,13 +498,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Versionnage s
 - Essais : `tests/booklet_authorization_test.php`, `structure_archive_test.php`, `booklet_privacy_test.php`, scénarios `tests/behat/structure_archive.feature`.
 
 ### À savoir
-- Les builds 2026102804 à 2026110405 (pages « Mon parcours », « Vaeistes suivis » et « Organisation », grille « Acteurs et pouvoirs », positionnement de la structure, page « Rôles VAE », renouvellement des certifications) n'ont pas d'entrée détaillée dans ce journal : leur description est dans le README et dans `docs/TRAVAIL.md`.
+- Les builds 2026102804 à 2026110405 (pages « Mon parcours », « Vaeistes suivis » et « Organisation », grille « Acteurs et pouvoirs », positionnement de la structure, page « Rôles VAE », renouvellement des certifications) n'ont pas d'entrée détaillée dans ce journal : leur description est dans le README et dans la liste de travail du dépôt de travail du porteur. *Depuis le 16 novembre 2026 (lot Q5), l'entrée « builds 2026110301 à 2026110404 » reprend ce que `version.php` disait de ces six builds.*
 
 ---
 
 ## [2.5.03 — build 2026110407] — 2026-11-08
 
-**Auto-positionnement du vaeiste par niveau (priorité 1, lot 1a).** Le vaeiste dit, lui-même, où il en est sur chaque élément de son référentiel, à tous les niveaux que le référentiel a (référentiel, domaine ou bloc, compétence, habileté…), par un palier d'une échelle en mots, avec une justification facultative. C'est sa propre parole, une trace de son développement : **ni une validation, ni une note ; rien n'en est calculé** (aucun total, taux, seuil, tri ni écart). Conception : `docs/superpowers/specs/2026-11-08-auto-positionnement-1a-design.md` ; plan suivi : `docs/superpowers/plans/2026-11-08-1a-auto-positionnement.md`. Demande n° 1 du forum francophone moodle.org.
+**Auto-positionnement du vaeiste par niveau (priorité 1, lot 1a).** Le vaeiste dit, lui-même, où il en est sur chaque élément de son référentiel, à tous les niveaux que le référentiel a (référentiel, domaine ou bloc, compétence, habileté…), par un palier d'une échelle en mots, avec une justification facultative. C'est sa propre parole, une trace de son développement : **ni une validation, ni une note ; rien n'en est calculé** (aucun total, taux, seuil, tri ni écart). La conception et le plan suivi du lot 1a sont gardés dans le dépôt de travail du porteur. Demande n° 1 du forum francophone moodle.org.
 
 ### Ajouté
 - Page `selfposition.php` « Me positionner », atteinte depuis « Mon parcours » : les fiches proposées (les mêmes qu'à la déclaration, les fiches cachées dites avec leur message), l'arbre d'une fiche à tous ses niveaux (le nom de chaque niveau vient de la taxonomie du référentiel dans le noyau, « Niveau n » à défaut ; le référentiel lui-même est le premier nœud, rang vide), puis un nœud avec son formulaire, la parole de la structure en regard (dernière évaluation ou certification, sans écart calculé), le nombre de déclarations et de pièces sur l'élément, l'historique (la ligne qui fait foi, puis les lignes antérieures, un retrait étant une ligne). Un nœud dont le code ne suit pas `<fiche>-<rang>` est affiché mais non positionnable, avec l'explication.
@@ -121,6 +547,19 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Versionnage s
 
 ---
 
+## [builds 2026110301 à 2026110404] — novembre 2026
+
+**Historique repris de `version.php`.** Cette entrée reprend l'historique tenu jusque-là dans les commentaires de `version.php`, retirés de ce fichier le 16 novembre 2026 (lot Q5) : elle traduit ce qu'ils disaient de chaque build, une ligne par build, sans rien y ajouter. Ces builds suivent la 01.5.3 et précèdent le changement d'étiquette 2.5.03 (build 2026110405, entrée ci-dessus).
+
+- **2026110301** : la page « Mon parcours » (`organisation.php`, pour le vaeiste seulement) lit les plans de formation et les compétences des cours du cœur pour les montrer au vaeiste. Une page nouvelle, des chaînes nouvelles, un texte `privacy:metadata` plus long. Aucun changement de schéma, aucun droit nouveau, aucun fournisseur de messages nouveau : le numéro monte pour que les sites installés purgent leurs caches et connaissent les chaînes.
+- **2026110400** : l'onglet « Vaeistes suivis » de la même page (`organisation.php`, pour un responsable qui suit au moins un vaeiste) : les fiches sur lesquelles ces vaeistes ont déclaré, les comptes de « Mes vaeistes », et leurs plans de formation du cœur là où les droits du responsable permettent de les lire. Des chaînes nouvelles, et le texte `privacy:metadata` sur le sous-système des compétences dit que les noms et les états des plans sont montrés à ce responsable. Aucun changement de schéma, aucun droit nouveau, aucun fournisseur de messages nouveau : le numéro monte pour que les sites installés purgent leurs caches et connaissent les chaînes.
+- **2026110401** : l'onglet « Organisation » de la même page (`organisation.php?tab=site`, pour qui peut voir n'importe quel dossier) : les fiches du site avec ce que le cœur tient autour d'elles et un compte des plans de formation, les rôles qui détiennent chaque droit du plugin, les cohortes suivies par ces rôles et les réglages qui ouvrent des parties du dispositif. Une page de l'administration, un lien sur le profil, des chaînes nouvelles, et le libellé du droit de voir n'importe quel dossier dit ce qu'il ouvre désormais. Aucun changement de schéma, aucun droit nouveau, aucun fournisseur de messages nouveau : le numéro monte pour que les sites installés purgent leurs caches et connaissent les chaînes.
+- **2026110402** : le cycle à l'intérieur de la structure (T-90, lot 3) : l'évaluation d'une compétence par le responsable qui suit le vaeiste, et la certification d'un bloc par la direction — des positionnements de la structure, jamais des validations, que seul le jury donne, hors de ce plugin. Deux tables nouvelles, deux droits nouveaux (évaluer, certifier), des pages et des chaînes nouvelles, et un fichier nouveau dans l'archive du dossier. Le numéro monte pour que les sites installés créent les tables et enregistrent les droits.
+- **2026110403** : le renouvellement d'une certification (T-90, lot 4) : un dernier jour facultatif sur une certification (« valable jusqu'au »), une liste, pour la direction, des certifications dont ce jour est passé, et, sur le dossier, ce qu'un enregistrement antérieur disait d'une compétence ou d'un bloc. Une colonne nouvelle de `tool_vae_certif`, des chaînes nouvelles, une page nouvelle de l'administration. Aucun droit nouveau.
+- **2026110404** : le message au vaeiste quand une ligne de positionnement est écrite à son sujet (T-84) : un fournisseur de messages nouveau et deux observateurs (`evaluation_recorded`, `certification_recorded`). Seulement qu'une ligne a été ajoutée : ni son état, ni son motif, ni son auteur. Le numéro monte pour que les sites installés enregistrent le fournisseur et les observateurs. Le même numéro porte la page « Rôles VAE » (`roles_install.php`, une page de l'administration) : elle crée les rôles du dispositif à partir des préréglages livrés avec le plugin, et ne modifie jamais un rôle qui existe. Aucun changement de schéma, aucun droit nouveau.
+
+---
+
 ## [01.5.3] — 2026-10-28
 
 **Renumérotation de la 0.47.1, sans aucun changement de code.** Décision du porteur : « 01 » dit que c'est la première version prévue pour le répertoire des plugins de Moodle, « 5.3 » dit que le plugin ne vaut que pour Moodle 5.3. **Règle pour les versions suivantes : proposée, pas encore décidée par le porteur** (la prochaine version pour la même branche monterait la génération, 2.5.03 ; un paquet pour une autre branche porterait la sienne, par exemple 01.5.4).
@@ -145,7 +584,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Versionnage s
 ### Modifié
 - Tous les textes français du plugin (`lang/fr/tool_vae.php`), le README, la FAQ, les guides d'usage (V1 et V2), l'installation pas à pas, le banc d'essai, l'AIPD, la conformité (T-84), le modèle de contrat, la lettre à l'employeur, la consigne du forum, les deux fiches de relecture et le guide d'import : « vaéiste » devient « vaeiste » (Vaeiste, vaeistes).
 - Deux tests qui citent la langue (`backup_test`, `exporter_test`) suivent le nouveau mot.
-- **Non touchés, par choix** : les entrées anciennes de ce journal, `docs/TRAVAIL.md`, les notes de conception T-xx, `docs/derogations/` et le commentaire d'histoire de `version.php` (ils gardent le mot de leur époque).
+- **Non touchés, par choix** : les entrées anciennes de ce journal, la liste de travail, les notes de conception T-xx et la fiche de dérogation du dépôt de travail, et le commentaire d'histoire de `version.php` (ils gardent le mot de leur époque).
 
 ### À savoir
 - Le plugin ne renomme pas un rôle déjà créé : sur un site où le rôle s'appelle « Vaéiste », l'administrateur le renomme à la main (*Utilisateurs → Permissions → Définition des rôles*). Le nom abrégé `vaeiste` n'a jamais eu d'accent.
@@ -229,7 +668,7 @@ Vocabulaire et corrections. Pas de table nouvelle, pas de droit nouveau. Le num�
 - **« Candidat » devient « vaéiste »** dans tous les écrans en français (82 chaînes de `lang/fr` ; aucune clé, aucun identifiant de code, aucun nom de fichier ni
   de colonne changés ; `{$a->candidate}` et le manifeste `candidat` des archives sont inchangés ; l'anglais est inchangé), dans le README, la FAQ, les trois guides et
   les documents destinés aux utilisateurs (RGPD, AIPD, modèle de contrat, fiches de relecture, modèle de lettre, consigne de forum). Le rôle Moodle des guides
-  s'appelle « Vaéiste » (nom abrégé `vaeiste`) ; les notes de conception `docs/T-*.md` et le journal `docs/TRAVAIL.md` gardent le mot de leur époque.
+  s'appelle « Vaéiste » (nom abrégé `vaeiste`) ; les notes de conception T-xx et la liste de travail du dépôt de travail gardent le mot de leur époque.
 - **Masculin générique** dans toute la prose française (plus de « candidate », « soussigné(e) », « il/elle », « administratrice ») : c'est l'usage de la traduction
   française de Moodle, où l'écriture inclusive n'existe que comme paquetage de langue facultatif.
 - **Guides** : le rôle Vaéiste est calé sur le **modèle de rôle Moodle « Étudiant »**, choisi dans le champ « Modèle de rôle » du formulaire du rôle, **sans**
@@ -338,7 +777,7 @@ fournisseur et la relecture de l'instruction et de la politique.
 
 ## [0.44.0] — 2026-10-24
 
-T-70, **lot 1** : l'aide à la reformulation, côté serveur seulement. Conception : `docs/T-70-aide-a-la-formulation-ia.md` (validée le 23/10, points précisés le 24/10).
+T-70, **lot 1** : l'aide à la reformulation, côté serveur seulement. Conception : la note T-70 du dépôt de travail (validée le 23/10, points précisés le 24/10).
 **Une table nouvelle** (`tool_vae_aicall`, mise à niveau 2026101524). Paquet 5.3 seulement. **Fermée par défaut (`aiopen`) et sans écran** : rien n'est proposé à un candidat
 tant que le lot 2 (écrans) n'est pas fait et que T-84 ne l'a pas permis.
 
@@ -394,7 +833,7 @@ T-23, **lot 3** : sur la page « Mes candidats », un référent compte les déc
 
 ## [0.42.0] — 2026-10-23
 
-T-23, **lots 1 et 2** : les référents des blocs. Conception : `docs/T-23-referents-par-domaine.md` (validée le 23/10). **Une table nouvelle**
+T-23, **lots 1 et 2** : les référents des blocs. Conception : la note T-23 du dépôt de travail (validée le 23/10). **Une table nouvelle**
 (`tool_vae_referent`, mise à niveau 2026101522). Paquet 5.3 seulement.
 
 ### Ajouté
@@ -416,7 +855,7 @@ T-23, **lots 1 et 2** : les référents des blocs. Conception : `docs/T-23-refer
 ## [0.41.0] — 2026-10-23
 
 T-42, **lots 1 à 4** : « Hors de mon activité », le marqueur que le candidat pose lui-même sur une compétence ou un bloc. Conception :
-`docs/T-42-non-pertinent.md` (validée le 23/10). **Une table nouvelle** (`tool_vae_scope`, mise à niveau 2026101521). Paquet 5.3 seulement. **Fermé par défaut**
+la note T-42 du dépôt de travail (validée le 23/10). **Une table nouvelle** (`tool_vae_scope`, mise à niveau 2026101521). Paquet 5.3 seulement. **Fermé par défaut**
 (`scopeopen`).
 
 ### Ajouté
@@ -445,7 +884,7 @@ T-42, **lots 1 à 4** : « Hors de mon activité », le marqueur que le candidat
 ## [0.40.0] — 2026-10-22
 
 T-41, **lots 1 à 3 sur 4** : les adresses où le certificateur publie sa règle de validation. Conception :
-`docs/T-41-regle-du-certificateur.md` § 8 (le lien, pas le texte). **Une table nouvelle** (`tool_vae_ref`, mise à niveau 2026101520), sans
+la note T-41 du dépôt de travail, § 8 (le lien, pas le texte). **Une table nouvelle** (`tool_vae_ref`, mise à niveau 2026101520), sans
 donnée personnelle (exemptée de la vie privée, avec son marqueur). Paquet 5.3 seulement. **Fermé par défaut** (`refopen`).
 
 ### Ajouté
@@ -476,7 +915,7 @@ donnée personnelle (exemptée de la vie privée, avec son marqueur). Paquet 5.3
 ## [0.39.0] — 2026-10-22
 
 T-13, **lot 3 sur 4** : les pièces justificatives dans l'archive, la sauvegarde, l'import, le PDF et la copie modifiable. Conception :
-`docs/T-13-pieces-jointes.md` § 4.8 et 4.9 ; amendement 4 du DER (MC-28). **Aucun changement de schéma de base de données.**
+la note T-13 du dépôt de travail, § 4.8 et 4.9 ; amendement 4 du DER (MC-28). **Aucun changement de schéma de base de données.**
 `version_format` reste « 1 » (fichier facultatif). Paquet 5.3 seulement. Toujours **fermé par défaut** (`piecesopen`).
 
 ### Ajouté
@@ -545,7 +984,7 @@ T-13, **lot 3 sur 4** : les pièces justificatives dans l'archive, la sauvegarde
 ## [0.38.0] — 2026-10-22
 
 T-13, **lot 2 sur 4** : le responsable lit les pièces avant d'attester, et l'attestation enregistre ce qu'elle couvre. Conception :
-`docs/T-13-pieces-jointes.md` § 4.5 et 4.6 ; amendement 4 du DER (MC-25, MC-26). **Deux tables et une colonne nouvelles** (étape de
+la note T-13 du dépôt de travail, § 4.5 et 4.6 ; amendement 4 du DER (MC-25, MC-26). **Deux tables et une colonne nouvelles** (étape de
 mise à niveau), 5.3 seulement. **Toujours fermé par défaut** (`piecesopen`), et **à ne pas ouvrir avant ce lot** (c'est dit dans la
 description du réglage).
 
@@ -602,7 +1041,7 @@ description du réglage).
 
 ## [0.37.0] — 2026-10-21
 
-T-13, **lot 1 sur 4** : les pièces justificatives d'une déclaration, côté candidat. Conception : `docs/T-13-pieces-jointes.md`
+T-13, **lot 1 sur 4** : les pièces justificatives d'une déclaration, côté candidat. Conception : la note T-13 du dépôt de travail
 (version 2, validée le 21/10 avec les neuf recommandations) ; **amendement 4 du DER-referentiel-001** (R2 révisé, R8, MC-24 à MC-29).
 **Une table nouvelle** (`tool_vae_piece`, étape de mise à niveau), 5.3 seulement. **Fermé par défaut** (réglage `piecesopen`).
 
@@ -768,7 +1207,7 @@ sortie. **Aucun changement de schéma de base de données** (la table des dépô
 ### Ce que cette version ne fait pas
 
 - **La fonction reste fermée** : il faut encore la relecture des intitulés et des aides par un accompagnateur VAE
-  (`docs/RELECTURE-PREPARATION-VALIDATION.md`) avant d'ouvrir `validationopen`.
+  (fiche de relecture du dépôt de travail) avant d'ouvrir `validationopen`.
 - Behat du dépôt de la préparation, la page « Fiches remplacées » et la page de report (elles ne disent pas encore que les
   rubriques ne suivent pas le report) : consignés.
 
@@ -811,7 +1250,7 @@ par défaut** (réglage `validationopen`) : ne l'ouvrir qu'après le lot 3 et la
 
 T-11, **lot 1 sur 3** : le candidat prépare son dossier de validation, bloc par bloc. **Une étape de mise à niveau** sur
 `tool_vae_draft` (la fiche entre dans l'adresse d'une rubrique). Paquet 5.3 seulement. Conception :
-`docs/T-11-dossier-de-validation.md` (v2, deux relectures indépendantes) ; décisions : D-15 ; amendement 2 du
+la note T-11 du dépôt de travail (v2, deux relectures indépendantes) ; décisions : D-15 ; amendement 2 du
 DER-referentiel-001 (MC-14 à MC-18).
 
 ### Ajouté
@@ -867,7 +1306,7 @@ DER-referentiel-001 (MC-14 à MC-18).
 ## [0.31.0] — 2026-10-20
 
 T-31 : les fiches médico-sociales de France compétences, de l'export à l'écran d'import. **Aucun changement de schéma
-de base de données.** Paquet 5.3 seulement. Conception : `docs/T-31-fiches-medico-sociales.md` (validée le 20/10).
+de base de données.** Paquet 5.3 seulement. Conception : la note T-31 du dépôt de travail (validée le 20/10).
 
 ### Ajouté
 
@@ -977,7 +1416,7 @@ Une fiche à plat s'affiche exactement comme avant. Paquet 5.3 seulement.
 
 ## [0.28.0] — 2026-10-19
 
-T-33, **lot 1 sur 3** (conception : `docs/T-33-presentation-par-bloc.md`) : l'import garde les blocs de compétences
+T-33, **lot 1 sur 3** (conception : la note T-33 du dépôt de travail) : l'import garde les blocs de compétences
 d'une fiche en arbre. **Aucun changement de schéma de base de données.** Rien ne change encore à l'écran du
 candidat (lot 2). Paquet 5.3 seulement.
 
@@ -1651,7 +2090,7 @@ DER-referentiel-001 mis à jour.
 
 ### Outillage
 
-- `docs/BANC-ESSAI.md` : le banc Moodle 5.3 sous Docker est documenté, et PHPUnit tourne en local
+- Le banc d'essai du dépôt de travail : le banc Moodle 5.3 sous Docker est documenté, et PHPUnit tourne en local
   (T-58).
 
 ---
@@ -1888,6 +2327,8 @@ pages : une déclaration, une page. Le rendu visuel n'est pas testable ainsi ; i
   se réimporte après effacement du premier compte et doit se lire comme étrangère, puisque ses
   lignes du registre sont parties avec lui. Hors comparaison, et dit dans le script : le manifeste, le
   LISEZMOI, `dossier.pdf`, et `correspondances[]` après un réimport sur un autre compte.
+- Corrections seules, aucun changement de schéma. *(Repris de `version.php` le 16 novembre 2026, lot
+  Q5.)*
 
 ---
 
@@ -2001,6 +2442,9 @@ pages : une déclaration, une page. Le rendu visuel n'est pas testable ainsi ; i
   DER-referentiel-001, et contrôle automatique `scripts/mc2-ecriture-coeur.sh` en CI.
 - **Limites écrites** : les pièces jointes ajoutées dans les plans d'apprentissage ne sont pas
   emportées (MC-1) ; après désinstallation, plus rien n'efface une sauvegarde (texte de la page).
+- Le registre des archives délivrées, `tool_vae_archive`, est créé par l'étape de mise à jour
+  2026101302 du paquet 5.3 (2026101203 sur le paquet 4.5). *(Repris de `version.php` le 16 novembre
+  2026, lot Q5.)*
 
 ---
 
@@ -2033,6 +2477,9 @@ revue adverse. Corrections seules : aucun changement de schéma ni de capability
 - **Tests** : PHPUnit sur chacun de ces points (archives piégées, panne au milieu du réimport,
   attest au niveau système) ; **`access_control.feature`**, cinq scénarios Behat qui ouvrent les
   pages par l'adresse et lisent le refus.
+- Numéro de version : il monte pour que les sites purgent leurs caches de chaînes et lisent les deux
+  messages de refus nouveaux du réimport d'une archive. *(Repris de `version.php` le 16 novembre 2026,
+  lot Q5.)*
 
 ### Reste ouvert (lot 8 quater)
 
@@ -2102,6 +2549,8 @@ Demandé par le porteur du projet le 12 octobre 2026, avec ses choix.
   par défaut, à attribuer au rôle de la direction. Le droit du cœur
   `moodle/competency:coursecompetencymanage` est demandé aussi, avant toute écriture. Un
   enseignant ne rattache pas de fiche.
+- Numéro de version : le droit `linkcourse` et une fonction de rappel de la navigation du cours,
+  enregistrés à la mise à jour. *(Repris de `version.php` le 16 novembre 2026, lot Q5.)*
 
 ---
 
@@ -2152,6 +2601,9 @@ après vérification de ses empreintes SHA-256 ; une archive altérée est refus
   site déjà installé (étape d'upgrade).
 - La réexportation d'un dossier réimporté écrit le signataire repris sous son ULID d'origine, sans
   correspondance Moodle.
+- Numéro de version : le droit `importdossier`, les deux colonnes de `tool_vae_attest` et le droit
+  d'import retiré à l'archétype gestionnaire demandent tous trois l'étape de mise à jour. *(Repris de
+  `version.php` le 16 novembre 2026, lot Q5.)*
 
 ### Limites, dites
 
@@ -2203,6 +2655,9 @@ le réimport, qui fera la seconde moitié du lot.
 - **`tests/exporter_test.php`** — 21 tests. En CI, les preuves qu'ils produisent sont en plus
   validées par ajv contre le schéma lui-même : `scripts/verifier-schema.mjs --preuves`, qui
   échoue si le dossier est vide.
+- Numéro de version : le droit d'export, `db/tasks.php` et la fonction de rappel `pluginfile`, aucun
+  des trois n'est enregistré par un site installé sans numéro nouveau. *(Repris de `version.php` le
+  16 novembre 2026, lot Q5.)*
 
 ### Ajouté — lot 8, première étape : le schéma pivot, reconstruit
 
@@ -2332,6 +2787,13 @@ vérifié dans les sources de Moodle 4.5. Ce qu'il a trouvé, et ce qui a été 
    rare, la table tient les déclarations d'un seul site.
 8. *Aucune trace d'un échec d'envoi en production.* → Les tâches en laissent une dans leur journal.
 
+### Numéro de version
+
+Ce lot ajoute `db/messages.php`, quatre observateurs et une tâche ad hoc : sans numéro nouveau, un site
+installé n'en enregistrerait aucun, et la première déclaration ne trouverait aucun fournisseur par
+lequel envoyer. Le numéro a donc monté, puis monté une seconde fois quand l'envoi est passé à la
+tâche, après la revue. *(Repris de `version.php` le 16 novembre 2026, lot Q5.)*
+
 ### Tests
 
 Treize tests de plus que la 0.7.0, soit 144 : onze dans `notifier_test.php`, un dans `access_test.php`
@@ -2427,7 +2889,7 @@ PHP 8.3 :
 **Remise en ordre pour la pérennité. Aucune ligne de code exécuté n'a changé** — `version.php`
 ne change que dans un commentaire, d'où l'absence de nouveau numéro de version.
 
-### Ajouté — `docs/INVENTAIRE-mod_referentiel.md`
+### Ajouté — l'inventaire de `mod_referentiel` (document du dépôt de travail)
 
 Comparaison fonction par fonction de l'ancien plugin `mod_referentiel` (Fruitet, 2016), du
 sous-système de compétences de Moodle 4.5 et de ce plugin. Conclusion : la fonction centrale de
@@ -2474,7 +2936,7 @@ dans le code qui doit être accepté comme exception nommée ou supprimé.
 
 - **Le PRP, `DECISIONS.md`, `SOCLE-JLM.md` et `preuve.schema.json` ne sont ni dans le dépôt ni
   sur le disque de travail.** Les critères 1 à 10 ne sont définis nulle part ici.
-- Le journal d'exécution de `docs/BANC-ESSAI.md` s'arrête à 98 tests (0.6.0) : aucune
+- Le journal d'exécution du banc d'essai du dépôt de travail s'arrête à 98 tests (0.6.0) : aucune
   exécution n'a été faite depuis, faute de banc sur le poste.
 
 ---
@@ -2922,7 +3384,7 @@ scénario de ce genre. La garantie n'est pas perdue, elle est là où elle peut 
 
 Reste non exécuté : le scénario `@javascript`. Le conteneur a un chromedriver 147 et un chromium
 141, et le téléchargement d'un pilote assorti est bloqué par le réseau. Ce n'est pas un défaut du
-plugin ; la marche à suivre est consignée dans `docs/BANC-ESSAI.md`.
+plugin ; la marche à suivre est consignée dans le banc d'essai du dépôt de travail.
 
 ### Vérifié
 
@@ -3086,7 +3548,7 @@ conservation du site plutôt que dans le dossier.
 
 **Les tests de ce lot n'ont jamais tourné.** Aucun banc d'essai Moodle n'était monté pendant
 cette séance, et PHP n'est pas installé sur le poste. C'est exactement le risque que
-`docs/BANC-ESSAI.md` existe pour empêcher : du code jamais exécuté qui s'empile. **Rien de ce
+le banc d'essai du dépôt de travail existe pour empêcher : du code jamais exécuté qui s'empile. **Rien de ce
 lot ne doit être présenté comme éprouvé avant que le banc ait tourné.**
 
 ## [0.3.1] — 2026-08-21
@@ -3120,7 +3582,7 @@ croit. Rien ne se lit comme faux.
 
 Toutes les comparaisons strictes du plugin ont été passées en revue, et le type réel de chaque
 constante Moodle utilisée a été relevé sur le site : **seule la famille `FORMAT_*` est déclarée
-en chaînes**. Les 23 autres constantes sont correctement typées. `docs/BANC-ESSAI.md` compte
+en chaînes**. Les 23 autres constantes sont correctement typées. Le banc d'essai du dépôt de travail compte
 désormais six pièges.
 
 ---
@@ -3175,7 +3637,7 @@ rattache à une compétence importée.
   correcte, le test la déclarait fausse — et une version sans aucune transaction aurait donné
   le même verdict, donc le test ne distinguait rien.
 
-Les deux sont consignés dans `docs/BANC-ESSAI.md`, qui compte désormais cinq pièges.
+Les deux sont consignés dans le banc d'essai du dépôt de travail, qui compte désormais cinq pièges.
 
 ### Connu, non traité
 
@@ -3189,7 +3651,7 @@ Les deux sont consignés dans `docs/BANC-ESSAI.md`, qui compte désormais cinq p
 
 **Première exécution réelle.** Jusqu'ici rien n'avait jamais tourné : ni PHPUnit, ni
 l'installation du plugin, ni le standard de codage. Un Moodle 4.5.13 complet a été monté
-(PHP 8.3, PostgreSQL 16) et tout a été exécuté. Marche à suivre dans `docs/BANC-ESSAI.md`.
+(PHP 8.3, PostgreSQL 16) et tout a été exécuté. Marche à suivre dans le banc d'essai du dépôt de travail.
 
 ### Ce que l'exécution a confirmé
 
@@ -3225,7 +3687,7 @@ l'installation du plugin, ni le standard de codage. Un Moodle 4.5.13 complet a �
   construction qui s'exécutent hors de Moodle, et le contrôle `MOODLE_INTERNAL` qu'exige le
   standard les ferait mourir. Aucune autre exclusion.
 - `make codestyle`, versé dans `make valider`.
-- `docs/BANC-ESSAI.md`.
+- Le banc d'essai (document du dépôt de travail).
 
 ### Trois pièges de banc d'essai, consignés
 
@@ -3346,7 +3808,7 @@ existe pour poser les garde-fous avant qu'il y ait quoi que ce soit à garder.
 - Tests : critère d'acceptation 10 (sous-système désactivé) en PHPUnit, plus un scénario
   Behat de non-régression sur l'élévation de privilège.
 - `Makefile` et `scripts/` — `doctor`, `lint`, `mc5`, `langue`, `secrets`.
-- `docs/derogations/DER-referentiel-001-modele-natif.md`.
+- La fiche de dérogation `DER-referentiel-001` (modèle natif), document du dépôt de travail.
 
 ### Sécurité
 
@@ -3381,6 +3843,6 @@ Deux erreurs du blueprint, trouvées en construisant le squelette :
 ### Connu, non traité
 
 - Le plugin ne stocke rien et ne fait rien. Lot 2 et suivants.
-- `VERSIONS.md`, `ARCHITECTURE.md` et `docs/MEMO-JURIDIQUE.md` n'existent pas encore :
+- `VERSIONS.md`, `ARCHITECTURE.md` et le mémo juridique n'existent pas encore :
   `make doctor` les signale en « NON EXÉCUTÉ », pas en succès.
 - Compatibilité Licence Ouverte 2.0 / GPLv3 non levée — bloquant avant diffusion.

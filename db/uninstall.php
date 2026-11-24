@@ -86,7 +86,7 @@ function xmldb_tool_vae_uninstall() {
     // The backup is whole, and the administrator who runs it can read it: say so to whoever asks.
     //
     // It does not depend on the competencies being switched on: the labels it writes are read from the persistents, not
-    // through the core's API that refuses when the subsystem is off (exporter::referentiel()).
+    // through the core's API that refuses when the subsystem is off (exporter::referential()).
     $owner = is_siteadmin() ? (int) $USER->id : (int) get_admin()->id;
     \tool_vae\local\backup::save_all($owner);
 

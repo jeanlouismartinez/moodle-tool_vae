@@ -31,7 +31,20 @@ use tool_vae\local\presenter;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\presenter::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\sources::class)]
 final class presenter_sources_test extends \advanced_testcase {
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     /**
      * The cells of the heading and of the first row of the table the presenter draws.
      *
@@ -40,7 +53,7 @@ final class presenter_sources_test extends \advanced_testcase {
     private function table(): array {
         global $DB;
 
-        $html = presenter::sources($DB->get_records('tool_vae_source', null, 'fichecode ASC'));
+        $html = self::render(new output\sources($DB->get_records('tool_vae_source', null, 'fichecode ASC')));
 
         $dom = new \DOMDocument();
         libxml_use_internal_errors(true);
@@ -90,7 +103,7 @@ final class presenter_sources_test extends \advanced_testcase {
         $generator->create_source(['fichecode' => 'RS5000', 'fichetype' => 'rs', 'name' => 'Utiliser un lève-personne']);
         $generator->create_source(['fichecode' => 'RS6000', 'fichetype' => 'rs', 'name' => 'Prévenir les chutes']);
 
-        $html = presenter::sources($DB->get_records('tool_vae_source', null, 'fichecode ASC'));
+        $html = self::render(new output\sources($DB->get_records('tool_vae_source', null, 'fichecode ASC')));
 
         $this->assertStringContainsString('Utiliser un lève-personne', $html);
         $this->assertStringContainsString('Prévenir les chutes', $html);

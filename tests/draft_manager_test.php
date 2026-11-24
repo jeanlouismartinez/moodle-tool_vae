@@ -336,8 +336,8 @@ final class draft_manager_test extends \advanced_testcase {
         $this->assertNull($row->working, 'A text that is the latest version leaves no draft in progress.');
         $this->assertNull($row->workingat);
         $this->assertSame(1, $DB->count_records('tool_vae_version'));
-        $places = \tool_vae\local\faisabilite_overview::for_candidate((int) $this->candidate->id)['experiences']['places'];
-        $this->assertSame(\tool_vae\local\faisabilite_overview::STATE_VERSION, $places[1]['state']);
+        $places = \tool_vae\local\feasibility_overview::for_candidate((int) $this->candidate->id)['experiences']['places'];
+        $this->assertSame(\tool_vae\local\feasibility_overview::STATE_VERSION, $places[1]['state']);
 
         // A row left by the former code: the draft in progress is the very text of the version.
         $DB->update_record('tool_vae_draft', (object) ['id' => $draft->id, 'working' => 'abc', 'workingat' => time()]);
@@ -358,8 +358,8 @@ final class draft_manager_test extends \advanced_testcase {
 
         $this->assertNull($late->working, 'A text that is the version is no draft in progress.');
         $this->assertNull($late->workingat);
-        $places = \tool_vae\local\faisabilite_overview::for_candidate((int) $this->candidate->id)['experiences']['places'];
-        $this->assertSame(\tool_vae\local\faisabilite_overview::STATE_VERSION, $places[1]['state']);
+        $places = \tool_vae\local\feasibility_overview::for_candidate((int) $this->candidate->id)['experiences']['places'];
+        $this->assertSame(\tool_vae\local\feasibility_overview::STATE_VERSION, $places[1]['state']);
         $this->assertSame(1, $DB->count_records('tool_vae_version'));
 
         // And typing one's way back to the version: the autosave that says so keeps nothing either.

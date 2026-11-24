@@ -21,7 +21,7 @@ use tool_vae\local\document_copies;
 use tool_vae\local\draft_manager;
 use tool_vae\local\dossier_document;
 use tool_vae\local\evidence_manager;
-use tool_vae\local\faisabilite_catalog;
+use tool_vae\local\feasibility_catalog;
 use tool_vae\local\identity_map;
 use tool_vae\local\purge;
 
@@ -229,7 +229,7 @@ final class document_copies_test extends \advanced_testcase {
         $this->assertStringNotContainsString('Premier objectif.', $text, 'Only the latest version.');
         $this->assertStringNotContainsString('Un brouillon jamais enregistré.', $text, 'A draft is not in the copy.');
         $this->assertStringContainsString('Ma deuxième expérience.', $text);
-        $this->assertStringContainsString(faisabilite_catalog::label('experiences', 2), $text);
+        $this->assertStringContainsString(feasibility_catalog::label('experiences', 2), $text);
         $this->assertLessThan(
             strpos($text, 'Ma deuxième expérience.'),
             strpos($text, 'Objectif corrigé.'),
@@ -307,7 +307,7 @@ final class document_copies_test extends \advanced_testcase {
      */
     public function test_a_copy_lands_in_the_candidates_private_files_with_the_mark(): void {
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
 
         $file = document_copies::take((int) $candidate->id, 'docx', 1790000000);
 
@@ -315,7 +315,7 @@ final class document_copies_test extends \advanced_testcase {
         $this->assertSame(\context_user::instance((int) $candidate->id)->id, $file->get_contextid());
         $this->assertSame('/vae/copies/', $file->get_filepath());
         $this->assertSame('dossier-' . gmdate('Y-m-d', 1790000000) . '.docx', $file->get_filename());
-        $this->assertStringStartsWith(document_copies::SOURCE_PREFIX . $personne . ':', $file->get_source());
+        $this->assertStringStartsWith(document_copies::SOURCE_PREFIX . $personuuid . ':', $file->get_source());
         $this->assertStringContainsString('Accompagnement au lever.', self::docx_text($file->get_content()));
     }
 
@@ -409,13 +409,13 @@ final class document_copies_test extends \advanced_testcase {
     public function test_a_renamed_copy_is_found_and_an_erasure_removes_it(): void {
         $candidate = $this->candidate_with_a_claim();
         $id = (int) $candidate->id;
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, $id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, $id);
 
         $file = document_copies::take($id, 'docx', 1790000000);
         $file->rename('/ailleurs/', 'mon-dossier.docx');
 
         $this->assertCount(1, self::copies_of($id));
-        $this->assertSame(0, backup::discard($personne), 'A backup is not a copy.');
+        $this->assertSame(0, backup::discard($personuuid), 'A backup is not a copy.');
         $this->assertCount(1, self::copies_of($id), 'The backups left the copy alone.');
 
         purge::dossier($id);

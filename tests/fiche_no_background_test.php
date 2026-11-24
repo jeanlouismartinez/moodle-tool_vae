@@ -21,12 +21,13 @@ namespace tool_vae;
  *
  * THE PLUGIN MADE NO REQUEST OF ITS OWN BEFORE THIS VERSION, and the guarantee is kept as narrow as it can be: one class,
  * fiche_fetcher, may name an HTTP client, and nothing that runs on a schedule may name it or what calls it. This is the PHP
- * twin of scripts/sortie-reseau.sh (measure MC-30), for the continuous integration that has no shell to run it; the script
- * is run by `make valider`. Both read the source literally, comments included, whatever the case, in every file of the
- * plugin that is code (not tests, docs, language files or scripts), and the exemption of the door is a whole path.
+ * twin of scripts/check-network-door.sh (measure MC-30), and the one that runs wherever the plugin is installed, including
+ * from the package, which holds no development script. Both read the source literally, comments included, whatever the
+ * case, in every file of the plugin that is code (not tests, docs, language files or scripts), and the exemption of the
+ * door is a whole path.
  *
  * A GUARD THAT FINDS NOTHING PROVES NOTHING: the patterns are tried on strings that must be caught and strings that must
- * not, the number of files read is asserted, and the script itself is run on small trees that hold a violation.
+ * not, the number of files read is asserted, and the whole guard is run on small trees that hold a violation.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
@@ -66,12 +67,13 @@ final class fiche_no_background_test extends \advanced_testcase {
     }
 
     /**
-     * The source files of the plugin: everything that is code, but tests, docs, language files and scripts.
+     * The source files of a plugin tree: everything that is code, but tests, docs, language files and scripts.
      *
+     * @param string|null $root The root of the tree; the plugin by default.
      * @return string[] Path relative to the root => absolute path.
      */
-    private static function sources(): array {
-        $root = self::root();
+    private static function sources(?string $root = null): array {
+        $root = $root ?? self::root();
         $skipped = ['.git', 'node_modules', 'vendor', 'tests', 'docs', 'lang', 'scripts'];
         $found = [];
         $iterator = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
@@ -92,14 +94,46 @@ final class fiche_no_background_test extends \advanced_testcase {
     }
 
     /**
-     * The shell, when there is one.
+     * The whole guard on one tree, as scripts/check-network-door.sh runs it: every rule, every file.
      *
-     * @return string|null The command, or null.
+     * @param string $root The root of a plugin tree.
+     * @return string[] One line per violation: the file and what was found.
+     * @throws \coding_exception The tree is not the root of a plugin: nothing would be read.
      */
-    private static function bash(): ?string {
-        $path = PHP_OS_FAMILY === 'Windows' ? '' : trim((string) @shell_exec('command -v bash 2>/dev/null'));
+    private static function violations(string $root): array {
+        if (!is_dir("$root/classes") || !is_file("$root/version.php")) {
+            throw new \coding_exception("$root is not the root of the plugin (classes/ or version.php is missing)");
+        }
+        $sources = self::sources($root);
+        $loosened = [
+            '/ignoresecurity|CURLOPT_SSL|skipcertverify/i',
+            "/verify['\"]?\\s*=>\\s*[^t\\s]/i",
+            "/allow_redirects['\"]?\\s*=>\\s*[^f\\s]/i",
+        ];
+        $found = [];
+        foreach ($sources as $relative => $path) {
+            $content = (string) file_get_contents($path);
+            $patterns = $relative === self::DOOR ? $loosened : [self::FORBIDDEN];
+            if ($relative === 'db/tasks.php' || preg_match('~^classes/task/[^/]+\.php$~', $relative)) {
+                $patterns[] = '~fiche_fetcher|fiche_import(?![_a-z0-9])|from_data_gouv|http_client~i';
+            }
+            if (!in_array($relative, self::NAMERS, true)) {
+                $patterns[] = '~fiche_fetcher|from_data_gouv~i';
+            }
+            if (!in_array($relative, self::IMPORTERS, true)) {
+                $patterns[] = '~fiche_import(?![_a-z0-9])~i';
+            }
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $content, $match)) {
+                    $found[] = "$relative ({$match[0]})";
+                }
+            }
+        }
+        if (!is_file("$root/" . self::DOOR)) {
+            $found[] = self::DOOR . ': the door does not exist';
+        }
 
-        return $path === '' ? null : $path;
+        return $found;
     }
 
     public function test_the_guard_reads_the_plugin_and_not_nothing(): void {
@@ -227,18 +261,11 @@ final class fiche_no_background_test extends \advanced_testcase {
         $this->assertMatchesRegularExpression("/'allow_redirects'\\s*=>\\s*false/", $door);
     }
 
-    public function test_the_script_fails_on_a_violation_passes_on_a_clean_tree_and_refuses_a_wrong_root(): void {
-        $bash = self::bash();
-        if ($bash === null) {
-            $this->markTestSkipped('No shell here: the PHP tests above do the same reading.');
-        }
-        $script = self::root() . '/scripts/sortie-reseau.sh';
-        $run = function (string $root) use ($bash, $script): array {
-            exec(escapeshellarg($bash) . ' ' . escapeshellarg($script) . ' ' . escapeshellarg($root) . ' 2>&1', $output, $code);
+    public function test_the_whole_guard_finds_nothing_in_the_plugin(): void {
+        $this->assertSame([], self::violations(self::root()));
+    }
 
-            return [$code, implode("\n", $output)];
-        };
-
+    public function test_the_guard_fails_on_a_violation_passes_on_a_clean_tree_and_refuses_a_wrong_root(): void {
         $make = function (array $files): string {
             $root = make_request_directory();
             $base = [
@@ -249,15 +276,16 @@ final class fiche_no_background_test extends \advanced_testcase {
                 'classes/event/export_fetched.php' => "<?php\n",
             ];
             foreach ($files + $base as $relative => $content) {
-                @mkdir(dirname("$root/$relative"), 0777, true);
+                if (!is_dir(dirname("$root/$relative"))) {
+                    mkdir(dirname("$root/$relative"), 0777, true);
+                }
                 file_put_contents("$root/$relative", $content);
             }
 
             return $root;
         };
 
-        [$code, $text] = $run($make([]));
-        $this->assertSame(0, $code, $text);
+        $this->assertSame([], self::violations($make([])));
 
         $violations = [
             'a client named elsewhere' => ['classes/local/other.php' => "<?php\n// the HTTP_CLIENT of the core\n"],
@@ -281,17 +309,16 @@ final class fiche_no_background_test extends \advanced_testcase {
             ],
         ];
         foreach ($violations as $label => $files) {
-            [$code, $text] = $run($make($files));
-            $this->assertSame(1, $code, "$label: $text");
+            $this->assertNotEmpty(self::violations($make($files)), $label);
         }
 
         // The exemption is a whole path: another file with the name of the door is not the door.
-        [$code, $text] = $run($make(['classes/other/fiche_fetcher.php' => "<?php\n\\core\\http_client::class;\n"]));
-        $this->assertSame(1, $code, $text);
+        $other = $make(['classes/other/fiche_fetcher.php' => "<?php\n\\core\\http_client::class;\n"]);
+        $this->assertNotEmpty(self::violations($other));
 
         // A root that is not the plugin's reads nothing, and says so.
-        [$code, $text] = $run(make_request_directory());
-        $this->assertSame(2, $code, $text);
+        $this->expectException(\coding_exception::class);
+        self::violations(make_request_directory());
     }
 
     public function test_the_new_classes_do_not_name_the_competency_subsystem(): void {
@@ -312,22 +339,17 @@ final class fiche_no_background_test extends \advanced_testcase {
         $this->assertSame([], $found);
     }
 
-    public function test_the_script_loads_the_refusal_first_and_the_makefile_has_the_guard(): void {
-        $script = file_get_contents(self::root() . '/scripts/convertir-fiche-rncp.php');
-        $refusal = strpos($script, 'fiche_refusal.php');
-        $converter = strpos($script, 'fiche_converter.php');
+    public function test_the_development_tree_runs_the_shell_twin_of_this_guard(): void {
+        // The Makefile and scripts/ are development files: the package of the plugin does not ship them, and this test
+        // then has nothing to check. Where they are, the shell twin of this guard must stay wired to the checks.
+        $makefile = self::root() . '/Makefile';
+        if (!is_file($makefile)) {
+            $this->markTestSkipped('No Makefile: an installed package, without the development files.');
+        }
+        $content = (string) file_get_contents($makefile);
 
-        $this->assertNotFalse($refusal);
-        $this->assertNotFalse($converter);
-        $this->assertLessThan(
-            $converter,
-            $refusal,
-            'The converter extends nothing but throws the refusal: it must be loaded first.'
-        );
-
-        $makefile = file_get_contents(self::root() . '/Makefile');
-        $this->assertMatchesRegularExpression('/^sortie:/m', $makefile);
-        $this->assertStringContainsString('scripts/sortie-reseau.sh', $makefile);
-        $this->assertFileExists(self::root() . '/scripts/sortie-reseau.sh');
+        $this->assertMatchesRegularExpression('/^network-door:/m', $content);
+        $this->assertStringContainsString('scripts/check-network-door.sh', $content);
+        $this->assertFileExists(self::root() . '/scripts/check-network-door.sh');
     }
 }

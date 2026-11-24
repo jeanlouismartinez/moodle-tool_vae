@@ -95,12 +95,12 @@ final class dossier_document {
 
         $faisabilite = [
             'identity' => $withidentity,
-            'saved' => $withsections ? faisabilite_overview::saved_versions($candidateid) : [],
+            'saved' => $withsections ? feasibility_overview::saved_versions($candidateid) : [],
             'account' => [],
         ];
         if ($withidentity) {
-            foreach (array_keys(faisabilite_fields::account_keys()) as $section) {
-                $faisabilite['account'][$section] = faisabilite_fields::account_values($section, $candidate);
+            foreach (array_keys(feasibility_fields::account_keys()) as $section) {
+                $faisabilite['account'][$section] = feasibility_fields::account_values($section, $candidate);
             }
         }
 
@@ -188,8 +188,8 @@ final class dossier_document {
      * that would repeat the last one. The time of issue is not part of it; the values read from the
      * account are, and so is the choice to write identity or not.
      *
-     * @param array[] $preuves
-     * @param array $referentiel
+     * @param array[] $evidences
+     * @param array $referential
      * @param array $faisabilite As for_candidate() builds it: identity, saved, account.
      * @param array $validation The preparation of the validation dossier, as validation_overview::document() builds it:
      *        a section saved again makes a new copy.
@@ -201,15 +201,15 @@ final class dossier_document {
      * @return string SHA-256, hexadecimal.
      */
     public static function digest(
-        array $preuves,
-        array $referentiel,
+        array $evidences,
+        array $referential,
         array $faisabilite = [],
         array $validation = [],
         array $pieces = [],
         array $scope = [],
         array $positioning = []
     ): string {
-        $parts = [self::LAYOUT, $preuves, $referentiel, $faisabilite, $validation, $pieces];
+        $parts = [self::LAYOUT, $evidences, $referential, $faisabilite, $validation, $pieces];
         if ($scope) {
             $parts[] = $scope;
         }
@@ -226,10 +226,10 @@ final class dossier_document {
      * Public so that a test reads what the copy says. Written in whatever language is current.
      *
      * @param \stdClass $candidate
-     * @param array[] $preuves As preuves/*.json write them.
-     * @param array $referentiel As referentiel.json writes it.
+     * @param array[] $evidences As preuves/*.json write them.
+     * @param array $referential As referentiel.json writes it.
      * @param int $now
-     * @param array $faisabilite 'identity' bool, 'saved' as faisabilite_overview::saved_versions()
+     * @param array $faisabilite 'identity' bool, 'saved' as feasibility_overview::saved_versions()
      *        returns it, 'account' as account_values() returns it per section.
      * @param array $validation The preparation of the validation dossier (T-11), as validation.json writes it.
      * @param array[] $pieces The supporting pieces by declaration identifier (T-13), as piece_overview::by_declaration() gives
@@ -240,8 +240,8 @@ final class dossier_document {
      */
     public static function compose(
         \stdClass $candidate,
-        array $preuves,
-        array $referentiel,
+        array $evidences,
+        array $referential,
         int $now,
         array $faisabilite = [],
         array $validation = [],
@@ -277,7 +277,7 @@ final class dossier_document {
 
         self::sections($writer, $faisabilite);
 
-        foreach ($referentiel['fiches'] as $fiche) {
+        foreach ($referential['fiches'] as $fiche) {
             $heading = $fiche['code'];
             if ($fiche['type'] !== null) {
                 $heading .= ' - ' . get_string($fiche['type'] === 'rs' ? 'typers' : 'typerncp', 'tool_vae');
@@ -305,13 +305,13 @@ final class dossier_document {
             }
 
             $competences = array_column($fiche['competences'], null, 'identifiant');
-            $ofthisfiche = array_values(array_filter($preuves, fn($preuve) => $preuve['fiche']['code'] === $fiche['code']));
+            $ofthisfiche = array_values(array_filter($evidences, fn($evidence) => $evidence['fiche']['code'] === $fiche['code']));
 
             // A record with blocs (T-33): the declarations by bloc, a heading for each, the bloc itself first, as the PDF
             // does. A flat record has no `blocs` and is written as it always was.
             $blocs = array_column($fiche['blocs'] ?? [], null, 'rang');
-            $bloc = fn($preuve) => $competences[$preuve['competence']]['bloc']
-                ?? (isset($blocs[$preuve['fiche']['rang']]) ? $preuve['fiche']['rang'] : null);
+            $bloc = fn($evidence) => $competences[$evidence['competence']]['bloc']
+                ?? (isset($blocs[$evidence['fiche']['rang']]) ? $evidence['fiche']['rang'] : null);
             if ($blocs) {
                 // The bloc itself first in its group; the rest keep the order they had (usort is stable).
                 usort($ofthisfiche, function ($a, $b) use ($bloc) {
@@ -323,20 +323,20 @@ final class dossier_document {
                 });
             }
             $current = false;
-            foreach ($ofthisfiche as $preuve) {
-                if ($blocs && $bloc($preuve) !== $current) {
-                    $current = $bloc($preuve);
+            foreach ($ofthisfiche as $evidence) {
+                if ($blocs && $bloc($evidence) !== $current) {
+                    $current = $bloc($evidence);
                     $writer->heading($current === null
                         ? get_string('exportpdfnobloc', 'tool_vae')
                         : get_string('exportpdfbloc', 'tool_vae', $current . ' - ' . ($blocs[$current]['intitule'] ?? '')), 3);
                 }
                 self::declaration(
                     $writer,
-                    $preuve,
-                    $competences[$preuve['competence']] ?? null,
+                    $evidence,
+                    $competences[$evidence['competence']] ?? null,
                     $date,
                     $blocs ? 4 : 3,
-                    $pieces[$preuve['id']] ?? []
+                    $pieces[$evidence['id']] ?? []
                 );
             }
         }
@@ -367,13 +367,13 @@ final class dossier_document {
             $writer->heading(get_string('validationtitle', 'tool_vae'), 2);
             $writer->paragraph($validation['avertissement']);
             $current = null;
-            foreach ($validation['rubriques'] as $rubrique) {
-                if ($rubrique['fiche'] !== $current) {
-                    $current = $rubrique['fiche'];
+            foreach ($validation['rubriques'] as $section) {
+                if ($section['fiche'] !== $current) {
+                    $current = $section['fiche'];
                     $writer->heading($current, 3);
                 }
-                $writer->heading(validation_catalog::label($rubrique['fiche'], $rubrique['code']), 4);
-                foreach (self::paragraphs($rubrique['texte'], 'texte') as $paragraph) {
+                $writer->heading(validation_catalog::label($section['fiche'], $section['code']), 4);
+                foreach (self::paragraphs($section['texte'], 'texte') as $paragraph) {
                     $writer->paragraph($paragraph);
                 }
             }
@@ -395,14 +395,14 @@ final class dossier_document {
 
         $blocks = [];
         $omitted = false;
-        foreach (faisabilite_catalog::sections() as $code => $definition) {
+        foreach (feasibility_catalog::sections() as $code => $definition) {
             $kind = $definition['kind'];
 
-            if ($kind === faisabilite_catalog::KIND_TEXT) {
+            if ($kind === feasibility_catalog::KIND_TEXT) {
                 foreach ($saved[$code] ?? [] as $slot => $version) {
                     $paragraphs = self::paragraphs((string) $version['content'], 'texte');
                     if ($paragraphs) {
-                        $blocks[] = [faisabilite_catalog::label($code, (int) $slot), $paragraphs, false];
+                        $blocks[] = [feasibility_catalog::label($code, (int) $slot), $paragraphs, false];
                     }
                 }
                 continue;
@@ -418,15 +418,15 @@ final class dossier_document {
             foreach ($account[$code] ?? [] as $key => $value) {
                 $lines[] = get_string('faisabaccount:' . $key, 'tool_vae') . ' : ' . $value;
             }
-            if ($kind === faisabilite_catalog::KIND_FIELDS && isset($saved[$code][0])) {
-                $values = faisabilite_fields::decode($code, (string) $saved[$code][0]['content']);
-                $readable = faisabilite_fields::readable_values($code, $values);
+            if ($kind === feasibility_catalog::KIND_FIELDS && isset($saved[$code][0])) {
+                $values = feasibility_fields::decode($code, (string) $saved[$code][0]['content']);
+                $readable = feasibility_fields::readable_values($code, $values);
                 if ($readable !== '') {
                     $lines = array_merge($lines, explode("\n", $readable));
                 }
             }
             if ($lines) {
-                $blocks[] = [faisabilite_catalog::label($code, 0), $lines, true];
+                $blocks[] = [feasibility_catalog::label($code, 0), $lines, true];
             }
         }
 
@@ -454,7 +454,7 @@ final class dossier_document {
      * One claim, with its attestations.
      *
      * @param document_writer $writer
-     * @param array $preuve
+     * @param array $evidence
      * @param array|null $competence Its entry in referentiel.json, which carries the label.
      * @param string $date The date format.
      * @param int $level The level of the heading: 4 under a bloc, 3 otherwise.
@@ -462,13 +462,13 @@ final class dossier_document {
      */
     private static function declaration(
         document_writer $writer,
-        array $preuve,
+        array $evidence,
         ?array $competence,
         string $date,
         int $level = 3,
         array $pieces = []
     ): void {
-        $title = $preuve['fiche']['rang'];
+        $title = $evidence['fiche']['rang'];
         if (($competence['intitule'] ?? null) !== null) {
             $title .= ' - ' . $competence['intitule'];
         }
@@ -476,23 +476,23 @@ final class dossier_document {
 
         $rows = [
             get_string('ficheupdated', 'tool_vae') . ' : '
-                . display_date::format(self::time($preuve['fiche']['mise_a_jour']), $date),
+                . display_date::format(self::time($evidence['fiche']['mise_a_jour']), $date),
             get_string('exportpdfdeclaredon', 'tool_vae') . ' : '
-                . display_date::format(self::time($preuve['declaree_le']), $date),
+                . display_date::format(self::time($evidence['declaree_le']), $date),
             get_string('period', 'tool_vae') . ' : ' . get_string('periodfromto', 'tool_vae', (object) [
-                'from' => display_date::format(self::time($preuve['periode']['debut']), $date),
-                'to' => display_date::format(self::time($preuve['periode']['fin']), $date),
+                'from' => display_date::format(self::time($evidence['periode']['debut']), $date),
+                'to' => display_date::format(self::time($evidence['periode']['fin']), $date),
             ]),
             get_string('settingtype', 'tool_vae') . ' : '
-                . get_string('setting:' . $preuve['cadre']['type'], 'tool_vae'),
+                . get_string('setting:' . $evidence['cadre']['type'], 'tool_vae'),
         ];
-        if (isset($preuve['cadre']['precision'])) {
-            $rows[] = get_string('settingdetail', 'tool_vae') . ' : ' . $preuve['cadre']['precision'];
+        if (isset($evidence['cadre']['precision'])) {
+            $rows[] = get_string('settingdetail', 'tool_vae') . ' : ' . $evidence['cadre']['precision'];
         }
         $writer->bullets($rows);
 
         $writer->paragraph(get_string('situation', 'tool_vae') . ' :');
-        foreach (self::paragraphs($preuve['situation']['texte'], $preuve['situation']['format']) as $paragraph) {
+        foreach (self::paragraphs($evidence['situation']['texte'], $evidence['situation']['format']) as $paragraph) {
             $writer->paragraph($paragraph);
         }
 
@@ -503,17 +503,17 @@ final class dossier_document {
         }
 
         $writer->paragraph(get_string('exportpdfattestations', 'tool_vae') . ' :');
-        if (!$preuve['attestations']) {
+        if (!$evidence['attestations']) {
             $writer->paragraph(get_string('noattestationyet', 'tool_vae'));
             return;
         }
 
         // The way out is said only when no attestation stands, and once, after the last one withdrawn (as the screen does).
-        $standing = in_array('en_vigueur', array_column($preuve['attestations'], 'statut'), true);
-        $last = array_key_last($preuve['attestations']);
+        $standing = in_array('en_vigueur', array_column($evidence['attestations'], 'statut'), true);
+        $last = array_key_last($evidence['attestations']);
 
         $items = [];
-        foreach ($preuve['attestations'] as $key => $attestation) {
+        foreach ($evidence['attestations'] as $key => $attestation) {
             if ($attestation['statut'] !== 'en_vigueur') {
                 $sentence = get_string('attestationwithdrawnon', 'tool_vae', (object) [
                     'date' => display_date::format(self::time($attestation['retiree_le']), $date),

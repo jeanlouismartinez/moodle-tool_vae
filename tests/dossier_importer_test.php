@@ -21,7 +21,7 @@ use tool_vae\fixtures\failing_evidence_gateway;
 use tool_vae\local\attestation_manager;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\draft_manager;
-use tool_vae\local\faisabilite_fields;
+use tool_vae\local\feasibility_fields;
 use tool_vae\local\dossier_importer;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\exporter;
@@ -454,7 +454,7 @@ final class dossier_importer_test extends \advanced_testcase {
     public function test_an_exported_dossier_comes_back_with_the_same_claims_and_identifiers(): void {
         $this->seed();
         $before = $this->build();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $this->candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $this->candidate->id);
 
         $this->destroy();
         $this->assertSame(0, self::rows_for((int) $this->candidate->id));
@@ -464,7 +464,7 @@ final class dossier_importer_test extends \advanced_testcase {
 
         $this->assertSame(2, $result->declarations);
         $this->assertSame(2, $result->attestations);
-        $this->assertSame($personne, identity_map::uuid_for(identity_map::TYPE_USER, (int) $this->candidate->id));
+        $this->assertSame($personuuid, identity_map::uuid_for(identity_map::TYPE_USER, (int) $this->candidate->id));
 
         // Criterion 6: the same claims, the same ULIDs, signatory included. Only correspondances[]
         // may differ - the signatory holds no account on the platform the dossier now lives on.
@@ -611,7 +611,7 @@ final class dossier_importer_test extends \advanced_testcase {
      * What this site holds for a competency, changed to an identifier of its own.
      *
      * The state of a site that has already exported, backed up or copied a dossier on the competency: the first of them mints
-     * an identifier for it (exporter::preuve()), and the archive of another platform gives the same competency another.
+     * an identifier for it (exporter::evidence()), and the archive of another platform gives the same competency another.
      *
      * @return string The identifier the archive gives the competency.
      */
@@ -1259,7 +1259,7 @@ final class dossier_importer_test extends \advanced_testcase {
         $this->write_section('objectifs', 0, 'Un premier jet.');
         $this->write_section('objectifs', 0, 'Obtenir le diplome.');
         $this->write_section('experiences', 2, 'Accueil de jour.');
-        $this->write_section('identite', 0, faisabilite_fields::encode('identite', ['nom_naissance' => 'Dupont-Secret']));
+        $this->write_section('identite', 0, feasibility_fields::encode('identite', ['nom_naissance' => 'Dupont-Secret']));
         // A draft in progress, no version: not in the archive.
         $manager = new draft_manager();
         $draft = $manager->section((int) $this->candidate->id, draft_manager::DOCTYPE_FAISABILITE, 'parcours');
@@ -1301,22 +1301,22 @@ final class dossier_importer_test extends \advanced_testcase {
 
         $manifest = json_decode($files['manifeste.json'], true, 512, JSON_THROW_ON_ERROR);
         $document = json_decode($files[exporter::FAISABILITE_PATH], true, 512, JSON_THROW_ON_ERROR);
-        $preuves = [];
+        $evidencefiles = [];
         foreach ($files as $path => $content) {
             if (str_starts_with($path, 'preuves/')) {
-                $preuves[] = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+                $evidencefiles[] = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
             }
         }
-        $referentiel = json_decode($files['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
+        $referential = json_decode($files['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
 
-        $html = pdf_renderer::html($manifest, $preuves, $referentiel, $document['rubriques']);
+        $html = pdf_renderer::html($manifest, $evidencefiles, $referential, $document['rubriques']);
 
         $this->assertStringContainsString(get_string('exportpdffaisabilite', 'tool_vae'), $html);
         $this->assertStringContainsString('Obtenir le diplome.', $html);
         $this->assertLessThan(strpos($html, 'RNCP36832'), strpos($html, 'Obtenir le diplome.'));
         $this->assertStringNotContainsString(
             get_string('exportpdffaisabilite', 'tool_vae'),
-            pdf_renderer::html($manifest, $preuves, $referentiel)
+            pdf_renderer::html($manifest, $evidencefiles, $referential)
         );
     }
 
@@ -1439,11 +1439,11 @@ final class dossier_importer_test extends \advanced_testcase {
             'slot of a single section' => [$row('objectifs', 1)],
             'twin' => [$row('objectifs', 0), $row('objectifs', 0)],
         ];
-        foreach ($cases as $name => $rubriques) {
+        foreach ($cases as $headings) {
             $forged = self::forge(
                 $files,
                 exporter::FAISABILITE_PATH,
-                json_encode(['rubriques' => $rubriques], JSON_UNESCAPED_UNICODE)
+                json_encode(['rubriques' => $headings], JSON_UNESCAPED_UNICODE)
             );
             $this->assert_refused((int) $this->candidate->id, $forged, 'errorarchivefaisabilite');
         }
@@ -1460,6 +1460,142 @@ final class dossier_importer_test extends \advanced_testcase {
         $this->assert_refused((int) $this->candidate->id, $forged, 'errorarchivefaisabilite');
 
         $this->assertSame(0, self::rows_for((int) $this->candidate->id));
+    }
+
+    /**
+     * A faisabilite.json the schema refuses is told in the language of the person who imports, the line of the schema
+     * included (lot 9 of review MMR-520: the lines of schema_validator were sentences in English written in the code).
+     *
+     * A real case: an archive this plugin exported, whose faisabilite.json has the text of its first section turned into a
+     * number, with a manifest that vouches for the new content (forge(), what a forger would do), so that only the schema
+     * stands in the way. See refusals() for how the page is put in French.
+     */
+    public function test_a_faisabilite_file_the_schema_refuses_is_told_in_the_language_of_the_importer(): void {
+        $this->seed();
+        $this->write_section('objectifs', 0, 'Obtenir le diplome.');
+        $files = $this->build();
+        $this->destroy();
+
+        $document = json_decode($files[exporter::FAISABILITE_PATH], false, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Obtenir le diplome.', $document->rubriques[0]->texte, 'The exported file is the one altered.');
+        $document->rubriques[0]->texte = 123;
+        $forged = self::forge($files, exporter::FAISABILITE_PATH, json_encode($document, JSON_UNESCAPED_UNICODE));
+
+        $this->assertSame(self::present_only([
+            'fr' => 'L\'archive est refusée : son fichier faisabilite.json n\'est pas valide '
+                . '(/rubriques/0/texte doit être de type string).',
+            'en' => 'The archive is refused: its file faisabilite.json is not valid (/rubriques/0/texte must be of type string).',
+        ]), $this->refusals($forged, 'errorarchivefaisabilite'));
+        $this->assertSame(0, self::rows_for((int) $this->candidate->id));
+    }
+
+    /**
+     * A declaration the checks of the import refuse is told in the language of the person who imports, whatever refuses it:
+     * the schema, what the schema cannot say (a period that ends before it starts), or a file that is not JSON (lot 9).
+     *
+     * Real cases again: the claim of an archive this plugin exported, rewritten with its digest.
+     */
+    public function test_a_declaration_the_import_refuses_is_told_in_the_language_of_the_importer(): void {
+        $this->seed();
+        $files = $this->build();
+        $this->destroy();
+
+        $path = '';
+        $period = self::forge_claim($files, function (array $claim) use (&$path): array {
+            $path = 'preuves/' . $claim['id'] . '.json';
+            [$claim['periode']['debut'], $claim['periode']['fin']] = [$claim['periode']['fin'], $claim['periode']['debut']];
+
+            return $claim;
+        });
+        $this->assertSame(self::present_only([
+            'fr' => "L'archive est refusée : la déclaration $path n'est pas conforme au schéma "
+                . '(/periode finit avant de commencer).',
+            'en' => "The archive is refused: the declaration $path does not conform to the schema "
+                . '(/periode ends before it starts).',
+        ]), $this->refusals($period, 'errorarchiveschema'));
+
+        $type = self::forge_claim($files, function (array $claim): array {
+            $claim['competence'] = 7;
+
+            return $claim;
+        });
+        $this->assertSame(self::present_only([
+            'fr' => "L'archive est refusée : la déclaration $path n'est pas conforme au schéma "
+                . '(/competence doit être de type string).',
+            'en' => "The archive is refused: the declaration $path does not conform to the schema "
+                . '(/competence must be of type string).',
+        ]), $this->refusals($type, 'errorarchiveschema'));
+
+        $notjson = self::forge($files, $path, '{');
+        $this->assertSame(self::present_only([
+            'fr' => "L'archive est refusée : la déclaration $path n'est pas conforme au schéma (pas du JSON).",
+            'en' => "The archive is refused: the declaration $path does not conform to the schema (not JSON).",
+        ]), $this->refusals($notjson, 'errorarchiveschema'));
+
+        $this->assertSame(0, self::rows_for((int) $this->candidate->id));
+    }
+
+    /**
+     * The expected messages of the languages present here, in their order: both in the repository, English in the package.
+     *
+     * @param string[] $bylanguage Language => message.
+     * @return string[]
+     */
+    private static function present_only(array $bylanguage): array {
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+
+        return array_intersect_key($bylanguage, array_flip(\tool_vae\fixtures\lang_files::languages()));
+    }
+
+    /**
+     * The message of the refusal of an archive, imported as the site administrator in French, then in English.
+     *
+     * French is installed for the time of the call the way a language pack installs it - its langconfig.php in the language
+     * directory of the site - which is what makes the string manager read lang/fr of the plugin; force_current_language()
+     * then gives it to the page, as the language of the person would.
+     *
+     * French only where lang/fr of the plugin is present: the package of the plugin ships English only.
+     *
+     * @param string[] $files
+     * @param string $errorcode The refusal expected.
+     * @return string[] Language => message.
+     */
+    private function refusals(array $files, string $errorcode): array {
+        global $CFG;
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+
+        $langdir = $CFG->langotherroot . '/fr';
+        $installed = is_file($langdir . '/langconfig.php');
+        if (!$installed) {
+            make_writable_directory($langdir);
+            file_put_contents($langdir . '/langconfig.php', "<?php\n\$string['thislanguage'] = 'Français';\n");
+        }
+        get_string_manager()->reset_caches();
+
+        $messages = [];
+        try {
+            foreach (array_intersect(['fr', 'en'], \tool_vae\fixtures\lang_files::languages()) as $lang) {
+                $this->setAdminUser();
+                force_current_language($lang);
+                $this->assertSame($lang, current_language(), "The page is not in $lang.");
+                try {
+                    (new dossier_importer())->import_files((int) $this->candidate->id, $files);
+                    $this->fail("The archive was accepted in $lang.");
+                } catch (\moodle_exception $e) {
+                    $this->assertSame($errorcode, $e->errorcode, $e->getMessage());
+                    $messages[$lang] = $e->getMessage();
+                }
+            }
+        } finally {
+            force_current_language('');
+            if (!$installed) {
+                unlink($langdir . '/langconfig.php');
+                rmdir($langdir);
+            }
+            get_string_manager()->reset_caches();
+        }
+
+        return $messages;
     }
 
     /**

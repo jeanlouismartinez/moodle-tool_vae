@@ -1,0 +1,110 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/ai_page
+
+    The page of the reformulation aid, below its heading: the policy of the site and its form; or the confirmation (the
+    warning that it is shown again, the reminder, where the text goes, how long it is, what is kept, why it cannot be sent)
+    and its form; or the result (the proposal next to the original, or why there is none) and the way back. A field and its
+    label touch, and so do the hidden fields, the button and the way out: those line breaks are carried by comments.
+
+    Every text comes from the context, worded by tool_vae\output\ai_page. The template holds no logic. The texts are escaped
+    (double braces), the proposal and the text of the vaeiste first. Five keys are HTML (triple braces): againhtml, errorhtml
+    and problemhtml, notifications of the core ($output->notification(), message escaped by tool_vae\output\ai_page);
+    headinghtml, a heading of the core ($output->heading()); policyhtml, the policy of the site (format_text() of the core).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none (tool_vae/submit_once finds the form by its action, ai.php)
+
+    Context variables required for this template:
+    * againhtml - false, or HTML: what was confirmed changed, it is shown again
+    * errorhtml - false, or HTML: why there is no proposal
+    * headinghtml - false, or HTML: the heading of the screen
+    * policyhtml - false, or HTML: the policy of the site
+    * confirm - false, or an object {reminder, where, count, logged}
+    * problemhtml - false, or HTML: why the text cannot be sent
+    * proposal - false, or an object {notice, field}: field is an object {label, text, id}
+    * original - false, or an object {field, hint, backurl, backwords}: the text of the vaeiste and the way back
+    * form - false, or an object {action, hidden, field, button, backurl, backwords, hint}: hidden is an array of objects
+      {name, value}; button is false or an object {label}
+
+    Example context (json):
+    {
+        "againhtml": false,
+        "errorhtml": false,
+        "headinghtml": "<h3>Check what will be sent</h3>",
+        "policyhtml": false,
+        "confirm": {"reminder": "Name nobody.", "where": "To Provider.", "count": "10 characters.", "logged": "It is kept."},
+        "problemhtml": false,
+        "proposal": false,
+        "original": false,
+        "form": {
+            "action": "https://example.com/admin/tool/vae/ai.php",
+            "hidden": [{"name": "source", "value": "section"}, {"name": "step", "value": "send"}],
+            "field": {"label": "Your text", "text": "My text.", "id": "tool-vae-ai-text"},
+            "button": {"label": "Send this text to Provider"},
+            "backurl": "https://example.com/admin/tool/vae/section.php",
+            "backwords": "Back",
+            "hint": "The page saved nothing."
+        }
+    }
+}}
+{{#againhtml}}
+{{{againhtml}}}
+{{/againhtml}}
+{{#errorhtml}}
+{{{errorhtml}}}
+{{/errorhtml}}
+{{#headinghtml}}
+{{{headinghtml}}}
+{{/headinghtml}}
+{{#policyhtml}}
+<div class="ai-policy-display">{{{policyhtml}}}</div>
+{{/policyhtml}}
+{{#confirm}}
+<div class="alert alert-info tool-vae-anonymise" role="note">{{reminder}}</div>
+<p>{{where}}</p>
+<p>{{count}}</p>
+<p>{{logged}}</p>
+{{/confirm}}
+{{#problemhtml}}
+{{{problemhtml}}}
+{{/problemhtml}}
+{{#proposal}}
+<div class="alert alert-warning" role="note">{{notice}}</div>
+{{#field}}<label for="{{id}}" class="font-weight-bold">{{label}}</label>{{!
+}}<textarea id="{{id}}" readonly="readonly" rows="12" class="form-control mb-2">{{text}}</textarea>{{/field}}{{/proposal}}{{!
+}}{{#original}}{{#field}}<label for="{{id}}" class="font-weight-bold">{{label}}</label>{{!
+}}<textarea id="{{id}}" readonly="readonly" rows="12" class="form-control mb-2">{{text}}</textarea>{{/field}}
+<p class="text-muted small">{{hint}}</p>
+<p><a href="{{backurl}}" class="btn btn-secondary">{{backwords}}</a></p>
+{{/original}}
+{{#form}}
+<form method="post" action="{{action}}">{{#hidden}}<input type="hidden" name="{{name}}" value="{{value}}">{{/hidden}}{{!
+}}{{#field}}<label for="{{id}}" class="font-weight-bold">{{label}}</label>{{!
+}}<textarea id="{{id}}" readonly="readonly" rows="12" class="form-control mb-2" name="text">{{text}}</textarea>{{/field}}
+<div class="mt-2">{{#button}}<input type="submit" class="btn btn-primary mr-2" value="{{label}}">{{/button}}{{!
+}}<a href="{{backurl}}" class="btn btn-secondary">{{backwords}}</a></div>
+<p class="text-muted small mt-2">{{hint}}</p>
+</form>
+{{/form}}

@@ -39,7 +39,7 @@ final class validation_overview {
     public const SCHEMA_VERSION = '0.1.0';
 
     /** @var string The aid used: the generic layout, by bloc. */
-    public const GABARIT = 'par-bloc';
+    public const TEMPLATE = 'par-bloc';
 
     /**
      * The latest saved version of every section the candidate has written.
@@ -112,14 +112,14 @@ final class validation_overview {
      * @return array|null
      */
     public static function document(int $candidateid): ?array {
-        $rubriques = [];
+        $sections = [];
         foreach (self::saved_versions($candidateid) as $row) {
             $parsed = validation_catalog::parse((string) $row->section);
             if ($parsed === null) {
                 continue;
             }
             [$rank, $part] = $parsed;
-            $rubriques[] = [
+            $sections[] = [
                 'fiche' => (string) $row->fichecode,
                 'code' => (string) $row->section,
                 'bloc' => $rank === '' ? null : strtoupper($rank),
@@ -129,15 +129,15 @@ final class validation_overview {
                 'texte' => (string) $row->content,
             ];
         }
-        if (!$rubriques) {
+        if (!$sections) {
             return null;
         }
 
         return [
-            'gabarit' => self::GABARIT,
+            'gabarit' => self::TEMPLATE,
             'officiel' => false,
             'avertissement' => get_string('validationlabelling', 'tool_vae'),
-            'rubriques' => $rubriques,
+            'rubriques' => $sections,
         ];
     }
 }

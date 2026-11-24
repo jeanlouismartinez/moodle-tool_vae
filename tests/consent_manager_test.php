@@ -141,7 +141,8 @@ final class consent_manager_test extends \advanced_testcase {
         $PAGE = new \moodle_page();
         ob_start();
         try {
-            include(__DIR__ . '/../' . $script);
+            require_once(__DIR__ . '/fixtures/plugin_pages.php');
+            \tool_vae\fixtures\plugin_pages::run($script);
         } finally {
             $out = ob_get_clean();
             $_GET = [];

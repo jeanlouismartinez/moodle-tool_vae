@@ -18,8 +18,8 @@ namespace tool_vae;
 
 use tool_vae\local\identity_map;
 use tool_vae\local\positioning_rules;
-use tool_vae\local\positioning_screen;
 use tool_vae\local\positioning_successor;
+use tool_vae\output\positioning_section;
 
 /**
  * The positionings written on a record that another replaces, read on the one that replaces it (T-90, plan 7).
@@ -32,6 +32,7 @@ use tool_vae\local\positioning_successor;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(positioning_successor::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(positioning_section::class)]
 final class positioning_successor_test extends \advanced_testcase {
     /** @var \tool_vae_generator */
     private $generator;
@@ -312,6 +313,18 @@ final class positioning_successor_test extends \advanced_testcase {
         $this->assertSame($few, $many);
     }
 
+    /**
+     * A piece drawn by the renderer of the plugin, as the pages draw it (lot 7, MMR-520 ticket 4).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function draw(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     public function test_a_record_with_no_old_record_reads_nothing(): void {
         $this->line('tool_vae_eval', 'RNCP100', 'C01', 'sufficient');
 
@@ -327,7 +340,7 @@ final class positioning_successor_test extends \advanced_testcase {
         $this->line('tool_vae_eval', 'RNCP100', 'C01', 'sufficient');
         $this->line('tool_vae_certif', 'RNCP100', 'BC01', 'certified', 1762000000, '2020-06-30');
 
-        $html = positioning_screen::section((int) $this->candidate->id, \context_user::instance($this->candidate->id));
+        $html = self::draw(new positioning_section((int) $this->candidate->id, \context_user::instance($this->candidate->id)));
 
         $this->assertStringContainsString(
             s(get_string('positioningonold', 'tool_vae', (object) [
@@ -355,7 +368,7 @@ final class positioning_successor_test extends \advanced_testcase {
         ]);
         $this->line('tool_vae_eval', 'RNCP100', 'C01', 'sufficient');
 
-        $html = positioning_screen::section((int) $this->candidate->id, \context_user::instance($this->candidate->id));
+        $html = self::draw(new positioning_section((int) $this->candidate->id, \context_user::instance($this->candidate->id)));
 
         $this->assertStringContainsString('RNCP100', $html, 'The section of the old record is there.');
         $this->assertStringNotContainsString('RNCP200', $html);

@@ -47,7 +47,7 @@ dit, et l'importeur refuse tout code qui n'est pas une rubrique de texte (identi
 n'entrent jamais dans l'archive, MC-13). Ce que le schéma contraint : la forme, un emplacement de 0 à 99,
 un numéro de version d'au moins 1, une date-heure complète, un texte de 100 000 caractères au plus.
 
-Contrôle : `make schema`, ou bien `AJV_MODULES=<dossier node_modules> node scripts/verifier-schema.mjs .`
+Contrôle : `make schema`, ou bien `AJV_MODULES=<dossier node_modules> node scripts/check-schema.mjs .`
 Il exige ajv 8 et ajv-formats 3. Il tourne aussi en CI.
 
 ## D'où vient chaque règle

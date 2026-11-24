@@ -68,6 +68,68 @@ final class role_installer_test extends \advanced_testcase {
         }
     }
 
+    public function test_names_and_descriptions_come_from_the_language_strings(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $en = \tool_vae\fixtures\lang_files::strings('en');
+
+        // The test site has no French language pack installed: get_string() answers in English here. The French of the
+        // created role is the core's get_string() at work, proven on the instance; the French values are checked below.
+        foreach (array_keys(role_installer::presets()) as $shortname) {
+            $preset = role_installer::presets()[$shortname];
+            $roleid = role_installer::create($shortname);
+
+            $this->assertSame(get_string('rolename_' . $shortname, 'tool_vae'), $preset->name, $shortname);
+            $this->assertSame($en['rolename_' . $shortname], $preset->name, $shortname);
+            $this->assertSame($en['roledesc_' . $shortname], $preset->description, $shortname);
+            $role = $DB->get_record('role', ['id' => $roleid], 'name, description', MUST_EXIST);
+            $this->assertSame($en['rolename_' . $shortname], $role->name, $shortname);
+            $this->assertSame($en['roledesc_' . $shortname], $role->description, $shortname);
+        }
+    }
+
+    public function test_a_french_site_gets_the_names_and_descriptions_it_always_had(): void {
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        \tool_vae\fixtures\lang_files::skip_unless_present('fr');
+        $fr = \tool_vae\fixtures\lang_files::strings('fr');
+
+        // The names and descriptions of the preset files up to version 2026111900, byte for byte.
+        $before = [
+            'vae_direction' => ['Direction VAE', 'Lit tous les dossiers.'],
+            'vae_direction_certificatrice' => ['Direction VAE certificatrice',
+                "Comme \u{00AB} Direction VAE \u{00BB}, et certifie les blocs de compétences (positionnement de la structure)."],
+            'vae_responsable' => ['Responsable VAE', 'Suit des vaeistes et atteste leurs déclarations.'],
+            'vae_responsable_evaluateur' => ['Responsable VAE évaluateur', "Comme \u{00AB} Responsable VAE \u{00BB}, et écrit les "
+                . "évaluations de compétence des vaeistes qu'il suit (positionnement de la structure)."],
+            'vaeiste' => ['Vaeiste', 'Vaeiste : prépare et dépose son propre dossier.'],
+        ];
+        foreach ($before as $shortname => [$name, $description]) {
+            $this->assertSame($name, $fr['rolename_' . $shortname], $shortname);
+            $this->assertSame($description, $fr['roledesc_' . $shortname], $shortname);
+        }
+    }
+
+    public function test_the_preset_files_carry_english_only(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/admin/roles/lib.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $en = \tool_vae\fixtures\lang_files::strings('en');
+        $files = glob(__DIR__ . '/../presets/roles/role_*.xml');
+
+        $this->assertCount(5, $files);
+        foreach ($files as $file) {
+            $xml = (string) file_get_contents($file);
+            $info = \core_role_preset::parse_preset($xml);
+            $shortname = (string) $info['shortname'];
+            // A role imported by hand from the file, outside the plugin, gets the English name.
+            $this->assertSame($en['rolename_' . $shortname], $info['name'], basename($file));
+            $this->assertSame($en['roledesc_' . $shortname], $info['description'], basename($file));
+            $this->assertSame(0, preg_match('/[^\x20-\x7E\n]/', $xml), basename($file) . ' has no byte outside printable ASCII.');
+        }
+    }
+
     public function test_a_role_is_created_with_exactly_the_rights_of_its_preset_and_the_event_is_logged(): void {
         global $DB;
         $this->resetAfterTest();

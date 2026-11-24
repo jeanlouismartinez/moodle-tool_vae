@@ -1,0 +1,134 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/guide_page
+
+    The guide of one role (lot S5), below the heading of the page: an introduction, the sections in their order, the sentence
+    on the functions the administrator may open, and the way back to the tab of the role.
+
+    Every text comes from the context, already worded by tool_vae\output\guide_page from the language strings. The
+    template holds no logic: who may read the guide is checked before the page is drawn. Every value is escaped (double braces):
+    none of them is HTML.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, the sentence under the heading
+    * sections - array of sections, each with:
+        * id - string, the id of the section
+        * title - string, its title
+        * texts - array of strings, the sentences before the steps
+        * hassteps - boolean, whether it has numbered steps
+        * steps - array of strings, the steps, in their order
+        * notes - array of strings, the sentences after the steps
+        * haswords - boolean, whether it defines words
+        * words - array of objects {word, definition}
+        * link - false, or an object {url, label}: a page the reader may open
+    * more - string, the sentence on the other functions
+    * back - object {url, label}, the way back to the tab of the role
+
+    Example context (json):
+    {
+        "intro": "This guide fits on one page.",
+        "sections": [
+            {
+                "id": "tool-vae-guide-declare",
+                "title": "Declare an activity",
+                "texts": [],
+                "hassteps": true,
+                "steps": ["In My pathway, click Declare an activity.", "Click Record this declaration."],
+                "notes": ["Name no person you care for."],
+                "haswords": false,
+                "words": [],
+                "link": false
+            },
+            {
+                "id": "tool-vae-guide-pending",
+                "title": "Declarations awaiting an attestation",
+                "texts": ["The page lists the declarations no manager has attested yet."],
+                "hassteps": false,
+                "steps": [],
+                "notes": [],
+                "haswords": false,
+                "words": [],
+                "link": {
+                    "url": "https://example.com/admin/tool/vae/pending.php",
+                    "label": "Declarations awaiting an attestation"
+                }
+            },
+            {
+                "id": "tool-vae-guide-words",
+                "title": "Words to know",
+                "texts": [],
+                "hassteps": false,
+                "steps": [],
+                "notes": [],
+                "haswords": true,
+                "words": [
+                    {"word": "Declaration", "definition": "What the candidate says they did at work."}
+                ],
+                "link": false
+            }
+        ],
+        "more": "The administrator of the site may open other functions.",
+        "back": {
+            "url": "https://example.com/admin/tool/vae/organisation.php?tab=mine",
+            "label": "Back to the tab My pathway"
+        }
+    }
+}}
+<div class="tool-vae-guide">
+    <p class="lead">{{intro}}</p>
+    {{#sections}}
+    <section id="{{id}}" class="mb-4">
+        <h2 class="h4">{{title}}</h2>
+        {{#texts}}
+        <p>{{.}}</p>
+        {{/texts}}
+        {{#hassteps}}
+        <ol>
+            {{#steps}}
+            <li>{{.}}</li>
+            {{/steps}}
+        </ol>
+        {{/hassteps}}
+        {{#notes}}
+        <p>{{.}}</p>
+        {{/notes}}
+        {{#haswords}}
+        <dl>
+            {{#words}}
+            <dt>{{word}}</dt>
+            <dd>{{definition}}</dd>
+            {{/words}}
+        </dl>
+        {{/haswords}}
+        {{#link}}
+        <p><a href="{{url}}">{{label}}</a></p>
+        {{/link}}
+    </section>
+    {{/sections}}
+    <p class="text-muted">{{more}}</p>
+    <p><a href="{{back.url}}">{{back.label}}</a></p>
+</div>

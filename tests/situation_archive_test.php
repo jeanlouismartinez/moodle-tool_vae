@@ -396,8 +396,8 @@ final class situation_archive_test extends \advanced_testcase {
         // The annotations: every line, the withdrawal included, the author by an opaque identifier.
         $this->assertCount(5, $document['annotations']);
         $notes = $document['annotations'];
-        $cibles = ['situation', 'autopositionnement', 'situation', 'situation', 'situation'];
-        $this->assertSame($cibles, array_column($notes, 'cible'));
+        $targets = ['situation', 'autopositionnement', 'situation', 'situation', 'situation'];
+        $this->assertSame($targets, array_column($notes, 'cible'));
         $this->assertSame($this->written['one']->uuid, $notes[0]['cible_identifiant']);
         $this->assertArrayNotHasKey('cible_identifiant', $notes[1]);
         $this->assertSame([1, 0, 1, 1, 1], array_column($notes, 'emplacement'));
@@ -1093,10 +1093,10 @@ final class situation_archive_test extends \advanced_testcase {
         // TCPDF compresses what it writes, so the PDF itself is not searched: its HTML is, drawn from the archive's own files
         // as exporter_test does. The saved part is in it, so its silence about the situations means something.
         $decode = fn(string $content) => json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        $preuves = array_filter($files, fn(string $path) => str_starts_with($path, 'preuves/'), ARRAY_FILTER_USE_KEY);
+        $evidencefiles = array_filter($files, fn(string $path) => str_starts_with($path, 'preuves/'), ARRAY_FILTER_USE_KEY);
         $html = \tool_vae\local\pdf_renderer::html(
             $decode($files['manifeste.json']),
-            array_values(array_map($decode, $preuves)),
+            array_values(array_map($decode, $evidencefiles)),
             $decode($files['referentiel.json']),
             [],
             $validation
@@ -1389,14 +1389,14 @@ final class situation_archive_test extends \advanced_testcase {
             ]);
         };
         // A line of the archive, on a node of RNCP100, by that author.
-        $line = function (string $uuid, string $rank, ?string $retire) use ($author, $when): array {
+        $line = function (string $uuid, string $rank, ?string $withdrawnat) use ($author, $when): array {
             $entry = [
                 'identifiant' => $uuid, 'cible' => 'autopositionnement', 'fiche' => 'RNCP100', 'emplacement' => 0, 'rang' => $rank,
-                'auteur' => $author, 'texte' => $retire === null ? 'Restauree.' : '', 'format' => 'texte',
-                'etat' => $retire === null ? 'active' : 'retiree',
+                'auteur' => $author, 'texte' => $withdrawnat === null ? 'Restauree.' : '', 'format' => 'texte',
+                'etat' => $withdrawnat === null ? 'active' : 'retiree',
             ];
-            if ($retire !== null) {
-                $entry['retire'] = $retire;
+            if ($withdrawnat !== null) {
+                $entry['retire'] = $withdrawnat;
             }
             $entry['empreinte'] = self::note_hash($entry);
             $entry['ecrit_le'] = $when;

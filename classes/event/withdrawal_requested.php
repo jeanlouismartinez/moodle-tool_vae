@@ -26,6 +26,10 @@ namespace tool_vae\event;
  * would have told them which manager asked, when the interface and the exports do not. The
  * requester's own erasure reaches the rows they authored.
  *
+ * THE MOMENT OF THE REQUEST IS IN `other` TOO (`requestedat`, lot 9): the moment written on the attestation, which tells this
+ * request from a later one by the same person. The message to the signatory is tied to it, and its callback reads it here
+ * rather than in the database (\tool_vae\notification_observer::withdrawal_requested()).
+ *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -79,7 +83,7 @@ class withdrawal_requested extends \core\event\base {
         if (!isset($this->relateduserid)) {
             throw new \coding_exception('The relateduserid must be set: it is the signatory.');
         }
-        foreach (['evidenceid', 'candidateid'] as $key) {
+        foreach (['evidenceid', 'candidateid', 'requestedat'] as $key) {
             if (!isset($this->other[$key])) {
                 throw new \coding_exception("The '$key' value must be set in other.");
             }

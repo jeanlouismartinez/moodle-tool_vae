@@ -89,7 +89,7 @@ final class attestation_manager_test extends \advanced_testcase {
         // advanced_testcase wraps each test in a transaction of its own, and Moodle only
         // undoes the outermost level: without this call, an inner rollback aborts the test's
         // own transaction and every later query in that test fails for a reason that has
-        // nothing to do with the plugin. Lesson of lot 3, trap 4 of docs/BANC-ESSAI.md.
+        // nothing to do with the plugin. Lesson of lot 3 (a nested transaction is not undone where the test looks at it).
         $this->preventResetByRollback();
 
         require_once($CFG->libdir . '/formslib.php');
@@ -1268,14 +1268,17 @@ final class attestation_manager_test extends \advanced_testcase {
             $this->assertStringNotContainsStringIgnoringCase('administrat', $e->getMessage());
         }
 
-        $french = (function (): array {
-            $string = [];
-            require(__DIR__ . '/../lang/fr/tool_vae.php');
+        // The package of the plugin ships English only: French is read only where lang/fr is present.
+        if (is_readable(__DIR__ . '/../lang/fr/tool_vae.php')) {
+            $french = (function (): array {
+                $string = [];
+                require(__DIR__ . '/../lang/fr/tool_vae.php');
 
-            return $string;
-        })();
-        $this->assertArrayHasKey('errorattestexists', $french);
-        $this->assertStringNotContainsStringIgnoringCase('administrat', $french['errorattestexists']);
+                return $string;
+            })();
+            $this->assertArrayHasKey('errorattestexists', $french);
+            $this->assertStringNotContainsStringIgnoringCase('administrat', $french['errorattestexists']);
+        }
     }
 
     // ----------------------------------------------------------------------

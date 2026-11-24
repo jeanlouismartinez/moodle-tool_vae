@@ -11,7 +11,8 @@ Feature: A manager removes the row of a record imported by mistake
   #
   # THE STEPS THAT DELETE A FRAMEWORK ARE IN behat_tool_vae.php: the first goes through the core's own door, as the screen of
   # Moodle does; the second empties the tables with no event and no check, to reach a state the core's lock would forbid (a
-  # framework gone while a declaration stands).
+  # framework gone while a declaration stands). After the first, the plugin's observer only queues the release of the row of
+  # provenance (ticket 3 of review MMR-520): the scenarios run the ad hoc tasks, as cron would, before they look.
 
   Background:
     Given the following "tool_vae > sources" exist:
@@ -32,6 +33,7 @@ Feature: A manager removes the row of a record imported by mistake
 
   Scenario: The manager removes the row of a record deleted in Moodle
     Given the competency framework of the record "RNCP36832" is deleted in Moodle
+    And I run all adhoc tasks
     And I log in as "admin"
     When I am on the "tool_vae > Index" page
     Then I should see "no longer exists in Moodle"
@@ -50,6 +52,7 @@ Feature: A manager removes the row of a record imported by mistake
 
   Scenario: Cancelling leaves the row where it is
     Given the competency framework of the record "RNCP36832" is deleted in Moodle
+    And I run all adhoc tasks
     And I log in as "admin"
     And I am on the "RNCP36832" "tool_vae > Remove record" page
     When I press "Cancel"
@@ -83,6 +86,7 @@ Feature: A manager removes the row of a record imported by mistake
   # say "a candidate has left a trace" for both, and the manager looked for a trace that was not there.
   Scenario: A framework made by hand under the code is named, and no trace of a candidate is claimed
     Given the competency framework of the record "RNCP36832" is deleted in Moodle
+    And I run all adhoc tasks
     And the following "core_competency > frameworks" exist:
       | shortname    | idnumber  |
       | Made by hand | RNCP36832 |
@@ -107,6 +111,7 @@ Feature: A manager removes the row of a record imported by mistake
       | candidate | fichecode | ficherang | situation                            |
       | candidat  | RNCP40692 | BC03      | Night rounds with the care assistant |
     And the competency framework of the record "RNCP36832" is deleted in Moodle
+    And I run all adhoc tasks
     And the following "core_competency > frameworks" exist:
       | shortname    | idnumber  |
       | Made by hand | RNCP36832 |

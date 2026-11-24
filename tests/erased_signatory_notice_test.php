@@ -24,7 +24,6 @@ use tool_vae\local\evidence_manager;
 use tool_vae\local\exporter;
 use tool_vae\local\identity_map;
 use tool_vae\local\pdf_renderer;
-use tool_vae\local\presenter;
 use tool_vae\local\purge;
 use tool_vae\privacy\provider;
 use tool_vae\task\send_notification;
@@ -56,7 +55,7 @@ use tool_vae\task\send_notification;
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\notifier::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\purge::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\privacy\provider::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\presenter::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\attestations::class)]
 final class erased_signatory_notice_test extends \advanced_testcase {
     /** @var string What the task of the message to the vaeiste carries. */
     private const ERASED = 'attestationserased';
@@ -222,6 +221,10 @@ final class erased_signatory_notice_test extends \advanced_testcase {
         set_config('automaticdatadeletionapproval', 0, 'tool_dataprivacy');
         $this->setAdminUser();
         delete_user($DB->get_record('user', ['id' => $user->id], '*', MUST_EXIST));
+        // Ticket 3 of review MMR-520: the observer only queues the purge of the dossier; cron runs it, and only it runs here.
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\purge_deleted_account::class);
+        ob_end_clean();
     }
 
     /**
@@ -312,6 +315,8 @@ final class erased_signatory_notice_test extends \advanced_testcase {
      * Run every queued notification, as cron would, whatever its scheduled time.
      */
     private function deliver_all(): void {
+        // Ticket 3 of review MMR-520: the task that finds the recipients of a withdrawal runs first, as cron would.
+        $this->runAdhocTasks(\tool_vae\task\queue_notifications::class);
         $this->runAdhocTasks(send_notification::class);
     }
 
@@ -439,6 +444,18 @@ final class erased_signatory_notice_test extends \advanced_testcase {
      * the reference. The managers who remain are named as who can give a new attestation; the erased one is not, nor
      * her title, nor her words, nor the cause.
      */
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     public function test_the_approval_of_the_erasure_tells_each_vaeiste_once_and_only_what_happened(): void {
         $this->delete_account($this->nadia);
         $this->assertSame([], $this->queued(self::ERASED), 'Told at the deletion of the account, while the signatures stand.');
@@ -780,11 +797,12 @@ final class erased_signatory_notice_test extends \advanced_testcase {
         provider::delete_data_for_user($this->approval($this->nadia, [$this->camille]));
         $claim = $this->claims['camille'][0];
 
-        $screen = html_entity_decode(strip_tags(presenter::attestations(attestation_manager::attestations((int) $claim->id))));
+        $drawn = self::render(new output\attestations(attestation_manager::attestations((int) $claim->id)));
+        $screen = html_entity_decode(strip_tags($drawn));
         $files = $this->archive_of($this->camille);
         $pdf = html_entity_decode(strip_tags(pdf_renderer::html(
             json_decode($files['manifeste.json'], true, 512, JSON_THROW_ON_ERROR),
-            $this->preuves($files),
+            $this->evidence_files($files),
             json_decode($files['referentiel.json'], true, 512, JSON_THROW_ON_ERROR)
         )));
         $this->setUser($this->camille);
@@ -800,8 +818,8 @@ final class erased_signatory_notice_test extends \advanced_testcase {
             $this->assertStringContainsString(get_string('withdrawreason:rgpd', 'tool_vae'), $text);
         }
 
-        foreach ($this->preuves($files) as $preuve) {
-            foreach ($preuve['attestations'] as $attestation) {
+        foreach ($this->evidence_files($files) as $evidence) {
+            foreach ($evidence['attestations'] as $attestation) {
                 $this->assertSame(['statut', 'retiree_le', 'motif'], array_keys($attestation));
                 $this->assertSame('rgpd', $attestation['motif'], 'The coded reason of the machine-readable file is unchanged.');
             }
@@ -828,7 +846,7 @@ final class erased_signatory_notice_test extends \advanced_testcase {
         $sentence = function (\stdClass $claim): string {
             $rows = attestation_manager::attestations((int) $claim->id);
 
-            return trim(html_entity_decode(strip_tags(presenter::attestations($rows))));
+            return trim(html_entity_decode(strip_tags(self::render(new output\attestations($rows)))));
         };
         $date = '/ on [^(]+\(/';
         $this->assertSame(
@@ -843,11 +861,12 @@ final class erased_signatory_notice_test extends \advanced_testcase {
             '/requested by the signatory|asked by the signatory|demandé par le signataire/u',
             $sentence($erased)
         );
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             // Read from the plugin's own file: the French pack is not installed in the test site, and the string manager
             // then answers in English whatever language is asked.
-            $string = [];
-            include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+            $string = \tool_vae\fixtures\lang_files::strings($lang);
             $shown = $string['attestationwithdrawnon'];
             $this->assertDoesNotMatchRegularExpression(
                 '/requested by the signatory|asked by the signatory|demandé par le signataire|demandée par le signataire/u',
@@ -961,6 +980,8 @@ final class erased_signatory_notice_test extends \advanced_testcase {
      * is the same for one and for several. Read from the plugin's own files: the French pack is not installed in the test site.
      */
     public function test_the_sentence_that_names_the_managers_agrees_with_one_name_as_with_several(): void {
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        \tool_vae\fixtures\lang_files::skip_unless_present('fr');
         $string = [];
         include(__DIR__ . '/../lang/fr/tool_vae.php');
 
@@ -1255,7 +1276,9 @@ final class erased_signatory_notice_test extends \advanced_testcase {
      * @return string
      */
     private function screen_of(\stdClass $claim): string {
-        return html_entity_decode(strip_tags(presenter::attestations(attestation_manager::attestations((int) $claim->id))));
+        $drawn = self::render(new output\attestations(attestation_manager::attestations((int) $claim->id)));
+
+        return html_entity_decode(strip_tags($drawn));
     }
 
     /**
@@ -1267,7 +1290,7 @@ final class erased_signatory_notice_test extends \advanced_testcase {
         $files = $this->archive_of($this->camille);
         $pdf = html_entity_decode(strip_tags(pdf_renderer::html(
             json_decode($files['manifeste.json'], true, 512, JSON_THROW_ON_ERROR),
-            $this->preuves($files),
+            $this->evidence_files($files),
             json_decode($files['referentiel.json'], true, 512, JSON_THROW_ON_ERROR)
         )));
         $this->setUser($this->camille);
@@ -1282,7 +1305,7 @@ final class erased_signatory_notice_test extends \advanced_testcase {
      * @param string[] $files
      * @return array[]
      */
-    private function preuves(array $files): array {
+    private function evidence_files(array $files): array {
         $out = [];
         foreach ($files as $path => $content) {
             if (str_starts_with($path, 'preuves/')) {

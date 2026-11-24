@@ -22,14 +22,17 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 use tool_vae\local\situation_manager;
+use tool_vae\output\form_note;
+use tool_vae\output\whereami_tree;
 
 /**
  * The title, the period, the setting and the tags of a work situation (lot 1b): saved by their own button, no version of the
  * text (D-1b-I).
  *
- * THE TAGS ARE THE BOXES OF THE PANEL "WHERE AM I": the page gives the panel, drawn with a box tags[] on each node a situation
- * may carry, and the form inserts it as it is. They are not elements of the form: the page reads them from the request once
- * the form has been sent with its session key, and situation_manager::save_details() checks each rank against the record.
+ * THE TAGS ARE THE BOXES OF THE PANEL "WHERE AM I": the page gives the panel, to be drawn with a box tags[] on each node a
+ * situation may carry, and the form places it as the renderer draws it. They are not elements of the form: the page reads
+ * them from the request once the form has been sent with its session key, and situation_manager::save_details() checks each
+ * rank against the record.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
@@ -42,16 +45,16 @@ class situation_details_form extends \moodleform {
     /**
      * Build the form. The situation - vaeiste, record, slot - is in the address, not in the form.
      *
-     * Custom data: `panel` (string), the HTML of the panel "where am I" with its boxes.
+     * Custom data: `panel` (whereami_tree), the panel "where am I" with its boxes, drawn here by the renderer of the plugin
+     * (until lot 7, wave 4c, the page gave it already drawn, as a string); anything else draws no panel.
      */
     protected function definition() {
-        $mform = $this->_form;
+        global $PAGE;
 
-        $mform->addElement('html', \html_writer::div(
-            s(get_string('anonymiseshort', 'tool_vae')),
-            'small text-muted mb-2',
-            ['id' => self::REMINDER_ID]
-        ));
+        $mform = $this->_form;
+        $renderer = $PAGE->get_renderer('tool_vae');
+
+        $mform->addElement('html', $renderer->render(form_note::short_with_id(self::REMINDER_ID)));
         $mform->addElement('text', 'title', get_string('situationtitle', 'tool_vae'), [
             'size' => 60, 'maxlength' => situation_manager::TITLE_MAXLENGTH, 'aria-describedby' => self::REMINDER_ID,
         ]);
@@ -66,8 +69,9 @@ class situation_details_form extends \moodleform {
         ]);
         $mform->setType('setting', PARAM_TEXT);
 
-        $mform->addElement('html', \html_writer::tag('h3', s(get_string('situationtags', 'tool_vae')), ['class' => 'h5 mt-3']));
-        $mform->addElement('html', (string) ($this->_customdata['panel'] ?? ''));
+        $mform->addElement('html', $renderer->render(form_note::tags_heading()));
+        $panel = $this->_customdata['panel'] ?? null;
+        $mform->addElement('html', $panel instanceof whereami_tree ? $renderer->render($panel) : '');
 
         $this->add_action_buttons(false, get_string('situationsavedetails', 'tool_vae'));
     }

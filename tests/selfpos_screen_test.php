@@ -24,6 +24,11 @@ use tool_vae\local\selfpos_manager;
 use tool_vae\local\selfpos_regard;
 use tool_vae\local\selfpos_screen;
 use tool_vae\local\selfpos_tree;
+use tool_vae\output\positioning_section;
+use tool_vae\output\selfpos_hidden;
+use tool_vae\output\selfpos_node;
+use tool_vae\output\selfpos_record_tree;
+use tool_vae\output\selfpos_records;
 
 /**
  * The screens of the self-positioning of the vaeiste (lot 1a), and who reads them (lot 1a, task 9).
@@ -35,6 +40,11 @@ use tool_vae\local\selfpos_tree;
 #[\PHPUnit\Framework\Attributes\CoversClass(selfpos_screen::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(selfpos_form::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(positioning_screen::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(positioning_section::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(selfpos_hidden::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(selfpos_node::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(selfpos_record_tree::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(selfpos_records::class)]
 final class selfpos_screen_test extends \advanced_testcase {
     /** @var \stdClass */
     private $vaeiste;
@@ -125,6 +135,18 @@ final class selfpos_screen_test extends \advanced_testcase {
     }
 
     /**
+     * A piece drawn by the renderer of the plugin, as the pages draw it (lot 7, MMR-520 ticket 4).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function draw(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
+    /**
      * The tree screen of a record, as a reader sees it.
      *
      * @param string $code
@@ -136,7 +158,9 @@ final class selfpos_screen_test extends \advanced_testcase {
         $this->setUser($reader ?? $this->vaeiste);
         $current = (new selfpos_manager())->current((int) $this->vaeiste->id, $code);
 
-        return selfpos_screen::tree((int) $this->vaeiste->id, $code, selfpos_tree::for_record($code), $current, $canwrite);
+        return self::draw(
+            new selfpos_record_tree((int) $this->vaeiste->id, $code, selfpos_tree::for_record($code), $current, $canwrite)
+        );
     }
 
     /**
@@ -154,7 +178,7 @@ final class selfpos_screen_test extends \advanced_testcase {
         $node = selfpos_tree::node($tree, $rank);
         $manager = new selfpos_manager();
 
-        return selfpos_screen::node(
+        return self::draw(new selfpos_node(
             (int) $this->vaeiste->id,
             $code,
             $node,
@@ -163,7 +187,7 @@ final class selfpos_screen_test extends \advanced_testcase {
             [],
             $canwrite,
             $canwrite ? '<form class="tool-vae-selfpos-form"></form>' : ''
-        );
+        ));
     }
 
     public function test_the_tree_shows_every_node_with_its_level_name_current_level_and_date(): void {
@@ -199,9 +223,9 @@ final class selfpos_screen_test extends \advanced_testcase {
 
         $tree = selfpos_tree::for_record('RNCP100');
         $node = selfpos_tree::node($tree, 'AS-1-1');
-        $nodehtml = selfpos_screen::node((int) $this->vaeiste->id, 'RNCP100', $node, [], (object) [
+        $nodehtml = self::draw(new selfpos_node((int) $this->vaeiste->id, 'RNCP100', $node, [], (object) [
             'structure' => null, 'declarations' => 0, 'pieces' => 0,
-        ], [], true, '<form class="tool-vae-selfpos-form"></form>');
+        ], [], true, '<form class="tool-vae-selfpos-form"></form>'));
         $this->assertStringNotContainsString('tool-vae-selfpos-form', $nodehtml, 'No form on a node nobody can name.');
         $this->assertStringContainsString(s(get_string('selfposexplainnotpositionable', 'tool_vae')), $nodehtml);
     }
@@ -229,7 +253,7 @@ final class selfpos_screen_test extends \advanced_testcase {
         $this->position('RNCP100', 'C01', 2);
         // The vaeiste's own screens: the sentences speak to them.
         $this->setUser($this->vaeiste);
-        $records = selfpos_screen::records((int) $this->vaeiste->id, [], []);
+        $records = self::draw(new selfpos_records((int) $this->vaeiste->id, [], []));
 
         foreach ([$records, $this->tree('RNCP100'), $this->node('RNCP100', 'C01')] as $html) {
             $this->assertStringContainsString(s(get_string('selfposvisible', 'tool_vae')), $html);
@@ -371,8 +395,8 @@ final class selfpos_screen_test extends \advanced_testcase {
         $this->assertStringContainsString('Aide &amp; soins', $message);
 
         $screens = [
-            selfpos_screen::hidden($message, ''),
-            selfpos_screen::records((int) $this->vaeiste->id, [], ['RNCP100' => $message]),
+            self::draw(new selfpos_hidden($message, '')),
+            self::draw(new selfpos_records((int) $this->vaeiste->id, [], ['RNCP100' => $message])),
         ];
         foreach ($screens as $html) {
             $this->assertStringContainsString('Aide &amp; soins (RNCP100)', $html);
@@ -381,13 +405,16 @@ final class selfpos_screen_test extends \advanced_testcase {
     }
 
     public function test_a_record_hidden_since_the_page_was_opened_gives_the_hidden_record_message_and_keeps_the_text(): void {
-        $html = selfpos_screen::hidden('Ce referentiel est masque.', "Mon texte <b>long</b>\nsur deux lignes.");
+        $html = self::draw(new selfpos_hidden('Ce referentiel est masque.', "Mon texte <b>long</b>\nsur deux lignes."));
 
         $this->assertStringContainsString('Ce referentiel est masque.', $html);
         $this->assertStringContainsString(s(get_string('selfposhiddenkept', 'tool_vae')), $html);
         $this->assertStringContainsString('Mon texte &lt;b&gt;long&lt;/b&gt;', $html);
         $this->assertStringContainsString('readonly', $html);
-        $this->assertStringNotContainsString(get_string('selfposhiddenkept', 'tool_vae'), selfpos_screen::hidden('Masque.', ''));
+        $this->assertStringNotContainsString(
+            get_string('selfposhiddenkept', 'tool_vae'),
+            self::draw(new selfpos_hidden('Masque.', ''))
+        );
     }
 
     // Task 9: who reads.
@@ -399,7 +426,9 @@ final class selfpos_screen_test extends \advanced_testcase {
         access::require_can_view((int) $this->vaeiste->id);
         $this->assertFalse(selfpos_manager::can_write((int) $this->vaeiste->id));
         $current = (new selfpos_manager())->current((int) $this->vaeiste->id, 'RNCP100');
-        $html = selfpos_screen::tree((int) $this->vaeiste->id, 'RNCP100', selfpos_tree::for_record('RNCP100'), $current, false);
+        $html = self::draw(
+            new selfpos_record_tree((int) $this->vaeiste->id, 'RNCP100', selfpos_tree::for_record('RNCP100'), $current, false)
+        );
 
         $this->assertStringContainsString(get_string('selfposlabeldefault2', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('selfposreadlink', 'tool_vae'), $html);
@@ -453,7 +482,7 @@ final class selfpos_screen_test extends \advanced_testcase {
         ]);
         $this->setUser($this->manager);
 
-        $html = positioning_screen::section((int) $this->vaeiste->id, \context_user::instance($this->vaeiste->id));
+        $html = self::draw(new positioning_section((int) $this->vaeiste->id, \context_user::instance($this->vaeiste->id)));
 
         $this->assertStringContainsString(s(get_string('selfposonevaluation', 'tool_vae', (object) [
             'label' => get_string('selfposlabeldefault2', 'tool_vae'),
@@ -469,7 +498,7 @@ final class selfpos_screen_test extends \advanced_testcase {
         $this->assertStringContainsString(s(get_string('selfposreadall', 'tool_vae')), $html);
         $this->assertStringContainsString(selfpos_screen::url((int) $this->vaeiste->id)->out(), $html);
         $this->setUser($this->vaeiste);
-        $own = positioning_screen::section((int) $this->vaeiste->id, \context_user::instance($this->vaeiste->id));
+        $own = self::draw(new positioning_section((int) $this->vaeiste->id, \context_user::instance($this->vaeiste->id)));
         $this->assertStringContainsString(s(get_string('selfposlink', 'tool_vae')), $own);
         $this->assertStringNotContainsString(s(get_string('selfposreadall', 'tool_vae')), $own);
     }

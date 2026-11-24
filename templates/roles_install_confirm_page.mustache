@@ -1,0 +1,50 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/roles_install_confirm_page
+
+    The page of the VAE roles when one role is asked for, above the confirmation of the core: what will be created, and
+    the list of its rights.
+
+    Every text comes from the context, already worded by tool_vae\output\roles_install_confirm_page. The template holds
+    no logic. Every value is escaped (double braces): none of them is HTML.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * what - string, what will be created
+    * rights - array of strings, each right in words followed by its capability
+
+    Example context (json):
+    {
+        "what": "The role \"Vaeiste\" will be created with these rights, and nothing that exists is changed:",
+        "rights": ["Declare one's own experience of an activity (tool/vae:declare)", "View one's own dossier (tool/vae:viewown)"]
+    }
+}}
+<p>{{what}}</p>
+<ul>
+    {{#rights}}
+    <li>{{.}}</li>
+    {{/rights}}
+</ul>

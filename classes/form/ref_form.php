@@ -53,6 +53,8 @@ class ref_form extends \moodleform {
         $mform->addHelpButton('title', 'reftitle', 'tool_vae');
 
         $mform->addElement('text', 'url', get_string('refurl', 'tool_vae'), ['maxlength' => 255, 'size' => 60]);
+        // Not PARAM_URL: it empties https://fr.wikipedia.org/wiki/Établissement, an address the plugin accepts. ref_manager checks
+        // it with piece_manager::validate_url().
         $mform->setType('url', PARAM_RAW_TRIMMED);
         $mform->addRule('url', null, 'required', null, 'client');
 

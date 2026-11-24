@@ -28,7 +28,7 @@ namespace tool_vae\local;
  *
  * This class rebuilds that absorber inside the native model. It is the ONLY file in the
  * plugin allowed to name \core_competency. An LTS migration must touch this file and
- * nothing else. `make mc5` enforces it, and a failure there is a derogation failure, not a
+ * nothing else. `make gateway` (scripts/check-gateway.sh) enforces it, and a failure there is a derogation failure, not a
  * style warning.
  *
  * NOT FINAL, on purpose. The transaction in evidence_manager can only be exercised by a
@@ -403,6 +403,31 @@ class competency_gateway {
     }
 
     /**
+     * Which of these frameworks the core still holds.
+     *
+     * One read for many ids, for the scheduled catch-up of a deleted framework (deletion_followup::release_gone_frameworks()),
+     * as existing_evidence_ids() is for the evidence records. Nothing is checked but existence, and no capability: the caller
+     * is a system task.
+     *
+     * @param int[] $frameworkids
+     * @return int[] The ids that exist, keyed by id.
+     */
+    public function existing_framework_ids(array $frameworkids): array {
+        global $DB;
+
+        $found = [];
+        $ids = array_values(array_unique(array_filter(array_map('intval', $frameworkids), fn($id) => $id > 0)));
+        foreach (array_chunk($ids, 500) as $chunk) {
+            [$insql, $params] = $DB->get_in_or_equal($chunk, SQL_PARAMS_NAMED);
+            foreach ($DB->get_fieldset_select('competency_framework', 'id', "id $insql", $params) as $id) {
+                $found[(int) $id] = (int) $id;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * The identifier a framework carries now.
      *
      * Asked by the import before it writes anything: the framework a record was imported into may
@@ -589,7 +614,7 @@ class competency_gateway {
      * A site where none matches - renamed, or deleted - is told so, with the names looked for and the setting where the
      * administrator names the scale, instead of being handed a framework on a scale nobody chose. That setting
      * (`importscaleid`) comes first: the name Moodle looks for is the one of its current translation, and a site whose
-     * scale was written under an older wording (fildargent.net, 2 November 2026: "Echelle d'évaluation de compétence par
+     * scale was written under an older wording (a real site, 2 November 2026: "Echelle d'évaluation de compétence par
      * défault") never matched it. A choice that no longer points at a scale of the whole site - deleted since, or a
      * course's own scale - is ignored, and the search by name takes over as if nothing were chosen.
      *

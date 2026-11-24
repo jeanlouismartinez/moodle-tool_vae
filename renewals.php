@@ -30,8 +30,8 @@ require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use tool_vae\local\certification_manager;
-use tool_vae\local\positioning_screen;
 use tool_vae\local\renewal_report;
+use tool_vae\output\renewals_page;
 
 admin_externalpage_setup('toolvae_renewals');
 $system = context_system::instance();
@@ -40,51 +40,10 @@ require_capability('tool/vae:certify', $system);
 
 $today = certification_manager::today();
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('renewalsheading', 'tool_vae'));
-echo html_writer::tag('p', s(get_string('positioningdisclaimer', 'tool_vae')), ['class' => 'text-muted small']);
-echo html_writer::tag('p', s(get_string('renewalsintro', 'tool_vae')));
-echo html_writer::tag('p', s(get_string('renewalsasof', 'tool_vae', $today)), ['class' => 'text-muted small']);
-
-$rows = renewal_report::rows($today);
-if (!$rows) {
-    echo html_writer::tag('p', s(get_string('renewalsnone', 'tool_vae')));
-    echo $OUTPUT->footer();
-    die();
-}
-
-$table = new html_table();
-$table->attributes['class'] = 'generaltable tool-vae-renewals';
-$table->head = [
-    get_string('renewalscolcandidate', 'tool_vae'),
-    get_string('renewalscolrecord', 'tool_vae'),
-    get_string('renewalscolbloc', 'tool_vae'),
-    get_string('renewalscoluntil', 'tool_vae'),
-    get_string('renewalscoldays', 'tool_vae'),
-    get_string('renewalscolaction', 'tool_vae'),
-];
-foreach ($rows as $row) {
-    $candidateid = (int) $row->candidateid;
-    $dossier = new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]);
-    $page = positioning_screen::url('certify', $candidateid, (string) $row->fichecode, (string) $row->ficherang);
-    // Nobody certifies themselves, and reading one's own dossier is another right: no link is offered for one's own line.
-    $own = (int) $USER->id === $candidateid;
-    if ($own) {
-        $action = html_writer::tag('span', s(get_string('renewalsreadonly', 'tool_vae')), ['class' => 'small text-muted']);
-    } else if (!$row->held) {
-        // One sentence per cause: the record gone from the site, the sub-system off, no declaration left on the record.
-        $action = html_writer::tag('span', s(get_string('renewals' . $row->reason, 'tool_vae')), ['class' => 'small text-muted']);
-    } else {
-        $action = html_writer::link($page, get_string('positioningrenewlink', 'tool_vae'));
-    }
-    $table->data[] = [
-        $own ? s(fullname($row)) : html_writer::link($dossier, s(fullname($row))),
-        s($row->fichecode),
-        s($row->label),
-        s($row->validuntil),
-        (int) $row->days,
-        $action,
-    ];
-}
-echo html_writer::table($table);
+// Nobody certifies themselves, and reading one's own dossier is another right: no link is offered for one's own line.
+echo $renderer->render(new renewals_page($today, renewal_report::rows($today), (int) $USER->id));
 echo $OUTPUT->footer();

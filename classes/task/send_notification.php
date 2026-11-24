@@ -37,6 +37,30 @@ use tool_vae\notifier;
  */
 class send_notification extends \core\task\adhoc_task {
     /**
+     * Queue one notification for one recipient.
+     *
+     * @param string $provider A provider of \tool_vae\notifier.
+     * @param int $recipientid
+     * @param int $candidateid Whose dossier the message is about.
+     * @param array $about Identifiers of what the message is about. Identifiers only.
+     * @param int $runat When to send it; as soon as cron runs when 0.
+     */
+    public static function queue(string $provider, int $recipientid, int $candidateid, array $about = [], int $runat = 0): void {
+        $task = new self();
+        $task->set_custom_data((object) ([
+            'provider' => $provider,
+            'recipientid' => $recipientid,
+            'candidateid' => $candidateid,
+        ] + $about));
+
+        if ($runat > 0) {
+            $task->set_next_run_time($runat);
+        }
+
+        \core\task\manager::queue_adhoc_task($task);
+    }
+
+    /**
      * Name shown in the task logs.
      *
      * @return string

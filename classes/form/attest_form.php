@@ -19,6 +19,7 @@ namespace tool_vae\form;
 defined('MOODLE_INTERNAL') || die();
 
 use tool_vae\local\attestation_manager;
+use tool_vae\output\form_note;
 
 // THE PARENT CLASS IS NOT AUTOLOADED. `moodleform` lives in lib/formslib.php, which Moodle's
 // class loader knows nothing about: a page that instantiates this form without having loaded
@@ -65,7 +66,7 @@ class attest_form extends \moodleform {
         // The list of supporting pieces the signatory was shown (T-13): what is submitted is what was drawn, and the
         // attestation refuses it if the pieces are no longer those.
         $mform->addElement('hidden', 'piecesseen');
-        $mform->setType('piecesseen', PARAM_RAW);
+        $mform->setType('piecesseen', PARAM_TEXT);
 
         $mform->addElement(
             'text',
@@ -169,10 +170,8 @@ class attest_form extends \moodleform {
      * @return string
      */
     private static function reminder(): string {
-        return \html_writer::div(
-            get_string('anonymisereminder', 'tool_vae'),
-            'alert alert-info tool-vae-anonymise',
-            ['id' => self::REMINDER_ID]
-        );
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(form_note::reminder(self::REMINDER_ID));
     }
 }

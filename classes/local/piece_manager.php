@@ -32,7 +32,9 @@ use tool_vae\event\piece_removed;
  *
  * WHAT IT CHECKS, AND WHAT IT CANNOT. A closed list of types read on the content; macros and remote relations refused in DOCX
  * and ODT; a partial look at the raw bytes of a PDF (what is in compressed objects is not seen); the antivirus of the core,
- * called here because the plain upload field goes round the core's own. It cannot know that a document names nobody.
+ * called here again on the copy the page hands over (the upload repository of the core scans the file it receives, but a
+ * draft file can come from another repository, and the refusal without any antivirus is the plugin's own, MC-24). It cannot
+ * know that a document names nobody.
  *
  * A LINK IS NEVER VISITED. The server makes no request to it. It is shown whole, with a warning when it carries a query or
  * points at an address or a name of a private network, since the click is made by a person on their own computer.
@@ -115,11 +117,12 @@ final class piece_manager {
     /**
      * What the administrator set, held to the limits the code owns - and to the limit of the site.
      *
-     * THE SITE'S LIMIT IS APPLIED WHERE THE LIMIT IS APPLIED. The field of this plugin is a plain one, outside the file
+     * THE SITE'S LIMIT IS APPLIED WHERE THE LIMIT IS APPLIED. The field of this plugin was once a plain one, outside the file
      * manager of the core, which is what carries `Maximum uploaded file size` ($CFG->maxbytes) everywhere else on the site:
-     * the setting did not reach this path at all, and a site that capped uploads at 1 MB took 5 MB here. The size is read by
-     * insert_file() from this method, so the limit is held at the door and said on the page by the same value, and the two
-     * cannot drift apart. The quota of a candidate is not touched: it is a sum, not the size of one upload.
+     * the setting did not reach this path at all, and a site that capped uploads at 1 MB took 5 MB here. The file picker of
+     * the core now applies it too; the plugin keeps its own check, which does not depend on what a browser sends. The size is
+     * read by insert_file() from this method, so the limit is held at the door and said on the page by the same value, and the
+     * two cannot drift apart. The quota of a candidate is not touched: it is a sum, not the size of one upload.
      *
      * @return \stdClass open, maxbytes, maxperevidence, maxpercandidate, noantivirus.
      */
@@ -1097,8 +1100,9 @@ final class piece_manager {
     /**
      * Scan a file with the antivirus of the core.
      *
-     * The plain upload field goes round the core's own check, so it is made here. With no antivirus configured, files are
-     * refused unless the administrator accepted that in writing (MC-24): links need none.
+     * Made here on the copy the page hands over, whatever repository the file came from; the upload repository of the core
+     * has scanned it already when it came from the computer of the person. With no antivirus configured, files are refused
+     * unless the administrator accepted that in writing (MC-24): links need none.
      *
      * @param string $path
      * @param string $name

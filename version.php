@@ -17,6 +17,8 @@
 /**
  * Plugin version and metadata.
  *
+ * This file keeps only what explains its values. The history of the versions is in CHANGELOG.md.
+ *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -25,167 +27,45 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tool_vae';
-// Lot 7 ter adds db/messages.php, four observers and an ad hoc task: without a new number, an
-// installed site would register none of them, and the first declaration would find no provider
-// to send through. Raised a second time when the sending moved to the task, after review.
-// Lot 8 adds the export capability, db/tasks.php and a pluginfile callback, none of which an
-// installed site registers without a new number.
-// Lot 8, second half: the importdossier capability, two columns on tool_vae_attest, and
-// the import capability taken back from the manager archetype - all three need the upgrade step.
-// Lot 8 bis: the linkcourse capability and a course navigation callback, registered on upgrade.
-//
-// THE MOODLE_405 PACKAGE'S NUMBER STAYS BELOW THE LOWEST UPGRADE STEP THAT ONLY THIS PACKAGE HAS,
-// 2026101311. A site moving from 4.5 to 5.3 replaces the one package with the other, and Moodle
-// only runs a step whose number is above the installed one: a 4.5 package numbered 2026101311 or
-// more would make that site skip the step and never get the columns it creates. The 5.3 number
-// is also always above the 4.5 one. A step added to the 4.5 branch is copied here under another
-// number, and every step checks before it acts, so that a site which already ran it on 4.5 runs it
-// again here to no effect. See docs/BRANCHES.md; the `migration` job of the continuous
-// integration proves the passage, against the tip of MOODLE_405.
-// Lot 8 ter: security fixes only, no schema change; the number moves so that sites purge their
-// string caches and pick up the two new refusal messages of the archive reimport.
-// Lot 8 quater: the register of issued archives, tool_vae_archive, created by the
-// upgrade step 2026101302 (2026101203 on the 4.5 package).
-// Lot 9 (R3): the coverage table on the candidate's own dossier; no schema change, new strings only.
-// R4: dossier.pdf inside every archive; no schema change, new strings only.
-// Lot 8 quinquies: fixes only (one refusal message, register purged with the account), no schema change.
-// 0.13.0: wording and presentation (one word for the manager's act, 1er, year lists, button after a
-// withdrawal, made-up first names); no schema change, new strings only.
-// 0.13.1: the anonymisation reminder stays attached to a field that comes back with an error
-// (T-72); no schema change, no new string.
-// 0.13.2: attest() holds a lock per claim (T-76), the export refuses what the import would refuse
-// (T-77), backups carry a mark (T-75), a daily task reconciles unfinished purges (T-78), and a
-// second, idempotent step creates the withdrawal-request fields so that a 4.5 package can use
-// numbers above 2026101311 (T-80). No schema change for a site already at 0.13.1.
-// 0.14.0: two tables for the sections of a document and their versions (T-81): drafts saved
-// automatically, versions kept and compared word by word, restoration as a new version, and a daily
-// reconciliation of what an unfinished erasure leaves. Pages exist but no menu leads to them yet
-// (T-10). 5.3 only: the 4.5 package receives corrections and nothing else.
-// 0.15.0: editable copies of the dossier as .docx and .odt (T-83): a download button on the dossier
-// page, and a weekly task (off until the administrator turns it on) that writes a dated copy into the
-// candidate's own private files, two kept. A new scheduled task and a new event, so the number moves;
-// no schema change. 5.3 only.
-// 0.15.1: the list of the sections of the dossier de faisabilité (T-10, lot 1): a catalogue, a page that
-// says where each stands, a button on the dossier; new strings, no schema change.
-// 0.15.2: the sections of the dossier de faisabilité say what they are (T-10, lot 2): name and help in
-// the writing, history and comparison screens, a date column on the list; new strings, no schema change.
-// 0.16.0: identity and status as separate fields, the contact details read from the account, and a
-// capability of its own to read the identity (T-10, lot 3, MC-10 and MC-11). A new capability: the
-// number moves so that sites register it. No schema change.
-// 0.17.0: the editable copy carries the sections of the dossier de faisabilité (T-10, lot 4a); new
-// strings, no schema change.
-// 0.18.0: the archive carries the text sections of the dossier de faisabilite (T-10, lot 4b): a file
-// faisabilite.json with its schema, a section in the printed copy, and a restoration at reimport that
-// never overwrites a section already written. Never identity (MC-13). New strings, no schema change.
-// 0.19.0: the deposit of the dossier de faisabilite (T-21, lot 1): one table, a capability to read a
-// deposit, a manager and an event. No page yet. 5.3 only.
-// 0.20.0: the commitment of the candidate (T-10, lot 5a): a tenth section, confirmed with a deposit.
-// New strings, no schema change.
-// 0.21.0: the opinion of a manager on a deposit (T-10, lot 5b): one table, a capability, an event and
-// a message to the candidate. 5.3 only.
-// 0.22.0: the request for precision on a declaration before it is attested, and the candidate's answer
-// (T-20, D-13): one table, two events and a message to the candidate. 5.3 only.
-// 0.23.0: a reminder, once, of the declarations that waited for an attestation for the number of days the
-// administrator chose, and a report of them (T-22): a scheduled task, a message provider and a page.
-// No schema change. 5.3 only.
-// 0.46.0: « candidat » becomes « vaéiste » in every French string, the strings of two message
-// providers that had none, and the fixes of the audit of 26 October 2026: a twelfth message provider
-// (declarationpurged, registered on upgrade) and the mark of the old backups (an upgrade step).
-// No schema change.
-// 0.46.1: decisions of 27 October 2026 (a new page and a new event, new strings, a changed message
-// text): the version rises so that installed sites purge their caches. No schema change, no new
-// message provider, no new capability.
-// 0.47.0: the records of France compétences imported from its daily export, on one screen with two ways
-// to get it - upload the zip, or have the server fetch it from data.gouv.fr (the one request the plugin
-// makes of its own, on a click, never scheduled) - with a preview of what the export holds for each number
-// and a confirmation. A new page, two new classes of events, new strings. No schema change, no new
-// capability, no new message provider, no scheduled task: the number rises so that installed sites
-// purge their caches and know the events.
-// 01.5.3: renumbering, no change of code. The release label now reads "generation . Moodle branch":
-// 01 is the first version meant for the Moodle plugins directory, 5.3 is the one branch it supports.
-// The 0.47.1 code is unchanged; the number rises by one rank so that installed sites register the new
-// label. No schema change, no new string, no new capability.
-// 2026110301: the page "My pathway" (organisation.php, candidate only) reads the learning plans and the
-// course competencies of the core to show them to the candidate. A new page, new strings, a longer
-// privacy:metadata text. No schema change, no new capability, no new message provider: the number
-// rises so that installed sites purge their caches and know the strings.
-// 2026110400: the tab "Followed candidates" of the same page (organisation.php, for a manager who follows
-// at least one candidate): the records they declared on, the counts of "My candidates", and their learning
-// plans of the core where the manager's rights read them. New strings, and the privacy:metadata text on the
-// competency subsystem says that plan names and statuses are shown to that manager. No schema change, no new
-// capability, no new message provider: the number rises so that installed sites purge their caches and know the strings.
-// 2026110401: the tab "Organisation" of the same page (organisation.php?tab=site, for who may view any dossier): the
-// records of the site with what the core holds around them and a count of learning plans, the roles that hold each
-// right of the plugin, the cohorts followed through them and the settings that open parts of the scheme. A page of the
-// administration, a link on the profile, new strings, and the label of the right to view any dossier says what it now
-// opens. No schema change, no new capability, no new message provider: the number rises so that installed sites purge
-// their caches and know the strings.
-// 2026110402: the cycle inside the structure (T-90, lot 3): the evaluation of a competency by the manager who follows the
-// candidate, and the certification of a bloc by the direction - positionings of the structure, never validations, which only
-// the jury gives, outside this plugin. Two new tables, two new capabilities (evaluate, certify), new pages and strings, and a
-// new file in the archive of the dossier. The number rises so that installed sites create the tables and register the rights.
-// 2026110403: the renewal of a certification (T-90, lot 4): an optional last day on a certification ("valid until"), a list for
-// the direction of the certifications whose day is past, and, on the dossier, what an earlier record said of a competency or a
-// bloc. One new column of tool_vae_certif, new strings, a new page of the administration. No new capability.
-// 2026110404: the message to the candidate when a line of positioning is written about them (T-84): a new message provider
-// and two observers (evaluation_recorded, certification_recorded). Only that a line was added, neither its status nor its
-// reason nor its author. The number rises so that installed sites register the provider and the observers. The same number
-// carries the page "VAE roles" (roles_install.php, a page of the administration): it creates the roles of the scheme from the
-// presets shipped with the plugin, never changes a role that exists. No schema change, no new capability.
-// 2.5.03 (build 2026110405): the release label of moodle-tool_vae (the private repository, the platform lavae.org) leaves
-// 01.5.3, which is the label of the public plugin tool_vae (the Moodle plugins directory, the platform fildargent.net), so
-// that the two are told apart on the plugins page: "2" says this is the second version of the VAE plugin, its content
-// being far more advanced than the first one's. Decision of the project owner, 6 November 2026, following the rule
-// proposed in the CHANGELOG (the next version for the same Moodle branch raises the generation). No change of code, no
-// schema change, no new string, no new capability: the number rises by one rank so that installed sites register the label.
-// 2026110406: the authorization to produce the archive of the structure - one new table (tool_vae_booklet_auth) and one new
-// capability (tool/vae:issuestructure), registered by the upgrade; the positionings leave the archives of the vaeiste.
-// 2026110407: self-positioning of the vaeiste (lot 1a).
-$plugin->version   = 2026110409; // 9 November 2026: publication; two screen texts and the documentation corrected.
+
+// THE MIGRATION FROM 4.5. A site moving from Moodle 4.5 to 5.3 replaces the MOODLE_405 package with this one, and Moodle
+// only runs a step whose number is above the installed one. So the 4.5 number stays below the lowest step that only this
+// package has - 2026101403, the idempotent copy of step 2026101311 (T-80) - and this number is always above the 4.5 one.
+// A step of the 4.5 branch is copied here under another number, and every step checks before it acts, so that a site
+// which ran it on 4.5 runs it again here to no effect. See docs/BRANCHES.md. The `migration` job of the continuous
+// integration, which proved the passage against the tip of MOODLE_405, was removed on 17 November 2026.
+// NUMBERING: the date of the build and a two-digit counter (YYYYMMDDNN), always rising; db/upgrade.php ends on this number.
+$plugin->version   = 2026112200; // 22 November 2026: new classes, templates and strings since 2026111901 (review MMR-520).
 
 // 2026100500.00 is Moodle 5.3.0, released on 5 October 2026.
 $plugin->requires  = 2026100500.00;
 
-// THIS PLUGIN RUNS ON MOODLE LTS RELEASES ONLY, AND ON ONE OF THEM AT A TIME.
-//
-// Decision of 28 August 2026. A dossier of prior learning is built over months and read by a
-// panel years later; the platform under it has to be one that still receives security fixes
-// when that day comes. An LTS carries three years of them, an intermediate release eighteen
-// months - which is shorter than a VAE course followed by the wait for its panel.
-//
-// `supported` is where that policy is DECLARED: [503, 503]. It is not a lock - on another release
-// Moodle shows a warning on the plugins page and still installs (core_plugin_manager only uses
-// `supported` to flag it). What refuses is `requires` (below, 5.3.0) and `incompatible` (above):
-// this package sets `incompatible = 504`, so Moodle 5.4 and later - intermediate releases - refuse
-// it, and an administrator who upgrades the core finds the plugin blocked rather than silently
-// running where nobody tested it. Nothing in Moodle expresses "LTS only" as a rule; this is the
-// closest thing to it. Decided with the project owner on 13 October 2026. When the next LTS is
-// tested, raise this number to the first branch after it.
-//
-// TWO PACKAGES, OPENED ON 12 OCTOBER 2026 AFTER LOT 8, WITH THE PROJECT OWNER'S AGREEMENT.
-// This is the MOODLE_503 package. The MOODLE_405 package, supported = [405, 405], is no longer
-// maintained (decision of the project owner, 27 October 2026, see docs/BRANCHES.md): no fix is promised, even
-// until 4 October 2027, the day Moodle 4.5 LTS itself stops receiving security fixes.
-// Neither widens its range to swallow the other: announcing a compatibility nobody tests is worse
-// than announcing none, and the continuous integration only ever builds the branch it is on - plus,
-// here, the passage from the one to the other.
+// MOODLE LTS RELEASES ONLY, ONE AT A TIME (decision of 28 August 2026). A dossier of prior learning is built over months and
+// read by a panel years later: the platform under it must still receive security fixes that day. An LTS carries three
+// years of them, an intermediate release eighteen months. `supported` DECLARES that policy, [503, 503]; it is not a lock
+// (on another branch Moodle only flags the plugin on the plugins page). What refuses is `requires` (5.3.0, above) and
+// `incompatible` (5.4, below): an administrator who upgrades the core to an intermediate release finds the plugin blocked
+// rather than running where nobody tested it. Nothing in Moodle says "LTS only"; this is the closest thing to it (decided
+// with the project owner on 13 October 2026). When the next LTS is tested, raise `incompatible` to the branch after it.
+// TWO PACKAGES were opened on 12 October 2026; this is MOODLE_503. MOODLE_405, supported = [405, 405], is no longer
+// maintained (decision of the project owner, 27 October 2026, see docs/BRANCHES.md): no fix is promised, even until
+// 4 October 2027, when Moodle 4.5 LTS itself stops receiving security fixes. Neither widens its range to swallow the
+// other: announcing a compatibility nobody tests is worse than announcing none.
 $plugin->supported = [503, 503];
 
 // The first Moodle branch that REFUSES this package: 5.4. core: branch >= incompatible is refused.
 $plugin->incompatible = 504;
 
-// LICENCE. Decision of the project owner, 28 October 2026: this plugin is licensed under the GNU GPL v3 or
-// later, as every file header and the LICENSE file say. That is the licence Moodle itself uses, so the plugin
-// is GPL compatible. The holder named in the headers is Jean-Louis Martinez <jeanlouis@martinez.pro>,
-// confirmed by him on the same day. The GNU AGPL v3 was considered the same day and not retained: the plugin
-// stays under the GNU GPL v3 or later.
-// PO-2 IS NOT CLOSED BY THAT CHOICE, because it is not about the licence of the plugin: it asks whether the
-// data of France competences, published under the Licence Ouverte 2.0, may be used with GPL code. The plugin
-// never ships that data - the administrator loads it at run time, into the database - so none of it is in
-// this package. The question stays open until a legal opinion settles it (README, "Licence").
+// LICENCE: GNU GPL v3 or later, as every file header and the LICENSE file say (decision of the project owner, 28 October
+// 2026) - the licence of Moodle itself. Holder: Jean-Louis Martinez <jeanlouis@martinez.pro>. The GNU AGPL v3 was
+// considered the same day and not retained. PO-2 stays open: it asks whether the data of France competences (Licence
+// Ouverte 2.0) may be used with GPL code; the plugin never ships that data, the administrator loads it at run time, and
+// a legal opinion must settle it (README, "Licence").
 
-// Not MATURITY_STABLE. The tests do run now - green in CI, PostgreSQL and MariaDB; the count is in the README - but the
-// plugin has never been used by anyone, several lots are missing, and the data side of PO-2 (see above) is not
-// settled. Maturity describes the plugin, not the test report.
-$plugin->maturity  = MATURITY_ALPHA;
+// MATURITY_BETA (decision of the project owner, 22 November 2026): complete for what it announces, still under test. Not
+// MATURITY_STABLE: the tests are green on PostgreSQL, MariaDB and MySQL, but nobody has used the plugin with real vaeistes
+// yet and PO-2 is not settled. Maturity describes the plugin, not the test report.
+$plugin->maturity  = MATURITY_BETA;
+// RELEASE: "generation . Moodle branch" since 01.5.3 (28 October 2026). 01 was the first release sent to the plugins directory;
+// 2 is the second generation of the plugin. The next one for the same branch raises it.
 $plugin->release   = '2.5.03 (Moodle 5.3)';

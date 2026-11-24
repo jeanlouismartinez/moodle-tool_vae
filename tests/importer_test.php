@@ -31,7 +31,7 @@ use tool_vae\local\supersession;
  * created duplicates, or renumbered anything, would not break a test - it would quietly change
  * what a candidate's dossier says they did.
  *
- * THE FIXTURE IS INVENTED, AND THAT IS DELIBERATE. See tests/fixtures/LISEZMOI-fixtures.md: a
+ * THE FIXTURE IS INVENTED, AND THAT IS DELIBERATE. See tests/fixtures/README-fixtures.md: a
  * real file from data.gouv.fr would put Licence Ouverte 2.0 data inside a GPLv3 tree, which is
  * open point PO-2, unsettled.
  *
@@ -78,8 +78,8 @@ final class importer_test extends \advanced_testcase {
      */
     private function rows(array $rows): array {
         $out = [];
-        foreach ($rows as $rang => $intitule) {
-            $out[] = (object) ['rang' => $rang, 'intitule' => $intitule, 'description' => ''];
+        foreach ($rows as $rank => $label) {
+            $out[] = (object) ['rang' => $rank, 'intitule' => $label, 'description' => ''];
         }
 
         return $out;
@@ -215,12 +215,12 @@ final class importer_test extends \advanced_testcase {
     /**
      * One row carrying a description, as a file with a third column hands it over.
      *
-     * @param string $intitule
+     * @param string $label
      * @param string $description
      * @return array
      */
-    private function described(string $intitule, string $description): array {
-        return [(object) ['rang' => 'BC01', 'intitule' => $intitule, 'description' => $description]];
+    private function described(string $label, string $description): array {
+        return [(object) ['rang' => 'BC01', 'intitule' => $label, 'description' => $description]];
     }
 
     /**
@@ -345,26 +345,26 @@ final class importer_test extends \advanced_testcase {
     public function test_a_file_with_a_bad_rank_is_refused_whole(): void {
         global $DB;
 
-        // Chaque cas porte le fragment de message qui lui est propre. Sans cela, fusionner les
-        // quatre chaines en un seul « fichier invalide » laisserait ce test au vert, et
-        // l'administrateur devant un fichier de quatre-vingt-dix lignes sans savoir laquelle.
+        // Each case carries the part of the message that is its own. Without it, merging the
+        // four strings into one "invalid file" would leave this test green, and the
+        // administrator in front of a file of ninety lines without knowing which one is wrong.
         $cases = [
-            'absent' => [
+            'missing' => [
                 [(object) ['rang' => '', 'intitule' => 'Sans rang']],
                 'errorimportnorank',
                 1,
             ],
-            'trop long' => [
+            'too long' => [
                 [(object) ['rang' => 'BC01C0299', 'intitule' => 'Rang de neuf caractères']],
                 'errorimportbadrank',
                 (object) ['line' => 1, 'rank' => 'BC01C0299'],
             ],
-            'caractères interdits' => [
+            'forbidden characters' => [
                 [(object) ['rang' => 'BC 01', 'intitule' => 'Rang avec espace']],
                 'errorimportbadrank',
                 (object) ['line' => 1, 'rank' => 'BC 01'],
             ],
-            'répété' => [
+            'repeated' => [
                 [
                     (object) ['rang' => 'BC01', 'intitule' => 'Première'],
                     (object) ['rang' => 'BC01', 'intitule' => 'Seconde'],
@@ -372,33 +372,33 @@ final class importer_test extends \advanced_testcase {
                 'errorimportduplicaterank',
                 (object) ['line' => 2, 'rank' => 'BC01'],
             ],
-            'sans intitulé' => [
+            'without a label' => [
                 [(object) ['rang' => 'BC01', 'intitule' => '']],
                 'errorimportnolabel',
                 1,
             ],
         ];
 
-        foreach ($cases as $cas => [$rows, $attendu, $args]) {
+        foreach ($cases as $case => [$rows, $expected, $args]) {
             try {
                 (new importer())->import($this->meta(), $rows);
-                $this->fail("Un rang $cas a été accepté.");
+                $this->fail("A rank $case was accepted.");
             } catch (\moodle_exception $e) {
-                $this->assertSame('errorimportrows', $e->errorcode, "Cas : $cas");
+                $this->assertSame('errorimportrows', $e->errorcode, "Case: $case");
 
-                // Le message COMPLET du cas, pris dans le fichier de langue plutot que recopie
-                // ici : fusionner les quatre chaines en une seule generique, en renommer une ou
-                // en vider une fait rougir ce test, ce que « errorcode vaut errorimportrows »
-                // ne faisait pas.
+                // The WHOLE message of the case, taken from the language file rather than copied
+                // here: merging the four strings into one generic string, renaming one or
+                // emptying one turns this test red, which "errorcode is errorimportrows" did
+                // not.
                 $this->assertStringContainsString(
-                    get_string($attendu, 'tool_vae', $args),
+                    get_string($expected, 'tool_vae', $args),
                     $e->getMessage(),
-                    "Cas : $cas"
+                    "Case: $case"
                 );
             }
         }
 
-        $this->assertEquals(0, $DB->count_records('competency'), 'Une écriture a eu lieu malgré le refus.');
+        $this->assertEquals(0, $DB->count_records('competency'), 'A write took place despite the refusal.');
     }
 
     /**
@@ -412,11 +412,11 @@ final class importer_test extends \advanced_testcase {
 
         try {
             (new importer())->import($this->meta(), $rows);
-            $this->fail('Un rang porteur de balises a été accepté.');
+            $this->fail('A rank holding tags was accepted.');
         } catch (\moodle_exception $e) {
             $this->assertSame('errorimportrows', $e->errorcode);
-            $this->assertStringNotContainsString('<IMG', $e->getMessage(), 'La balise est passée telle quelle.');
-            // Le rang est passé en majuscules avant d'être contrôlé, d'où la casse attendue.
+            $this->assertStringNotContainsString('<IMG', $e->getMessage(), 'The tag went through as it was.');
+            // The rank is put in capitals before it is checked, hence the expected case.
             $this->assertStringContainsString('&lt;IMG SRC=X ONERROR=ALERT(1)&gt;', $e->getMessage());
         }
     }
@@ -462,12 +462,12 @@ final class importer_test extends \advanced_testcase {
     public function test_an_import_that_dies_in_the_middle_writes_nothing(): void {
         global $DB;
 
-        // PHPUnit DE MOODLE ENVELOPPE CHAQUE TEST DANS UNE TRANSACTION, qu'il annule pour
-        // remettre la base a plat. Une transaction du code teste y devient imbriquee, et son
-        // annulation ne prouve plus rien - c'est ainsi que la premiere version de ce test a
-        // mesure « deux competences survivantes » sur un code qui, en production, en laisse
-        // zero. preventResetByRollback rend la transaction du code teste reelle ; le menage
-        // se fait alors par vidage des tables.
+        // THE PHPUNIT OF MOODLE WRAPS EVERY TEST IN A TRANSACTION, which it rolls back to reset
+        // the database. A transaction of the code under test becomes a nested one inside it, and
+        // its rollback proves nothing any more - that is how the first version of this test
+        // measured "two surviving competencies" on code that, in production, leaves none.
+        // preventResetByRollback makes the transaction of the code under test a real one; the
+        // cleaning is then done by emptying the tables.
         $this->preventResetByRollback();
 
         $importer = new importer(new fixtures\failing_import_gateway(2));
@@ -487,15 +487,15 @@ final class importer_test extends \advanced_testcase {
         $this->assertEquals(
             0,
             $DB->count_records('competency'),
-            'Un import mort en chemin a laissé des compétences derrière lui.'
+            'An import that died on the way left competencies behind.'
         );
         $this->assertEquals(
             0,
             $DB->count_records('competency_framework'),
-            'Le référentiel a survécu à l\'import qui l\'a créé.'
+            'The framework survived the import that created it.'
         );
 
-        // Et la ligne de provenance, elle, doit survivre : c'est la seule trace de l'échec.
+        // And the provenance row must survive: it is the only trace of the failure.
         $source = $DB->get_record('tool_vae_source', ['fichecode' => 'RS00000'], '*', MUST_EXIST);
         $this->assertEquals('error', $source->lastimportstatus);
     }
@@ -510,12 +510,12 @@ final class importer_test extends \advanced_testcase {
     public function test_a_failed_first_import_claims_no_published_version(): void {
         global $DB;
 
-        // PHPUnit DE MOODLE ENVELOPPE CHAQUE TEST DANS UNE TRANSACTION, qu'il annule pour
-        // remettre la base a plat. Une transaction du code teste y devient imbriquee, et son
-        // annulation ne prouve plus rien - c'est ainsi que la premiere version de ce test a
-        // mesure « deux competences survivantes » sur un code qui, en production, en laisse
-        // zero. preventResetByRollback rend la transaction du code teste reelle ; le menage
-        // se fait alors par vidage des tables.
+        // THE PHPUNIT OF MOODLE WRAPS EVERY TEST IN A TRANSACTION, which it rolls back to reset
+        // the database. A transaction of the code under test becomes a nested one inside it, and
+        // its rollback proves nothing any more - that is how the first version of this test
+        // measured "two surviving competencies" on code that, in production, leaves none.
+        // preventResetByRollback makes the transaction of the code under test a real one; the
+        // cleaning is then done by emptying the tables.
         $this->preventResetByRollback();
 
         try {
@@ -527,7 +527,7 @@ final class importer_test extends \advanced_testcase {
         }
 
         $source = $DB->get_record('tool_vae_source', ['fichecode' => 'RS00000'], '*', MUST_EXIST);
-        $this->assertEquals(0, $source->sourceupdated, 'Une version jamais importée est annoncée comme publiée.');
+        $this->assertEquals(0, $source->sourceupdated, 'A version never imported is announced as published.');
     }
 
     /**
@@ -538,18 +538,18 @@ final class importer_test extends \advanced_testcase {
      * blamed on the site.
      */
     public function test_a_retry_after_a_failure_still_sees_the_source_move(): void {
-        // PHPUnit DE MOODLE ENVELOPPE CHAQUE TEST DANS UNE TRANSACTION, qu'il annule pour
-        // remettre la base a plat. Une transaction du code teste y devient imbriquee, et son
-        // annulation ne prouve plus rien - c'est ainsi que la premiere version de ce test a
-        // mesure « deux competences survivantes » sur un code qui, en production, en laisse
-        // zero. preventResetByRollback rend la transaction du code teste reelle ; le menage
-        // se fait alors par vidage des tables.
+        // THE PHPUNIT OF MOODLE WRAPS EVERY TEST IN A TRANSACTION, which it rolls back to reset
+        // the database. A transaction of the code under test becomes a nested one inside it, and
+        // its rollback proves nothing any more - that is how the first version of this test
+        // measured "two surviving competencies" on code that, in production, leaves none.
+        // preventResetByRollback makes the transaction of the code under test a real one; the
+        // cleaning is then done by emptying the tables.
         $this->preventResetByRollback();
 
         $importer = new importer();
         $importer->import($this->meta(), $this->rows(['BC01' => 'Intitulé de juin']));
 
-        // Une nouvelle publication, dont l'import meurt en chemin.
+        // A new publication, whose import dies on the way.
         $republication = $this->meta(['sourceupdated' => strtotime('2026-07-15')]);
         try {
             (new importer(new fixtures\failing_import_gateway()))
@@ -559,13 +559,13 @@ final class importer_test extends \advanced_testcase {
             $this->assertSame('error', $e->errorcode);
         }
 
-        // L'administrateur relance le même fichier, qui passe cette fois.
+        // The administrator runs the same file again, and this time it passes.
         $result = $importer->import($republication, $this->rows([
             'BC01' => 'Intitulé de juillet',
             'BC02' => 'Nouvelle',
         ]));
 
-        $this->assertSame(0, $result->diverged, 'Une republication a été imputée au site.');
+        $this->assertSame(0, $result->diverged, 'A republication was blamed on the site.');
         $this->assertSame(1, $result->updated);
         $this->assertSame(1, $result->created);
     }
@@ -633,15 +633,15 @@ final class importer_test extends \advanced_testcase {
             'BC02' => 'Intitulé publié',
         ]));
 
-        // Quelqu'un renomme BC02 dans tool_lp, puis on réimporte le même fichier.
+        // Somebody renames BC02 in tool_lp, then the same file is imported again.
         $competencies = (new competency_gateway())->list_framework_competencies($first->frameworkid);
-        $cible = null;
+        $target = null;
         foreach ($competencies as $competency) {
             if ($competency->idnumber === 'RS00000-BC02') {
-                $cible = $competency;
+                $target = $competency;
             }
         }
-        (new competency_gateway())->update_competency((int) $cible->id, 'Intitulé bricolé');
+        (new competency_gateway())->update_competency((int) $target->id, 'Intitulé bricolé');
         $importer->import($this->meta(), $this->rows([
             'BC01' => 'Toujours là',
             'BC02' => 'Intitulé publié',
@@ -649,23 +649,23 @@ final class importer_test extends \advanced_testcase {
 
         $this->assertEquals(1, $DB->count_records('tool_vae_obsolete', ['kind' => importer::DIVERGED]));
 
-        // Puis France compétences republie la fiche sans BC02.
+        // Then France compétences publishes the record again without BC02.
         $sink = $this->redirectEvents();
         $result = $importer->import(
             $this->meta(['sourceupdated' => strtotime('2026-07-15')]),
             $this->rows(['BC01' => 'Toujours là'])
         );
 
-        // Renommée puis partie : le départ est un changement d'état, et il est annoncé (lot 7 ter).
+        // Renamed, then gone: the departure is a change of state, and it is announced (lot 7 ter).
         $departures = array_filter($sink->get_events(), function ($event) {
             return $event instanceof event\competency_left_record;
         });
-        $this->assertCount(1, $departures, 'Le passage de « renommée » à « absente » n\'a pas été annoncé.');
+        $this->assertCount(1, $departures, 'The change from "renamed" to "gone" was not announced.');
 
         $this->assertSame(1, $result->gone);
-        $marks = $DB->get_records('tool_vae_obsolete', ['competencyid' => $cible->id]);
-        $this->assertCount(1, $marks, 'Deux états pour une même compétence.');
-        $this->assertSame(importer::GONE, reset($marks)->kind, 'L\'état le plus récent n\'a pas remplacé l\'ancien.');
+        $marks = $DB->get_records('tool_vae_obsolete', ['competencyid' => $target->id]);
+        $this->assertCount(1, $marks, 'Two states for one competency.');
+        $this->assertSame(importer::GONE, reset($marks)->kind, 'The latest state did not replace the former one.');
     }
 
     /**
@@ -686,13 +686,13 @@ final class importer_test extends \advanced_testcase {
                 'BC01' => 'Correcte',
                 'BC02' => $long,
             ]));
-            $this->fail('Un intitulé trop long a été accepté.');
+            $this->fail('A label that is too long was accepted.');
         } catch (\moodle_exception $e) {
             $this->assertSame('errorimportrows', $e->errorcode);
             $this->assertStringContainsString((string) (importer::LABEL_MAXLENGTH + 1), $e->getMessage());
         }
 
-        $this->assertEquals(0, $DB->count_records('competency'), 'Une écriture a eu lieu malgré le refus.');
+        $this->assertEquals(0, $DB->count_records('competency'), 'A write took place despite the refusal.');
     }
 
     /**
@@ -706,7 +706,7 @@ final class importer_test extends \advanced_testcase {
                 $this->meta(['name' => str_repeat('a', importer::LABEL_MAXLENGTH + 1)]),
                 $this->rows(['BC01' => 'Correcte'])
             );
-            $this->fail('Un nom de fiche trop long a été accepté.');
+            $this->fail('A record name that is too long was accepted.');
         } catch (\moodle_exception $e) {
             $this->assertSame('errorimportnametoolong', $e->errorcode);
         }
@@ -754,7 +754,7 @@ final class importer_test extends \advanced_testcase {
             ],
         ]);
 
-        $this->assertSame(0, $result->diverged, 'Une espace insécable a été prise pour une modification.');
+        $this->assertSame(0, $result->diverged, 'A no-break space was taken for a change.');
         $this->assertSame(0, $result->updated);
     }
 
@@ -766,9 +766,9 @@ final class importer_test extends \advanced_testcase {
      * encoding is now asked on the form; this test holds the answer being used.
      */
     public function test_a_windows_1252_file_is_read_when_it_says_so(): void {
-        $ligne = "rang,intitule\nBC01," . iconv('UTF-8', 'Windows-1252', 'Accompagner la personne âgée') . "\n";
+        $line = "rang,intitule\nBC01," . iconv('UTF-8', 'Windows-1252', 'Accompagner la personne âgée') . "\n";
 
-        $rows = importer::rows_from_csv($ligne, 'Windows-1252');
+        $rows = importer::rows_from_csv($line, 'Windows-1252');
         $this->assertCount(1, $rows);
         $this->assertSame('Accompagner la personne âgée', trim($rows[0]->intitule));
     }
@@ -788,17 +788,17 @@ final class importer_test extends \advanced_testcase {
             $this->assertArrayHasKey(
                 $encoding,
                 $known,
-                "L'encodage « $encoding » est proposé sur le formulaire et inconnu du cœur : "
-                    . 'le choix sera rejeté en silence et les accents perdus.'
+                "The encoding \"$encoding\" is offered on the form and unknown to the core: "
+                    . 'the choice would be rejected in silence and the accents lost.'
             );
         }
 
-        // Et chacun porte une chaîne de langue dans les deux langues, sinon le menu affiche
-        // un identifiant entre crochets.
+        // And each one has a language string in both languages, or the menu shows an
+        // identifier between brackets.
         foreach (\tool_vae\form\import_form::ENCODINGS as $identifier) {
             $this->assertTrue(
                 get_string_manager()->string_exists($identifier, 'tool_vae'),
-                "La chaîne « $identifier » manque."
+                "The string \"$identifier\" is missing."
             );
         }
     }
@@ -811,16 +811,16 @@ final class importer_test extends \advanced_testcase {
      * was perfectly correct while the fault sat on line 37.
      */
     public function test_a_ragged_row_is_reported_as_a_ragged_row(): void {
-        $contenu = "rang,intitule\nBC01,Correcte\nBC02,Trop,de colonnes\n";
+        $content = "rang,intitule\nBC01,Correcte\nBC02,Trop,de colonnes\n";
 
         try {
-            importer::rows_from_csv($contenu);
-            $this->fail('Un fichier mal formé a été accepté.');
+            importer::rows_from_csv($content);
+            $this->fail('A malformed file was accepted.');
         } catch (\moodle_exception $e) {
             $this->assertSame(
                 'errorimportmalformed',
                 $e->errorcode,
-                'Une ligne bancale est encore présentée comme un en-tête illisible.'
+                'A ragged row is still reported as an unreadable header.'
             );
         }
     }
@@ -878,31 +878,31 @@ final class importer_test extends \advanced_testcase {
      * malformed" to someone whose file is perfectly fine.
      */
     public function test_the_file_is_read_whatever_separates_its_columns(): void {
-        $attendu = [
+        $expected = [
             ['BC01', 'Accompagner la personne'],
             ['BC02', 'Repérer les évolutions'],
         ];
 
-        $fichiers = [
-            'virgule' => "rang,intitule\nBC01,Accompagner la personne\nBC02,Repérer les évolutions\n",
-            'point-virgule' => "rang;intitule\nBC01;Accompagner la personne\nBC02;Repérer les évolutions\n",
-            'tabulation' => "rang\tintitule\nBC01\tAccompagner la personne\nBC02\tRepérer les évolutions\n",
+        $files = [
+            'comma' => "rang,intitule\nBC01,Accompagner la personne\nBC02,Repérer les évolutions\n",
+            'semicolon' => "rang;intitule\nBC01;Accompagner la personne\nBC02;Repérer les évolutions\n",
+            'tab' => "rang\tintitule\nBC01\tAccompagner la personne\nBC02\tRepérer les évolutions\n",
         ];
 
-        foreach ($fichiers as $quoi => $contenu) {
-            $rows = importer::rows_from_csv($contenu);
+        foreach ($files as $separator => $content) {
+            $rows = importer::rows_from_csv($content);
 
-            $this->assertCount(2, $rows, "Séparateur : $quoi");
-            foreach ($attendu as $i => [$rang, $intitule]) {
-                $this->assertSame($rang, $rows[$i]->rang, "Séparateur : $quoi");
-                $this->assertSame($intitule, $rows[$i]->intitule, "Séparateur : $quoi");
+            $this->assertCount(2, $rows, "Separator: $separator");
+            foreach ($expected as $i => [$rank, $label]) {
+                $this->assertSame($rank, $rows[$i]->rang, "Separator: $separator");
+                $this->assertSame($label, $rows[$i]->intitule, "Separator: $separator");
             }
         }
     }
 
     /**
      * The defects of the 2015 files (T-32), reproduced with invented rows: no real record enters the
-     * tree (tests/fixtures/LISEZMOI-fixtures.md). Two competencies bearing the same title are two
+     * tree (tests/fixtures/README-fixtures.md). Two competencies bearing the same title are two
      * competencies: the rank tells them apart, not the label.
      */
     public function test_two_competencies_with_the_same_title_are_both_kept(): void {
@@ -965,7 +965,7 @@ final class importer_test extends \advanced_testcase {
      * The fixture on disk reads, and it is the one an administrator would deposit.
      */
     public function test_the_example_file_reads(): void {
-        $rows = importer::rows_from_csv(file_get_contents(__DIR__ . '/fixtures/fiche-exemple.csv'));
+        $rows = importer::rows_from_csv(file_get_contents(__DIR__ . '/fixtures/fiche-example.csv'));
 
         $this->assertCount(3, $rows);
         $this->assertSame('BC01', $rows[0]->rang);
@@ -978,17 +978,17 @@ final class importer_test extends \advanced_testcase {
      * A file without the two required columns is refused by name.
      */
     public function test_a_file_without_the_required_columns_is_refused(): void {
-        foreach (["code,libelle\nBC01,Quelque chose\n", "rang\nBC01\n"] as $contenu) {
+        foreach (["code,libelle\nBC01,Quelque chose\n", "rang\nBC01\n"] as $content) {
             try {
-                importer::rows_from_csv($contenu);
+                importer::rows_from_csv($content);
                 $this->fail('A file with no usable header was accepted.');
             } catch (\moodle_exception $e) {
                 $this->assertSame('errorimportnoheader', $e->errorcode);
             }
         }
 
-        // Un fichier vide est vide, pas illisible : lui servir « pas d'en-tete lisible »
-        // envoie l'administrateur inspecter une premiere ligne qui n'existe pas.
+        // An empty file is empty, not unreadable: answering it with "no readable header" sends
+        // the administrator to inspect a first line that does not exist.
         try {
             importer::rows_from_csv('');
             $this->fail('An empty file was accepted.');

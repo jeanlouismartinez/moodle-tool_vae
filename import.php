@@ -28,6 +28,7 @@ require_once($CFG->libdir . '/adminlib.php');
 use tool_vae\form\import_form;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\importer;
+use tool_vae\output\import_page;
 
 admin_externalpage_setup('toolvae');
 require_capability('tool/vae:import', context_system::instance());
@@ -38,14 +39,12 @@ $PAGE->set_title(get_string('importheading', 'tool_vae'));
 $index = new moodle_url('/admin/tool/vae/index.php');
 
 $context = context_system::instance();
+$renderer = $PAGE->get_renderer('tool_vae');
 
 if (!competency_gateway::is_subsystem_enabled()) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('importheading', 'tool_vae'));
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(import_page::refused('errorcompetenciesdisabled'));
     echo $OUTPUT->footer();
     die();
 }
@@ -57,10 +56,7 @@ if (!competency_gateway::is_subsystem_enabled()) {
 if (!competency_gateway::can_manage_frameworks($context)) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('importheading', 'tool_vae'));
-    echo $OUTPUT->notification(
-        get_string('errorimportnocompetencymanage', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(import_page::refused('errorimportnocompetencymanage'));
     echo $OUTPUT->footer();
     die();
 }
@@ -114,5 +110,5 @@ if ($data = $form->get_data()) {
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('importheading', 'tool_vae'));
-$form->display();
+echo $renderer->render(import_page::form($form));
 echo $OUTPUT->footer();

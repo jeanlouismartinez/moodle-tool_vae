@@ -28,8 +28,8 @@
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-use tool_vae\local\display_date;
 use tool_vae\local\pending_report;
+use tool_vae\output\pending_page;
 
 admin_externalpage_setup('toolvae_pending');
 require_capability('tool/vae:viewany', context_system::instance());
@@ -37,66 +37,26 @@ require_capability('tool/vae:viewany', context_system::instance());
 $days = min(pending_report::MAX_DAYS, max(0, optional_param('days', 0, PARAM_INT)));
 $unreached = optional_param('unreached', 0, PARAM_BOOL);
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('pendingheading', 'tool_vae'));
-echo html_writer::tag('p', s(get_string('pendingintro', 'tool_vae')));
-
-$form = html_writer::tag('label', s(get_string('pendingdays', 'tool_vae')), ['for' => 'pendingdays'])
-    . ' ' . html_writer::empty_tag('input', [
-        'type' => 'number', 'name' => 'days', 'id' => 'pendingdays', 'min' => 0,
-        'max' => pending_report::MAX_DAYS, 'value' => $days,
-    ])
-    . ' ' . html_writer::empty_tag('input', [
-        'type' => 'checkbox', 'name' => 'unreached', 'id' => 'pendingunreached', 'value' => 1,
-    ] + ($unreached ? ['checked' => 'checked'] : []))
-    . ' ' . html_writer::tag('label', s(get_string('pendingunreached', 'tool_vae')), ['for' => 'pendingunreached'])
-    . ' ' . html_writer::empty_tag('input', [
-        'type' => 'submit', 'class' => 'btn btn-secondary', 'value' => get_string('pendingshow', 'tool_vae'),
-    ]);
-echo html_writer::tag('form', $form, ['method' => 'get', 'action' => $PAGE->url->out_omit_querystring()]);
 
 $rows = pending_report::awaiting($days);
 $groups = pending_report::by_candidate($rows);
-if (!$groups) {
-    echo html_writer::tag('p', s(get_string('pendingnone', 'tool_vae')));
-    echo $OUTPUT->footer();
-    die();
-}
-
-// How many managers each of these candidates' declarations would be announced to: a number, never a name.
-$reach = pending_report::reachable(array_keys($groups));
-if ($unreached) {
-    $groups = array_filter($groups, fn($candidateid) => $reach[$candidateid] === 0, ARRAY_FILTER_USE_KEY);
-    if (!$groups) {
-        echo html_writer::tag('p', s(get_string('pendingnoneunreached', 'tool_vae')));
-        echo $OUTPUT->footer();
-        die();
+$none = 'pendingnone';
+$reach = [];
+$users = [];
+if ($groups) {
+    // How many managers each of these candidates' declarations would be announced to: a number, never a name.
+    $reach = pending_report::reachable(array_keys($groups));
+    if ($unreached) {
+        $groups = array_filter($groups, fn($candidateid) => $reach[$candidateid] === 0, ARRAY_FILTER_USE_KEY);
+        $none = 'pendingnoneunreached';
     }
 }
-
-$users = $DB->get_records_list('user', 'id', array_keys($groups));
-$table = new html_table();
-$table->attributes['class'] = 'generaltable tool-vae-pending';
-$table->head = [
-    get_string('pendingcolcandidate', 'tool_vae'),
-    get_string('pendingcolcount', 'tool_vae'),
-    get_string('pendingcololdest', 'tool_vae'),
-    get_string('pendingcoldays', 'tool_vae'),
-    get_string('pendingcolreach', 'tool_vae'),
-];
-$now = time();
-// The oldest first: what has waited longest comes first.
-uasort($groups, fn($a, $b) => $a['oldest'] <=> $b['oldest']);
-foreach ($groups as $candidateid => $group) {
-    $user = $users[$candidateid] ?? null;
-    $name = $user ? fullname($user) : (string) $candidateid;
-    $table->data[] = [
-        html_writer::link(new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]), s($name)),
-        (int) $group['count'],
-        s(display_date::format((int) $group['oldest'], get_string('strftimedate', 'langconfig'))),
-        (int) floor(($now - $group['oldest']) / DAYSECS),
-        (int) $reach[$candidateid],
-    ];
+if ($groups) {
+    $users = $DB->get_records_list('user', 'id', array_keys($groups));
 }
-echo html_writer::table($table);
+echo $renderer->render(new pending_page($days, (bool) $unreached, $PAGE->url, $groups, $reach, $users, time(), $none));
 echo $OUTPUT->footer();

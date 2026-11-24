@@ -112,33 +112,6 @@ final class text_diff {
     }
 
     /**
-     * The comparison as HTML: what was added underlined, what was removed struck through.
-     *
-     * NEVER COLOUR ALONE. Each run carries its own words for a screen reader - "added:" and
-     * "removed:" - and a mark a sighted reader sees without any colour. The text is escaped.
-     *
-     * @param array[] $ops As diff() returns them.
-     * @return string
-     */
-    public static function html(array $ops): string {
-        $html = '';
-        foreach ($ops as $op) {
-            $text = s($op['text']);
-            if ($op['op'] === self::EQUAL) {
-                $html .= $text;
-            } else if ($op['op'] === self::INSERT) {
-                $html .= '<ins class="tool-vae-ins"><span class="sr-only">'
-                    . s(get_string('diffadded', 'tool_vae')) . '</span>' . $text . '</ins>';
-            } else {
-                $html .= '<del class="tool-vae-del"><span class="sr-only">'
-                    . s(get_string('diffremoved', 'tool_vae')) . '</span>' . $text . '</del>';
-            }
-        }
-
-        return $html;
-    }
-
-    /**
      * Line endings as one.
      *
      * @param string $text

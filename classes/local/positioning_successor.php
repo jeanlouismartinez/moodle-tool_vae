@@ -81,8 +81,8 @@ final class positioning_successor {
             if ($old[$from] === null) {
                 continue;
             }
-            $fromrank = passage_manager::rank_of((string) $decision->fromidnumber, $from);
-            $torank = passage_manager::rank_of((string) $decision->toidnumber, $code);
+            $fromrank = correspondence_manager::rank_of((string) $decision->fromidnumber, $from);
+            $torank = correspondence_manager::rank_of((string) $decision->toidnumber, $code);
             if ($fromrank === '' || $torank === '') {
                 continue;
             }

@@ -34,10 +34,10 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\access;
 use tool_vae\local\ai_assistant;
-use tool_vae\local\ai_screens;
 use tool_vae\local\draft_manager;
-use tool_vae\local\faisabilite_catalog;
+use tool_vae\local\feasibility_catalog;
 use tool_vae\local\validation_catalog;
+use tool_vae\output\ai_page;
 
 require_login();
 // Everything here is posted by a form of the plugin: a link or an address typed by hand leads nowhere.
@@ -66,7 +66,7 @@ if ($source === 'declare') {
     if (
         !$isdocument
             || ($doctype === draft_manager::DOCTYPE_FAISABILITE
-                && faisabilite_catalog::kind($sectioncode) !== faisabilite_catalog::KIND_TEXT)
+                && feasibility_catalog::kind($sectioncode) !== feasibility_catalog::KIND_TEXT)
     ) {
         throw new moodle_exception('errorairight', 'tool_vae');
     }
@@ -103,6 +103,7 @@ if ($state !== ai_assistant::READY && $state !== ai_assistant::NO_POLICY) {
     throw $assistant->refusal($state);
 }
 
+// Free text: the text to reformulate, cleaned by ai_assistant::clean() and escaped where it is shown.
 $text = ai_assistant::clean((string) optional_param($step === 'ask' ? $field : 'text', '', PARAM_RAW));
 $provider = (string) $assistant->provider_name();
 $error = null;
@@ -132,26 +133,24 @@ if ($step === 'accept' && $state === ai_assistant::NO_POLICY) {
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('aiheading', 'tool_vae'));
 
+$renderer = $PAGE->get_renderer('tool_vae');
+$confirming = false;
 if ($proposal !== null || $error !== null) {
-    echo ai_screens::result($proposal, $error, $text, $back, $backwords);
+    $screen = ai_page::result($proposal, $error, $text, $back, $backwords);
 } else if ($state === ai_assistant::NO_POLICY) {
-    echo ai_screens::policy($params, $text, $back, $backwords);
+    $screen = ai_page::policy($params, $text, $back, $backwords);
 } else {
-    if ($again !== null) {
-        echo $OUTPUT->notification(s($again), \core\output\notification::NOTIFY_WARNING);
-    }
-    // The confirmation carries a token that is spent by the send, and the mark of the provider it names.
-    echo ai_screens::confirm($params, $text, $provider, $back, $backwords, [
+    // The confirmation carries a token that is spent by the send, and the mark of the provider it names; and, when what was
+    // confirmed changed, the warning of the send that was not made.
+    $screen = ai_page::confirm($params, $text, $provider, $back, $backwords, [
         'confirm' => ai_assistant::issue_confirmation(),
         'mark' => $assistant->provider_mark(),
-    ]);
-    // A second click on the same button must not send twice: the button is disabled as the form goes.
-    $PAGE->requires->js_init_code(
-        'document.querySelectorAll("form[action$=\'ai.php\']").forEach(function(f){'
-        . 'f.addEventListener("submit",function(){var b=f.querySelector("input[type=submit]");'
-        . 'if(b){setTimeout(function(){b.disabled=true;},0);}});});',
-        true
-    );
+    ], $again);
+    $confirming = true;
 }
-
+echo $renderer->render($screen);
+if ($confirming) {
+    // A second click on the same button must not send twice: the button is disabled as the form goes (amd/src/submit_once.js).
+    $PAGE->requires->js_call_amd('tool_vae/submit_once', 'init', ["form[action$='ai.php']"]);
+}
 echo $OUTPUT->footer();

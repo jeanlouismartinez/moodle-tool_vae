@@ -32,9 +32,8 @@ use tool_vae\form\declare_form;
 use tool_vae\local\access;
 use tool_vae\local\carry_manager;
 use tool_vae\local\competency_gateway;
-use tool_vae\local\display_date;
 use tool_vae\local\hidden_frameworks;
-use tool_vae\local\presenter;
+use tool_vae\output\carry_page;
 
 require_login();
 
@@ -108,33 +107,12 @@ if ($refusal === null && ($data = $form->get_data())) {
     }
 }
 
-$show = function (string $idnumber, string $label): string {
-    return s($idnumber) . ' — ' . format_string($label);
-};
+// The competency of the old record, as the platform reads it now; the code of the declaration stands in when it is gone.
 $from = (new competency_gateway())->get_competency((int) $evidence->competencyid);
+
+$renderer = $PAGE->get_renderer('tool_vae');
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('carryheading', 'tool_vae'));
-if ($refusal !== null) {
-    echo $OUTPUT->notification($refusal, \core\output\notification::NOTIFY_ERROR);
-    echo html_writer::tag('p', get_string('carryhiddenkept', 'tool_vae'));
-}
-echo html_writer::tag('p', get_string('carryintro', 'tool_vae'));
-
-echo $OUTPUT->heading(get_string('carryoriginal', 'tool_vae', s($evidence->fichecode)), 3);
-echo presenter::declaration($evidence, $context);
-
-echo $OUTPUT->heading(get_string('carrycorrespondence', 'tool_vae'), 3);
-$fromcode = (string) ($from->idnumber ?? $evidence->fichecode . '-' . $evidence->ficherang);
-echo html_writer::tag('p', get_string('carrycorrespondencetext', 'tool_vae', (object) [
-    'from' => $show($fromcode, (string) ($from->label ?? '')),
-    'to' => $show((string) $offer->target->idnumber, (string) $offer->target->label),
-    'when' => display_date::format((int) $offer->passage->decidedat, get_string('strftimedate', 'langconfig')),
-]));
-if (trim((string) $offer->passage->note) !== '') {
-    echo html_writer::tag('p', get_string('carrynote', 'tool_vae', s($offer->passage->note)));
-}
-
-echo $OUTPUT->heading(get_string('carryformheading', 'tool_vae', s($offer->successor->fichecode)), 3);
-$form->display();
+echo $renderer->render(new carry_page($refusal, $evidence, $context, $from, $offer, $form));
 echo $OUTPUT->footer();

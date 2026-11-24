@@ -29,8 +29,8 @@
 require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\draft_manager;
-use tool_vae\local\faisabilite_catalog;
-use tool_vae\local\faisabilite_overview;
+use tool_vae\local\feasibility_overview;
+use tool_vae\output\feasibility_page;
 
 require_login();
 
@@ -44,102 +44,11 @@ $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('faisabheading', 'tool_vae'));
 $PAGE->set_heading(fullname($USER));
 
-$overview = faisabilite_overview::for_candidate($candidateid);
+$overview = feasibility_overview::for_candidate($candidateid);
 
-// The words that say where a place stands, from what faisabilite_overview returns for it.
-$statewords = function (array $place): string {
-    switch ($place['state']) {
-        case faisabilite_overview::STATE_DRAFT:
-            return get_string('faisabstatedraft', 'tool_vae');
-        case faisabilite_overview::STATE_VERSION:
-            return get_string('faisabstateversion', 'tool_vae', $place['version']);
-        case faisabilite_overview::STATE_VERSION_DRAFT:
-            return get_string('faisabstateversiondraft', 'tool_vae', $place['version']);
-        case faisabilite_overview::STATE_ACCOUNT:
-            return get_string('faisabstateaccount', 'tool_vae');
-        default:
-            return get_string('faisabstateempty', 'tool_vae');
-    }
-};
-
-$table = new html_table();
-$table->attributes['class'] = 'generaltable tool-vae-faisabilite';
-$table->caption = get_string('faisabcaption', 'tool_vae');
-$table->captionhide = true;
-$table->head = [
-    get_string('faisabcolsection', 'tool_vae'),
-    get_string('faisabcolstate', 'tool_vae'),
-    get_string('faisabcollast', 'tool_vae'),
-    get_string('faisabcolactions', 'tool_vae'),
-];
-$table->colclasses = ['', '', '', ''];
-
-foreach ($overview as $code => $entry) {
-    $label = get_string('faisabsection:' . $code, 'tool_vae');
-
-    if (!$entry['open']) {
-        $table->data[] = [
-            s($label),
-            s(get_string('faisabstateupcoming', 'tool_vae')),
-            '',
-            '',
-        ];
-        continue;
-    }
-
-    foreach ($entry['places'] as $slot => $place) {
-        $writeurl = new moodle_url('/admin/tool/vae/section.php', ['section' => $code, 'slot' => $slot]);
-        $name = faisabilite_catalog::label($code, $slot);
-
-        $actions = [html_writer::link($writeurl, get_string(
-            $place['state'] === faisabilite_overview::STATE_ACCOUNT ? 'faisabview' : 'faisabwrite',
-            'tool_vae',
-            $name
-        ))];
-        if ($place['draftid']) {
-            $actions[] = html_writer::link(
-                new moodle_url('/admin/tool/vae/history.php', ['draftid' => $place['draftid']]),
-                get_string('faisabhistory', 'tool_vae', $name)
-            );
-        }
-
-        $table->data[] = [
-            s($name),
-            s($statewords($place)),
-            $place['modified'] ? s(userdate($place['modified'], get_string('strftimedatetimeshort'))) : '',
-            implode(' · ', $actions),
-        ];
-    }
-
-    if ($entry['repeated']) {
-        if ($entry['places'] === []) {
-            $table->data[] = [s($label), s(get_string('faisabstateempty', 'tool_vae')), '', ''];
-        }
-        if ($entry['nextslot'] !== null) {
-            $table->data[] = [
-                '',
-                '',
-                '',
-                html_writer::link(
-                    new moodle_url('/admin/tool/vae/section.php', ['section' => $code, 'slot' => $entry['nextslot']]),
-                    get_string('faisabadd', 'tool_vae', $label)
-                ),
-            ];
-        }
-    }
-}
-
+// Where each section stands, the button to the deposits and the way back: worded by the class of output.
+$renderer = $PAGE->get_renderer('tool_vae');
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('faisabheading', 'tool_vae'));
-echo html_writer::tag('p', s(get_string('faisabintro', 'tool_vae')));
-echo html_writer::table($table);
-echo $OUTPUT->single_button(
-    new moodle_url('/admin/tool/vae/deposit.php'),
-    get_string('depositheading', 'tool_vae'),
-    'get'
-);
-echo html_writer::tag('p', html_writer::link(
-    new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]),
-    get_string('faisabbacktodossier', 'tool_vae')
-));
+echo $renderer->render(new feasibility_page($overview, $candidateid));
 echo $OUTPUT->footer();

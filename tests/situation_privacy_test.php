@@ -311,12 +311,12 @@ final class situation_privacy_test extends \advanced_testcase {
     private function backup_text(int $candidateid): string {
         global $DB;
 
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
         $rows = $DB->get_records_select(
             'files',
             "component = 'user' AND filearea = 'private' AND " .
                 $DB->sql_compare_text('source', 255) . ' = ' . $DB->sql_compare_text(':source', 255),
-            ['source' => backup::SOURCE_PREFIX . $personne]
+            ['source' => backup::SOURCE_PREFIX . $personuuid]
         );
         $this->assertCount(1, $rows, 'One backup of the vaeiste.');
         $path = get_file_storage()->get_file_instance(reset($rows))->copy_content_to_temp();
@@ -926,7 +926,7 @@ final class situation_privacy_test extends \advanced_testcase {
         $this->assertEquals($backups, $private());
     }
 
-    public function test_a_vaeiste_with_situations_only_has_no_backup_as_the_porteur_decided(): void {
+    public function test_a_vaeiste_with_situations_only_has_no_backup_as_the_project_owner_decided(): void {
         global $DB;
         $this->write_dossier($this->vaeiste, $this->manager);
         $this->setAdminUser();

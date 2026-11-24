@@ -23,7 +23,7 @@ use tool_vae\local\competency_gateway;
 use tool_vae\local\draft_manager;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\identity_map;
-use tool_vae\local\passage_manager;
+use tool_vae\local\correspondence_manager;
 use tool_vae\local\record_remover;
 use tool_vae\local\ref_manager;
 use tool_vae\local\referent_manager;
@@ -98,7 +98,7 @@ final class record_remover_test extends \advanced_testcase {
 
         // The correspondences are decided against the record that replaces, so the replacing record is declared first.
         supersession::declare_successor('RNCP36832', 'RNCP40692');
-        $passages = new passage_manager();
+        $passages = new correspondence_manager();
         $passages->decide($this->ids['RNCP36832-C03'], $this->ids['RNCP40692-BC03'], 'Meme domaine');
         $passages->decide($this->ids['RNCP36832-BC01'], $this->ids['RNCP40692-C01']);
         supersession::declare_successor('RNCP41747', 'RNCP40692');
@@ -355,11 +355,13 @@ final class record_remover_test extends \advanced_testcase {
      * Each cause of a missing button has its own sentence on the list, in both languages, and neither names the other's cause.
      */
     public function test_each_cause_of_a_missing_button_has_its_own_sentence_on_the_list(): void {
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             // Read from the plugin's own file: the French pack is not installed in the test site, and the string manager then
             // answers in English whatever language is asked.
-            $string = [];
-            include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+            require_once(__DIR__ . '/fixtures/lang_files.php');
+            $string = \tool_vae\fixtures\lang_files::strings($lang);
 
             $this->assertArrayHasKey('sourcenoframeworkheld', $string, "lang/$lang has no sentence for a framework Moodle holds.");
             $held = $string['sourcenoframeworkheld'];
@@ -882,9 +884,11 @@ final class record_remover_test extends \advanced_testcase {
         $this->assertSame(0, $refusal->a->spieces);
         $this->assertSame(0, $refusal->a->notes);
         $this->assertSame(0, $refusal->a->sections, 'The draft of a situation is counted with it, never as a section too (T15).');
-        foreach (['en', 'fr'] as $lang) {
-            $string = [];
-            include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
+            require_once(__DIR__ . '/fixtures/lang_files.php');
+            $string = \tool_vae\fixtures\lang_files::strings($lang);
             foreach (['situations', 'spieces', 'notes'] as $count) {
                 $this->assertStringContainsString('{$a->' . $count . '}', $string['errorremoverecordtraces'], "lang/$lang");
             }

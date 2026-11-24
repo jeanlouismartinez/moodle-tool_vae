@@ -67,7 +67,7 @@ class remind_pending extends \core\task\scheduled_task {
 
         $groups = pending_report::by_candidate(pending_report::crossing($days, $now, $since));
         $queued = 0;
-        foreach ($groups as $candidateid => $group) {
+        foreach (array_keys($groups) as $candidateid) {
             $queued += notifier::declarations_overdue((int) $candidateid, $days);
         }
         // The window of the next run opens where this one closed, to the second.

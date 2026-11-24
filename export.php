@@ -32,6 +32,7 @@ require_once(__DIR__ . '/../../../config.php');
 use tool_vae\local\access;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\exporter;
+use tool_vae\output\export_page;
 
 require_login();
 
@@ -50,13 +51,11 @@ $PAGE->set_context($context);
 $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('exportdossier', 'tool_vae'));
 $PAGE->set_heading(fullname($candidate));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 if (!competency_gateway::is_subsystem_enabled()) {
     echo $OUTPUT->header();
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(export_page::disabled());
     echo $OUTPUT->footer();
     die();
 }
@@ -74,39 +73,12 @@ if ($confirm) {
     // whoever later asks whether a copy is the one issued here.
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('exportdossier', 'tool_vae'));
-    // The vaeiste's own archive is kept, one per vaeiste; the one another person exports lives a day.
-    echo $OUTPUT->notification(
-        get_string($candidateid === (int) $USER->id ? 'exportdonekept' : 'exportdone', 'tool_vae', (object) [
-            'archive' => $registered->archiveuuid,
-            'sha256' => $registered->sha256,
-        ]),
-        \core\output\notification::NOTIFY_SUCCESS
-    );
     // A line the schema refuses does not refuse the archive (decision of 27 October 2026): it is produced, and the person is
     // told here, after the production, what the reimport will do with it, that Moodle cannot correct the line and the site
     // administrator is to be told, and that the editable copy (Word or OpenDocument) remains. The lines name the declaration,
-    // the file and the value - of this dossier only. exporter::warnings_html() escapes them: the value is whatever an
-    // administrator typed, and the one helper is what the tests hold to it.
-    if ($warnings) {
-        echo $OUTPUT->notification(
-            exporter::warnings_html($warnings, get_string('exportwarning', 'tool_vae')),
-            \core\output\notification::NOTIFY_WARNING
-        );
-    }
-    echo html_writer::link(
-        moodle_url::make_pluginfile_url(
-            $file->get_contextid(),
-            'tool_vae',
-            exporter::FILEAREA,
-            $file->get_itemid(),
-            $file->get_filepath(),
-            $file->get_filename(),
-            true
-        ),
-        get_string('exportdownload', 'tool_vae'),
-        ['class' => 'btn btn-primary']
-    );
-    echo $OUTPUT->continue_button($dossierurl);
+    // the file and the value - of this dossier only. The piece export_warnings escapes them (export_page draws it): the value
+    // is whatever an administrator typed, and the one helper is what the tests hold to it.
+    echo $renderer->render(export_page::done($candidateid === (int) $USER->id, $registered, $warnings, $file, $dossierurl));
     echo $OUTPUT->footer();
     die();
 }
@@ -115,46 +87,15 @@ echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('exportdossier', 'tool_vae'));
 
 if (!$DB->record_exists('tool_vae_evidence', ['candidateid' => $candidateid])) {
-    echo $OUTPUT->notification(
-        get_string('errorexportempty', 'tool_vae'),
-        \core\output\notification::NOTIFY_INFO
-    );
-    echo $OUTPUT->continue_button($dossierurl);
+    echo $renderer->render(export_page::nodeclaration($dossierurl));
     echo $OUTPUT->footer();
     die();
 }
 
 // The text speaks to the vaeiste (your declarations, your profile). The direction and the administrator export other people's
-// dossiers too: they read the same text in the third person.
-$intro = $candidateid === (int) $USER->id
-    ? get_string('exportintro', 'tool_vae')
-    : get_string('exportintroother', 'tool_vae');
-echo html_writer::tag('p', s($intro));
+// dossiers too: they read the same text in the third person. Only the vaeiste is told of the archive they keep in place.
 $kept = $candidateid === (int) $USER->id ? exporter::kept($candidateid) : null;
-if ($kept) {
-    echo $OUTPUT->notification(
-        s(get_string('exportkeptcurrent', 'tool_vae', (object) [
-            'date' => userdate((int) $kept->get_timecreated()),
-            'id' => substr($kept->get_filename(), -30, 26),
-        ])) . ' ' . html_writer::link(
-            moodle_url::make_pluginfile_url(
-                $kept->get_contextid(),
-                'tool_vae',
-                exporter::FILEAREA,
-                $kept->get_itemid(),
-                $kept->get_filepath(),
-                $kept->get_filename(),
-                true
-            ),
-            get_string('exportdownload', 'tool_vae')
-        ),
-        \core\output\notification::NOTIFY_INFO
-    );
-}
-echo $OUTPUT->notification(
-    get_string('exportwithdrawalnotice', 'tool_vae'),
-    \core\output\notification::NOTIFY_WARNING
-);
+echo $renderer->render(export_page::intro($candidateid === (int) $USER->id, $kept));
 echo $OUTPUT->confirm(
     get_string('exportconfirm', 'tool_vae'),
     new moodle_url($url, ['confirm' => 1, 'sesskey' => sesskey()]),

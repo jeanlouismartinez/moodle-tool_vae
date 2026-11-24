@@ -31,11 +31,11 @@ require_once(__DIR__ . '/../../../config.php');
 use tool_vae\form\piece_file_form;
 use tool_vae\form\piece_link_form;
 use tool_vae\local\access;
-use tool_vae\local\attest_screen;
 use tool_vae\local\attestation_manager;
 use tool_vae\local\competency_gateway;
+use tool_vae\local\draft_upload;
 use tool_vae\local\piece_manager;
-use tool_vae\local\presenter;
+use tool_vae\output\piece_page;
 
 require_login();
 
@@ -93,21 +93,6 @@ if ($remove && $iscandidate && data_submitted()) {
     );
 }
 
-// The upload is taken BEFORE the forms are built: the form library empties $_FILES when it processes a submission, and
-// its own file element is not used here (see piece_file_form).
-$upload = $_FILES['piecefile'] ?? null;
-// A file larger than post_max_size arrives as an empty POST: the form would simply come back, with no word.
-if (
-    $_SERVER['REQUEST_METHOD'] === 'POST' && !$_POST && !$upload && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
-) {
-    redirect(
-        $url,
-        get_string('errorpiecetoolarge', 'tool_vae', display_size($maxbytes)),
-        null,
-        $notify::NOTIFY_ERROR
-    );
-}
-
 $canadd = $settings->open && $iscandidate;
 $fileform = $linkform = null;
 if ($canadd) {
@@ -117,30 +102,26 @@ if ($canadd) {
     if ($fileform->is_cancelled() || $linkform->is_cancelled()) {
         redirect($dossier);
     }
+    // The file is in a draft area of the vaeiste, put there by the file picker of the core (draft_upload says how). Its size
+    // is read BEFORE the form gives its data: the file picker takes out a file over its limit then, without a word.
+    $toolarge = $fileform->is_submitted()
+        && draft_upload::larger_than(optional_param('piecefile', 0, PARAM_INT), $maxbytes);
     if ($data = $fileform->get_data()) {
         $error = null;
+        $itemid = (int) $data->piecefile;
+        $copy = null;
         try {
-            if (!$upload || !is_array($upload) || is_array($upload['error'])) {
-                throw new moodle_exception('errorpiecenofile', 'tool_vae');
-            }
-            if ($upload['error'] === UPLOAD_ERR_NO_FILE) {
-                throw new moodle_exception('errorpiecenofile', 'tool_vae');
-            }
-            if (in_array($upload['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            if ($toolarge) {
                 throw new moodle_exception('errorpiecetoolarge', 'tool_vae', '', display_size($maxbytes));
             }
-            if ($upload['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($upload['tmp_name'])) {
-                throw new moodle_exception('errorpiecefile', 'tool_vae');
-            }
-            $manager->add_file(
-                $evidenceid,
-                (string) $data->filenature,
-                (string) $data->filetitle,
-                $upload['tmp_name'],
-                clean_param((string) $upload['name'], PARAM_FILE)
-            );
+            $copy = draft_upload::piece($itemid, $maxbytes);
+            // The name the area holds is passed as before, and never kept (piece_manager::add_file()).
+            $manager->add_file($evidenceid, (string) $data->filenature, (string) $data->filetitle, $copy->path, $copy->name);
         } catch (moodle_exception $e) {
             $error = $e->getMessage();
+        } finally {
+            // Taken, kept or refused: nothing of the vaeiste stays in the draft area, nor in the copy.
+            draft_upload::discard($itemid, $copy);
         }
         redirect(
             $url,
@@ -164,36 +145,25 @@ if ($canadd) {
     }
 }
 
-echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('pieceheading', 'tool_vae'));
-echo html_writer::tag('p', s(get_string('pieceintro', 'tool_vae')));
-echo html_writer::div(s(get_string('piecelimits', 'tool_vae')), 'alert alert-warning');
-
-echo attest_screen::declaration($evidence, $context);
-
-// The list: one renderer for the candidate, for the manager who attests and for whoever only reads (presenter::pieces()).
-// Only the candidate gets a button to remove, in the same place as always.
+// The list: one piece of output for the candidate, for the manager who attests and for whoever only reads
+// (tool_vae\output\pieces). Only the candidate gets a button to remove, in the same place as always. The forms are drawn
+// while the site takes pieces; otherwise the candidate is told it does not.
 $pieces = piece_manager::for_evidence($evidenceid);
 $standing = attestation_manager::active_attestation($evidenceid);
-echo presenter::pieces(
-    $pieces,
+
+$renderer = $PAGE->get_renderer('tool_vae');
+
+echo $OUTPUT->header();
+echo $OUTPUT->heading(get_string('pieceheading', 'tool_vae'));
+echo $renderer->render(new piece_page(
+    $evidence,
     $context,
+    $pieces,
     $standing,
-    $iscandidate
-        ? fn($piece) => $OUTPUT->single_button(
-            new moodle_url($url, ['remove' => (int) $piece->id]),
-            get_string('pieceremove', 'tool_vae'),
-            'post'
-        )
-        : null
-);
-
-if ($canadd) {
-    $fileform->display();
-    $linkform->display();
-} else if ($iscandidate) {
-    echo $OUTPUT->notification(get_string('piececlosed', 'tool_vae'), $notify::NOTIFY_INFO);
-}
-
-echo html_writer::tag('p', html_writer::link($dossier, get_string('piecebacktodossier', 'tool_vae')));
+    $iscandidate ? $url : null,
+    $fileform,
+    $linkform,
+    !$canadd && $iscandidate,
+    $dossier
+));
 echo $OUTPUT->footer();

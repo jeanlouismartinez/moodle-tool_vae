@@ -1,13 +1,13 @@
-# Intégration continue officielle de Moodle (moodle-plugin-ci), sur GitHub.
+# Official continuous integration of Moodle (moodle-plugin-ci), on GitHub.
 #
-# Version du dépôt public (tool_vae) : la tâche « migration » du projet d'origine, qui installe Moodle 4.5 avec
-# la branche MOODLE_405 de ce projet, n'y figure pas ; elle reste dans le dépôt de travail.
-#
-# Réécrit le 11 octobre 2026 : le fichier annoncé au CHANGELOG 0.6.2 n'avait jamais été commité.
-# Branche MOODLE_503 : une seule version de Moodle dans la matrice, parce que version.php déclare
-# supported = [503, 503] ; la tâche « migration » prouve en plus le passage du paquet 4.5 au paquet 5.3.
-# Annoncer une compatibilité qu'on ne teste pas serait pire que ne rien annoncer.
-# Deux bases, parce que tout n'a été vérifié jusqu'ici que sur PostgreSQL.
+# Rewritten on 11 October 2026: the file announced in the CHANGELOG of 0.6.2 had never been committed.
+# Branch MOODLE_503: one version of Moodle in the matrix, because version.php declares supported = [503, 503];
+# the migration from the 4.5 package to the 5.3 package is no longer run here (decision of the project owner of
+# 17 November 2026: it will not be used).
+# Announcing a compatibility nobody tests would be worse than announcing none.
+# Three databases: PostgreSQL and MariaDB since 11 October 2026, MySQL since 22 November 2026 (the plugins directory asks for
+# MySQL and PostgreSQL at least). MariaDB and MySQL both listen on 3306 in their containers: MySQL is published on 3307 of the
+# runner, and each database is installed on its own port (matrix key dbport).
 
 name: Moodle Plugin CI
 
@@ -37,15 +37,31 @@ jobs:
           - 3306:3306
         options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval 10s --health-timeout 5s --health-retries 3
 
+      # MySQL 8.4 is the lowest MySQL that Moodle 5.3 accepts (admin/environment.xml of Moodle 5.3).
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports:
+          - 3307:3306
+        options: --health-cmd="mysqladmin ping --silent" --health-interval 10s --health-timeout 5s --health-retries 5
+
     strategy:
       fail-fast: false
       matrix:
         php: ['8.3']
         moodle-branch: ['MOODLE_503_STABLE']
-        database: [pgsql, mariadb]
+        database: [pgsql, mariadb, mysqli]
+        include:
+          - database: pgsql
+            dbport: 5432
+          - database: mariadb
+            dbport: 3306
+          - database: mysqli
+            dbport: 3307
 
     steps:
-      - name: Récupérer le plugin
+      - name: Check out the plugin
         uses: actions/checkout@v5
         with:
           path: plugin
@@ -57,22 +73,25 @@ jobs:
           ini-values: max_input_vars=5000
           coverage: none
 
-      - name: Contrôles propres au projet (MC-2, MC-5, RGPD, langue, secrets)
+      # The privacy coverage and the language strings are PHPUnit tests (privacy_coverage_test, lang_strings_test).
+      - name: Checks of the project (MC-2, MC-5, MC-30, secrets, English comments, references to docs)
         working-directory: plugin
         run: |
-          bash scripts/mc2-ecriture-coeur.sh .
-          bash scripts/mc5-passerelle.sh .
-          php scripts/verifier-privacy.php .
-          php scripts/verifier-langue.php .
-          bash scripts/verifier-secrets.sh .
+          bash scripts/check-core-writes.sh .
+          bash scripts/check-gateway.sh .
+          bash scripts/check-network-door.sh .
+          bash scripts/test-check-network-door.sh
+          bash scripts/check-secrets.sh
+          node scripts/check-english-comments.mjs .
+          node scripts/check-doc-links.mjs .
 
-      - name: Schéma pivot reconstruit (exemples et contre-exemples)
+      - name: Rebuilt pivot schema (examples and counter-examples)
         working-directory: plugin
         run: |
           npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/ajv" ajv@8.17.1 ajv-formats@3.0.1
-          AJV_MODULES="$RUNNER_TEMP/ajv/node_modules" node scripts/verifier-schema.mjs .
+          AJV_MODULES="$RUNNER_TEMP/ajv/node_modules" node scripts/check-schema.mjs .
 
-      - name: Installer moodle-plugin-ci
+      - name: Install moodle-plugin-ci
         run: |
           composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
           echo $(cd ci/bin; pwd) >> $GITHUB_PATH
@@ -80,13 +99,13 @@ jobs:
           sudo locale-gen en_AU.UTF-8
           echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
 
-      - name: Installer Moodle et le plugin
-        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
+      - name: Install Moodle and the plugin
+        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1 --db-port=${{ matrix.dbport }}
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
 
-      - name: Syntaxe PHP
+      - name: PHP syntax
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phplint
 
@@ -95,7 +114,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phpmd
 
-      - name: Standard de codage Moodle
+      - name: Moodle coding standard
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phpcs --max-warnings 0
 
@@ -103,15 +122,15 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phpdoc --max-warnings 0
 
-      - name: Validation du plugin
+      - name: Plugin validation
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci validate
 
-      - name: Points de sauvegarde des mises à jour
+      - name: Upgrade savepoints
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci savepoints
 
-      - name: Gabarits Mustache
+      - name: Mustache templates
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci mustache
 
@@ -122,21 +141,21 @@ jobs:
       - name: PHPUnit
         if: ${{ !cancelled() }}
         env:
-          TOOL_VAE_SCHEMA_DUMP: ${{ runner.temp }}/preuves-exportees
+          TOOL_VAE_SCHEMA_DUMP: ${{ runner.temp }}/exported-evidence
         run: moodle-plugin-ci phpunit --fail-on-warning
 
-      - name: Preuves exportées par les tests, validées contre le schéma
+      - name: Evidence files exported by the tests, validated against the schema
         if: ${{ !cancelled() }}
         working-directory: plugin
         run: |
-          AJV_MODULES="$RUNNER_TEMP/ajv/node_modules" node scripts/verifier-schema.mjs . --preuves "$RUNNER_TEMP/preuves-exportees"
+          AJV_MODULES="$RUNNER_TEMP/ajv/node_modules" node scripts/check-schema.mjs . --evidence "$RUNNER_TEMP/exported-evidence"
 
-      - name: Behat (dont le scénario @javascript et axe-core)
+      - name: Behat (including the @javascript scenarios and axe-core)
         id: behat
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci behat --profile chrome
 
-      - name: Captures en cas d'échec Behat
+      - name: Screenshots when Behat fails
         if: ${{ failure() && steps.behat.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:

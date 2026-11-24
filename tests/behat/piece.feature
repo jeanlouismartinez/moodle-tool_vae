@@ -58,17 +58,41 @@ Feature: A candidate attaches supporting pieces to a declaration
     Then I should see "This address is not accepted."
     And I should see "No piece is attached to this declaration."
 
+  # Review MMR-520: the file goes through the file picker of the core (a draft area of the candidate), which needs JavaScript
+  # here; the page reads it there, checks it as before and empties the draft area.
+  @javascript @_file_upload
   Scenario: The candidate attaches a file, which keeps no name and has a digest
     Given I log in as "candidat"
     When I am on the "Night rounds with the care assistant" "tool_vae > Piece" page
     And I set the field "id_filenature" to "Employment contract"
-    And I attach the fixture "piece-essai.pdf" to the field "File"
+    And I upload "admin/tool/vae/tests/fixtures/piece-sample.pdf" file to "File" filemanager
     And I press "Attach the file"
     Then I should see "The file was attached."
     And I should see "SHA-256"
     And I should see "PDF"
-    And I should not see "piece-essai"
+    And I should not see "piece-sample"
     And I should see "Open the file"
+
+  # The name says PDF, the content is a CSV: the type is read on the content, and the file is refused in the words of the page.
+  @javascript @_file_upload
+  Scenario: A file whose content is not of an accepted type is refused and nothing is kept
+    Given I log in as "candidat"
+    When I am on the "Night rounds with the care assistant" "tool_vae > Piece" page
+    And I set the field "id_filenature" to "Employment contract"
+    And I upload the fixture "fiche-example.csv" named "contrat.pdf" to the "File" file picker
+    And I press "Attach the file"
+    Then I should see "This type of file is not accepted. Accepted: PDF, ODT, DOCX, JPEG, PNG."
+    And I should see "No piece is attached to this declaration."
+    And I should not see "contrat.pdf"
+
+  @javascript @_file_upload
+  Scenario: Sending the form of a file without a file says so and keeps nothing
+    Given I log in as "candidat"
+    When I am on the "Night rounds with the care assistant" "tool_vae > Piece" page
+    And I set the field "id_filenature" to "Employment contract"
+    And I press "Attach the file"
+    Then I should see "Choose a file to attach."
+    And I should see "No piece is attached to this declaration."
 
   Scenario: Closed, the page says so and offers nothing new
     Given the following config values are set as admin:

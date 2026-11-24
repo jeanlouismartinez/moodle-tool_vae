@@ -71,6 +71,12 @@ Feature: The manager who follows evaluates a competency, the direction certifies
     Then I should see "Second statement." in the ".tool-vae-history" "css_element"
     And I should see "First statement." in the ".tool-vae-history" "css_element"
     And I should see "Earlier lines"
+    # Lot 7 (MMR-520, wave 3a): the same line again is refused, and the refusal is said on the page of the competency.
+    When I set the following fields to these values:
+      | Status         | sufficient for certification |
+      | Written reason | Second statement.            |
+    And I press "Record"
+    Then I should see "This is what the latest line already says" in the ".alert-danger" "css_element"
 
   Scenario: A manager who follows without the right reads and cannot write
     Given the following "tool_vae > evaluations" exist:

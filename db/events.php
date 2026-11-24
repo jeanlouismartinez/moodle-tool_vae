@@ -27,25 +27,32 @@
  * it when the key is absent - so omitting it does not make an observer external, it makes it
  * internal while looking like a decision nobody took. Declared, it can be read and argued with.
  *
- * Internal is also the right choice here. An internal observer runs INSIDE the transaction of
- * whoever caused the deletion: if the purge cannot finish, that transaction is doomed and the
- * deletion it was reacting to does not stand. An external one would run after the commit, so a
- * failed purge would leave the orphaned narrative that criterion 8 exists to prevent, and leave
- * it silently - the event manager turns every exception an observer throws into a debugging()
- * call. On the two paths the core actually takes there is no surrounding transaction at all,
- * verified in the source, so the choice costs nothing where it changes nothing. The fourth, a framework deleted in tool_lp,
- * is raised by the core AFTER the commit of the deletion (api::delete_framework()): it only sets right the provenance
- * rows of the framework, which the deletion has already made final, and joins no transaction whatever it declares.
+ * WHAT THEY DO: THEY ONLY QUEUE (ticket 3 of review MMR-520). Each of the four queues one ad hoc
+ * task carrying identifiers, and does nothing else; the purge, the comparison or the release of a
+ * provenance row runs from cron, at its next run. Internal is still the right choice for that: an
+ * internal observer runs inside the transaction of whoever caused the deletion, when there is one,
+ * so the task is queued with the deletion and rolled back with it if the deletion does not stand.
+ * On the two paths the core actually takes for an account and an evidence record there is no
+ * surrounding transaction at all (verified in the source of Moodle 5.3: delete_user() opens none):
+ * the deletion stands at once, the task stays in the queue, and the dossier stays until the task
+ * has run. The fourth, a framework deleted in tool_lp, is raised by the core AFTER the commit of
+ * the deletion (api::delete_framework()), and joins no transaction whatever it declares.
  *
- * See \tool_vae\observer for why the account deletion needs its own handler.
+ * NOT A GUARANTEE THAT THE DELETION FAILS WITH THE PURGE. The event manager turns every exception
+ * an observer throws into a debugging() call, so nothing an observer does can make a deletion
+ * fail. The guarantee is elsewhere: a task that fails throws, shows in the task logs and is run
+ * again by the task manager; the scheduled task reconcile_orphans catches up with what a follow-up
+ * that never ran would have removed. See \tool_vae\observer and \tool_vae\local\deletion_followup.
  *
- * THE FOUR NOTIFICATION OBSERVERS ARE EXTERNAL, AND FOR THE OPPOSITE REASON (lot 7 ter). A purge
- * must belong to the act it reacts to; a message must not. Run after the commit, they announce
- * only what the site holds: the import of a certification record raises its departures inside
- * its own transaction, and an import that rolls back takes them with it, unheard. They do no more
- * than queue one ad hoc task per recipient - the sending happens in cron - and they catch
- * whatever they throw themselves, an \Error included, which the event manager would let through
- * into a request whose act is already committed. See \tool_vae\notifier.
+ * THE FOURTEEN NOTIFICATION OBSERVERS ARE EXTERNAL, AND FOR THE OPPOSITE REASON (lot 7 ter). A
+ * purge must belong to the act it reacts to; a message must not. Run after the commit, they
+ * announce only what the site holds: the import of a certification record raises its departures
+ * inside its own transaction, and an import that rolls back takes them with it, unheard. Each of
+ * them reads nothing and queues ONE ad hoc task (ticket 3 of review MMR-520, lot 9): the message
+ * itself when the event names its one recipient; otherwise one task for the event, which finds
+ * the recipients at the first run of cron. The sending happens in cron. They catch whatever they
+ * throw themselves, an \Error included, which the event manager would let through into a request
+ * whose act is already committed. See \tool_vae\notification_observer and \tool_vae\notifier.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
@@ -77,73 +84,73 @@ $observers = [
     ],
     [
         'eventname' => '\tool_vae\event\evidence_declared',
-        'callback' => '\tool_vae\notifier::evidence_declared',
+        'callback' => '\tool_vae\notification_observer::evidence_declared',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\piece_added',
-        'callback' => '\tool_vae\notifier::piece_added',
+        'callback' => '\tool_vae\notification_observer::piece_added',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\deposit_created',
-        'callback' => '\tool_vae\notifier::deposit_created',
+        'callback' => '\tool_vae\notification_observer::deposit_created',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\evaluation_recorded',
-        'callback' => '\tool_vae\notifier::evaluation_recorded',
+        'callback' => '\tool_vae\notification_observer::evaluation_recorded',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\certification_recorded',
-        'callback' => '\tool_vae\notifier::certification_recorded',
+        'callback' => '\tool_vae\notification_observer::certification_recorded',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\opinion_created',
-        'callback' => '\tool_vae\notifier::opinion_created',
+        'callback' => '\tool_vae\notification_observer::opinion_created',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\request_created',
-        'callback' => '\tool_vae\notifier::request_created',
+        'callback' => '\tool_vae\notification_observer::request_created',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\evidence_attested',
-        'callback' => '\tool_vae\notifier::evidence_attested',
+        'callback' => '\tool_vae\notification_observer::evidence_attested',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\attestation_withdrawn',
-        'callback' => '\tool_vae\notifier::attestation_withdrawn',
+        'callback' => '\tool_vae\notification_observer::attestation_withdrawn',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\withdrawal_requested',
-        'callback' => '\tool_vae\notifier::withdrawal_requested',
+        'callback' => '\tool_vae\notification_observer::withdrawal_requested',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\withdrawal_refused',
-        'callback' => '\tool_vae\notifier::withdrawal_refused',
+        'callback' => '\tool_vae\notification_observer::withdrawal_refused',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\competency_left_record',
-        'callback' => '\tool_vae\notifier::competency_left_record',
+        'callback' => '\tool_vae\notification_observer::competency_left_record',
         'internal' => false,
     ],
     // Lot 1b: an annotation is told to the vaeiste, a consent to the person it names; a withdrawal tells nobody.
     [
         'eventname' => '\tool_vae\event\note_recorded',
-        'callback' => '\tool_vae\notifier::note_recorded',
+        'callback' => '\tool_vae\notification_observer::note_recorded',
         'internal' => false,
     ],
     [
         'eventname' => '\tool_vae\event\consent_changed',
-        'callback' => '\tool_vae\notifier::consent_changed',
+        'callback' => '\tool_vae\notification_observer::consent_changed',
         'internal' => false,
     ],
 ];

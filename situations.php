@@ -35,7 +35,6 @@ use tool_vae\local\draft_manager;
 use tool_vae\local\hidden_frameworks;
 use tool_vae\local\importer;
 use tool_vae\local\note_manager;
-use tool_vae\local\note_screen;
 use tool_vae\local\selfpos_tree;
 use tool_vae\local\situation_manager;
 use tool_vae\local\situation_screen;
@@ -44,8 +43,8 @@ use tool_vae\local\whereami_panel;
 require_login();
 
 $candidateid = optional_param('userid', (int) $USER->id, PARAM_INT);
-$fichecode = optional_param('fiche', '', PARAM_RAW_TRIMMED);
-$rank = optional_param('rank', null, PARAM_RAW_TRIMMED);
+$fichecode = optional_param('fiche', '', PARAM_ALPHANUMEXT);
+$rank = optional_param('rank', null, PARAM_ALPHANUM);
 
 $context = access::require_can_view($candidateid);
 // The situations are a part of the preparation: whoever may not read it reads none of them, the site administrator included.
@@ -68,6 +67,7 @@ $heading = $own
 $headinghtml = s($heading);
 $PAGE->set_title($heading);
 $PAGE->set_heading(fullname($candidate));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 $frameworks = new hidden_frameworks();
 $manager = new situation_manager();
@@ -135,26 +135,11 @@ if ($source !== null && optional_param('action', '', PARAM_ALPHA) === 'new' && d
     redirect(situation_screen::url($candidateid, $fichecode, (int) $situation->slot));
 }
 
-// The vaeiste goes back to their pathway; a reader goes back to the dossier they came from.
-$back = $own
-    ? html_writer::link(
-        new moodle_url('/admin/tool/vae/organisation.php', ['tab' => 'mine']),
-        get_string('selfposbackpathway', 'tool_vae')
-    )
-    : html_writer::link(
-        new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]),
-        get_string('selfposbackdossier', 'tool_vae')
-    );
-// The consent to annotations (lot 1b), beside the way back, before any line: whoever passes the door of this page reads the
-// preparation (can_read_doctype), the rule of dossier.php; consent.php says who may give it, and who only reads it.
-$back .= ' ' . html_writer::link(
-    new moodle_url('/admin/tool/vae/consent.php', ['userid' => $candidateid]),
-    get_string('consentlink', 'tool_vae')
-);
-
-$body = '';
+// One state of the page, drawn by situations_page under the heading. The way back - to the pathway for the vaeiste, to the
+// dossier for a reader - and, beside it, the consent to annotations (lot 1b), before any line: whoever passes the door of
+// this page reads the preparation (can_read_doctype), the rule of dossier.php; consent.php says who may give it.
 if (!competency_gateway::is_subsystem_enabled()) {
-    $body .= $OUTPUT->notification(get_string('errorcompetenciesdisabled', 'tool_vae'), \core\output\notification::NOTIFY_ERROR);
+    $page = \tool_vae\output\situations_page::disabled();
 } else if ($source === null) {
     // Without a record: the records offered, and the hidden ones that still hold situations of the vaeiste, said why.
     $records = [];
@@ -174,8 +159,7 @@ if (!competency_gateway::is_subsystem_enabled()) {
         }
     }
     ksort($records, SORT_STRING);
-    $body .= situation_screen::records($candidateid, $records);
-    $body .= html_writer::tag('p', $back);
+    $page = \tool_vae\output\situations_page::records($candidateid, $records, $own);
 } else if ($rank !== null) {
     // The inverse view of a node: its situations and its declarations, in reading.
     $declarations = $DB->get_records(
@@ -183,8 +167,7 @@ if (!competency_gateway::is_subsystem_enabled()) {
         ['candidateid' => $candidateid, 'fichecode' => $fichecode, 'ficherang' => $rank],
         'id ASC'
     );
-    $body .= html_writer::tag('p', html_writer::tag('strong', s($fichecode)));
-    $body .= situation_screen::inverse(
+    $page = \tool_vae\output\situations_page::inverse(
         $candidateid,
         $fichecode,
         $rank,
@@ -192,30 +175,10 @@ if (!competency_gateway::is_subsystem_enabled()) {
         $declarations,
         $context
     );
-    $body .= html_writer::tag('p', html_writer::link(
-        situation_screen::url($candidateid, $fichecode),
-        get_string('situationbacklist', 'tool_vae')
-    ));
 } else {
-    $body .= html_writer::tag('p', html_writer::tag('strong', s($fichecode)));
-    $body .= situation_screen::disclaimer($candidateid);
-    $hidden = $frameworks->is_hidden($source);
-    if ($hidden) {
-        // Already escaped by hidden_frameworks::message().
-        $body .= html_writer::div($frameworks->message($source), 'alert alert-info');
-    }
-    if ($canwrite && !$open) {
-        $body .= html_writer::div(s(get_string('errorvalidationclosed', 'tool_vae')), 'alert alert-info');
-    }
-    if ($canwrite && $open && !$hidden) {
-        $body .= $OUTPUT->single_button(
-            new moodle_url($url, ['action' => 'new']),
-            get_string('situationnew', 'tool_vae'),
-            'post'
-        );
-    }
+    // The situations of the record; the record hidden said (its message already escaped by hidden_frameworks::message()).
+    $hiddenmessage = $frameworks->is_hidden($source) ? $frameworks->message($source) : null;
     $situations = $manager->list($candidateid, $fichecode);
-    $body .= situation_screen::list($candidateid, $fichecode, $situations);
     // The annotations of the situations deleted since (D-1b-K): they stay, read here, each former situation apart; a new
     // situation on the same slot never takes them, the annotation names its situation by its uuid.
     $held = array_map(fn($row) => (string) $row->uuid, $situations);
@@ -224,12 +187,21 @@ if (!competency_gateway::is_subsystem_enabled()) {
         fn($row) => $row->target === note_manager::TARGET_SITUATION && $row->fichecode === $fichecode
             && !in_array((string) $row->targetuuid, $held, true)
     );
-    $body .= note_screen::orphans($candidateid, $orphans);
-    $body .= whereami_panel::render($candidateid, $fichecode, ['link' => true]);
-    $body .= html_writer::tag('p', $back);
+    $page = \tool_vae\output\situations_page::record(
+        $candidateid,
+        $fichecode,
+        $own,
+        $hiddenmessage,
+        $canwrite,
+        $open,
+        $url,
+        $situations,
+        new \tool_vae\output\notes_orphans($candidateid, $orphans),
+        new \tool_vae\output\whereami_tree($candidateid, $fichecode, ['link' => true])
+    );
 }
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading($headinghtml);
-echo $body;
+echo $renderer->render($page);
 echo $OUTPUT->footer();

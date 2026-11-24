@@ -1,0 +1,73 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/scope_box
+
+    What a vaeiste says is outside their activity, as a section: its heading, then the list of the marks (the code in
+    bold, its label, the day it was said, the note) and the sentence that it exempts from nothing, or the sentence that
+    there is none; the link to change it, for the vaeiste. Nothing when there is nothing to show. Inside an item the
+    parts touch with only the spaces of before.
+
+    Every text comes from the context, already worded by tool_vae\output\scope_box. The template holds no logic. Every
+    text and address is escaped (double braces). One key is HTML (triple braces): headinghtml, a heading made by the core
+    ($output->heading()).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * show - bool, whether there is a section to draw
+    * headinghtml - HTML, the heading of the section
+    * hasmarks - bool, whether there is a list
+    * marks - array of {key, label (false or {text}), said, note (false or {text})}
+    * sentence - string, the sentence under the list
+    * none - false, or a string: the sentence drawn when there is no mark
+    * manage - false, or {url, label}: the link to change it
+
+    Example context (json):
+    {
+        "show": true,
+        "headinghtml": "<h3>Outside my activity</h3>",
+        "hasmarks": true,
+        "marks": [{"key": "RS00000-C02", "label": {"text": "Aider au lever"}, "said": "said on 1 June 2026", "note": false}],
+        "sentence": "This exempts from nothing.",
+        "none": false,
+        "manage": {"url": "https://example.com/admin/tool/vae/scope.php", "label": "Change it"}
+    }
+}}
+{{#show}}
+<section class="tool-vae-scope mb-4">
+{{{headinghtml}}}
+{{#hasmarks}}
+<ul>{{#marks}}<li><strong>{{key}}</strong>{{#label}} — {{text}}{{/label}} {{said}}{{!
+}}{{#note}}<div class="small">{{text}}</div>{{/note}}</li>{{/marks}}</ul>
+<p class="small text-muted">{{sentence}}</p>
+{{/hasmarks}}
+{{#none}}
+<p>{{none}}</p>
+{{/none}}
+{{#manage}}
+<div><a href="{{url}}">{{label}}</a></div>
+{{/manage}}
+</section>
+{{/show}}

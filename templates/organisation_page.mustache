@@ -1,0 +1,54 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/organisation_page
+
+    The page of the organisation under its heading: the link "Help" of the tab, the tabs, the error of the core when the
+    competencies are switched off, the pieces of the tab that is open, and the buttons of "My pathway".
+
+    Every text comes from the context, drawn by tool_vae\output\organisation_page. The template holds no logic beyond its
+    sections. Every key is HTML, placed as it is (triple braces): guidehtml, drawn by tool_vae/organisation_guide_link (or
+    empty); tabshtml, the tabs of the core; noticehtml, a notification of the core (or empty); parthtml, a piece drawn by its
+    template (tool_vae/next_actions, organisation_notice, organisation_pathway, organisation_followed, organisation_site,
+    scope_box); buttonhtml, a button of the core.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * guidehtml - string, HTML: the link "Help", or empty
+    * tabshtml - string, HTML: the tabs
+    * noticehtml - string, HTML: the error of the core, or empty
+    * parts - array, each {parthtml}: the pieces of the tab, in their order
+    * buttons - array, each {buttonhtml}: the buttons offered, in their order
+
+    Example context (json):
+    {
+        "guidehtml": "<p class=\"tool-vae-guide-link\"><a href=\"https://example.com/admin/tool/vae/guide.php\">Help</a></p>",
+        "tabshtml": "<ul class=\"nav nav-tabs\"><li class=\"nav-item\">My pathway</li></ul>",
+        "noticehtml": "",
+        "parts": [{"parthtml": "<div class=\"alert alert-info\">The panel alone decides.</div>"}],
+        "buttons": [{"buttonhtml": "<div class=\"singlebutton\"><button type=\"button\">Declare</button></div>"}]
+    }
+}}
+{{{guidehtml}}}{{{tabshtml}}}{{{noticehtml}}}{{#parts}}{{{parthtml}}}{{/parts}}{{#buttons}}{{{buttonhtml}}}{{/buttons}}

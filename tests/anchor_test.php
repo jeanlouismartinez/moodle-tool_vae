@@ -39,7 +39,9 @@ use tool_vae\local\evidence_manager;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\anchor::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\attest_screen::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\attest_declaration::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\anchor_warning::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\check_changed_evidence::class)]
 final class anchor_test extends \advanced_testcase {
     /** @var \stdClass The candidate. */
     private $candidate;
@@ -106,6 +108,18 @@ final class anchor_test extends \advanced_testcase {
             'situation' => 'Accompagnement au lever et à la toilette.',
             'situationformat' => FORMAT_PLAIN,
         ]);
+    }
+
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
     }
 
     /**
@@ -204,7 +218,7 @@ final class anchor_test extends \advanced_testcase {
         $this->rename_core_record('Anything the candidate feels like typing');
 
         $record = $this->claim_record();
-        $html = local\presenter::anchor_warning($record, anchor::divergence($record));
+        $html = self::render(new output\anchor_warning($record, anchor::divergence($record)));
 
         $this->assertStringContainsString('RNCP36832-C03', $html);
         $this->assertStringContainsString(
@@ -219,18 +233,18 @@ final class anchor_test extends \advanced_testcase {
      * The attestation screen is the only reading of the narrative by someone who did not write it, and a favourite or an
      * open tab reaches it without passing by the dossier. It went on saying "Competency: ..." for a link the platform no
      * longer held, with not a line to tell the signatory so. The screen and the withdrawal screen draw the declaration
-     * through attest_screen, which puts the warning of the dossier before it.
+     * through the piece attest_declaration, which puts the warning of the dossier before it.
      */
     public function test_the_attestation_screen_tells_its_reader_before_the_declaration(): void {
         $this->unlink_competency();
         $record = $this->claim_record();
         $context = \context_user::instance((int) $this->candidate->id);
 
-        $html = local\attest_screen::declaration($record, $context);
+        $html = self::render(new output\attest_declaration($record, $context));
 
-        $warning = local\presenter::anchor_warning($record, anchor::divergence($record));
+        $warning = self::render(new output\anchor_warning($record, anchor::divergence($record)));
         $this->assertNotSame('', $warning, 'The premise: the claim was unlinked, the dossier warns.');
-        $this->assertSame($warning . local\presenter::declaration($record, $context), $html, 'The warning comes first.');
+        $this->assertSame($warning . self::render(new output\declaration($record, $context)), $html, 'The warning comes first.');
         $this->assertStringContainsString(
             get_string('anchorunlinked', 'tool_vae', (object) ['record' => 'RNCP36832-C03']),
             html_to_text($html, 0, false)
@@ -245,8 +259,8 @@ final class anchor_test extends \advanced_testcase {
         $context = \context_user::instance((int) $this->candidate->id);
 
         $this->assertSame(
-            local\presenter::declaration($record, $context),
-            local\attest_screen::declaration($record, $context)
+            self::render(new output\declaration($record, $context)),
+            self::render(new output\attest_declaration($record, $context))
         );
     }
 
@@ -256,7 +270,7 @@ final class anchor_test extends \advanced_testcase {
     public function test_the_dossier_stays_quiet_when_the_anchor_holds(): void {
         $record = $this->claim_record();
 
-        $this->assertSame('', local\presenter::anchor_warning($record, anchor::divergence($record)));
+        $this->assertSame('', self::render(new output\anchor_warning($record, anchor::divergence($record))));
     }
 
     /**
@@ -271,6 +285,7 @@ final class anchor_test extends \advanced_testcase {
                 observer::user_evidence_updated($event);
             }
         }
+        $this->run_comparison();
 
         $events = $sink->get_events();
         $sink->close();
@@ -303,6 +318,7 @@ final class anchor_test extends \advanced_testcase {
                 observer::user_evidence_updated($event);
             }
         }
+        $this->run_comparison();
 
         $events = $sink->get_events();
         $sink->close();
@@ -312,6 +328,18 @@ final class anchor_test extends \advanced_testcase {
         });
 
         $this->assertCount(0, $diverged, 'A divergence was announced where nothing diverged.');
+    }
+
+    /**
+     * Run the comparison the observer queued, as cron would (ticket 3 of review MMR-520: the observer only queues it).
+     *
+     * Exactly one task must be waiting: an observer that did not queue it, or queued it twice, fails here.
+     */
+    private function run_comparison(): void {
+        $this->assertCount(1, \core\task\manager::get_adhoc_tasks(\tool_vae\task\check_changed_evidence::class));
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\check_changed_evidence::class);
+        ob_end_clean();
     }
 
     // ----------------------------------------------------------------------

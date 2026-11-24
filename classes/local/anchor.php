@@ -87,8 +87,8 @@ class anchor {
         }
 
         if ($core === null) {
-            // Not the same thing as a purge: the observer destroys the claim when the core
-            // record is deleted through an event. A record missing WITHOUT the claim having
+            // Not the same thing as a purge: the follow-up of the observer destroys the claim, from
+            // cron, when the core record is deleted through an event. A record missing WITHOUT the claim having
             // been purged means the deletion happened by a route that raised nothing - a bulk
             // delete, a restore, a hand-written query.
             return self::MISSING;

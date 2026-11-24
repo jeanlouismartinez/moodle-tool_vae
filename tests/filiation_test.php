@@ -21,7 +21,7 @@ use tool_vae\local\dossier_importer;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\exporter;
 use tool_vae\local\identity_map;
-use tool_vae\local\passage_manager;
+use tool_vae\local\correspondence_manager;
 use tool_vae\local\pdf_renderer;
 use tool_vae\local\purge;
 use tool_vae\local\supersession;
@@ -179,11 +179,11 @@ final class filiation_test extends \advanced_testcase {
 
     public function test_the_printable_copy_says_where_a_claim_was_carried_over_from(): void {
         $files = $this->build();
-        $preuves = [self::claim($files, $this->old->uuid), self::claim($files, $this->new->uuid)];
-        $referentiel = json_decode($files['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
+        $evidencefiles = [self::claim($files, $this->old->uuid), self::claim($files, $this->new->uuid)];
+        $referential = json_decode($files['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
         $manifest = json_decode($files['manifeste.json'], true, 512, JSON_THROW_ON_ERROR);
 
-        $html = pdf_renderer::html($manifest, $preuves, $referentiel);
+        $html = pdf_renderer::html($manifest, $evidencefiles, $referential);
 
         $this->assertStringContainsString(get_string('exportpdfcarriedlabel', 'tool_vae'), $html);
         $this->assertStringContainsString('RNCP100-C01', $html);

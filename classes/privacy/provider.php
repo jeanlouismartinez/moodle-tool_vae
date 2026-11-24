@@ -41,7 +41,7 @@ use tool_vae\notifier;
  * true then and would have become a lie the moment db/install.xml appeared: the site would
  * have answered a subject access request with "this plugin holds nothing about you" while
  * holding a candidate's whole dossier. Separating the schema from the declaration of what
- * it holds is how a null_provider survives past its truth. `make doctor` refuses that state.
+ * it holds is how a null_provider survives past its truth. tests/privacy_coverage_test.php refuses that state.
  *
  * TWO PEOPLE ARE INVOLVED IN EVERY ATTESTATION - the candidate and the manager who
  * attests - and their rights point in opposite directions:
@@ -85,6 +85,7 @@ class provider implements
             'settingtype'     => 'privacy:metadata:evidence:settingtype',
             'settingdetail'   => 'privacy:metadata:evidence:settingdetail',
             'situation'       => 'privacy:metadata:evidence:situation',
+            'situationformat' => 'privacy:metadata:evidence:situationformat',
             'fichecode'       => 'privacy:metadata:evidence:fichecode',
             'ficherang'       => 'privacy:metadata:evidence:ficherang',
             'ficheupdated'    => 'privacy:metadata:evidence:ficheupdated',
@@ -120,8 +121,19 @@ class provider implements
         ], 'privacy:metadata:identity');
 
         $collection->add_database_table('tool_vae_source', [
-            'usermodified'    => 'privacy:metadata:source:usermodified',
-            'timemodified'    => 'privacy:metadata:source:timemodified',
+            'frameworkid'      => 'privacy:metadata:source:frameworkid',
+            'fichecode'        => 'privacy:metadata:source:fichecode',
+            'fichetype'        => 'privacy:metadata:source:fichetype',
+            'sourceurl'        => 'privacy:metadata:source:sourceurl',
+            'sourceupdated'    => 'privacy:metadata:source:sourceupdated',
+            'successorcode'    => 'privacy:metadata:source:successorcode',
+            'licence'          => 'privacy:metadata:source:licence',
+            'attribution'      => 'privacy:metadata:source:attribution',
+            'lastimport'       => 'privacy:metadata:source:lastimport',
+            'lastimportstatus' => 'privacy:metadata:source:lastimportstatus',
+            'timecreated'      => 'privacy:metadata:source:timecreated',
+            'usermodified'     => 'privacy:metadata:source:usermodified',
+            'timemodified'     => 'privacy:metadata:source:timemodified',
         ], 'privacy:metadata:source');
 
         // T-23: who is the referent of a bloc, a rule of the site: the staff member and who named them.
@@ -143,6 +155,8 @@ class provider implements
         ], 'privacy:metadata:bookletauth');
 
         $collection->add_database_table('tool_vae_passage', [
+            'fromcompetencyid' => 'privacy:metadata:passage:fromcompetencyid',
+            'tocompetencyid'  => 'privacy:metadata:passage:tocompetencyid',
             'decidedby'       => 'privacy:metadata:passage:decidedby',
             'decidedat'       => 'privacy:metadata:passage:decidedat',
             'note'            => 'privacy:metadata:passage:note',
@@ -150,6 +164,7 @@ class provider implements
 
         // T-13: the supporting pieces of a declaration. The files are in the plugin's own area, in the candidate's context.
         $collection->add_database_table('tool_vae_piece', [
+            'uuid'        => 'privacy:metadata:piece:uuid',
             'candidateid' => 'privacy:metadata:piece:candidateid',
             'evidenceid'  => 'privacy:metadata:piece:evidenceid',
             'kind'        => 'privacy:metadata:piece:kind',
@@ -193,7 +208,7 @@ class provider implements
         // Lot 8 quater: the register of the archives issued. Two people in each row, like an
         // attestation: the candidate, by the ULID the archive gives them, and whoever produced it.
         // The row is not the archive (MC-9) - a digest and two identifiers, no claim.
-        // The name is spelt out, not exporter::REGISTER: scripts/verifier-privacy.php reads it literally.
+        // The name is spelt out, not exporter::REGISTER: tests/privacy_coverage_test.php reads it literally.
         $collection->add_database_table('tool_vae_archive', [
             'archiveuuid'     => 'privacy:metadata:archive:archiveuuid',
             'sha256'          => 'privacy:metadata:archive:sha256',
@@ -203,7 +218,7 @@ class provider implements
         ], 'privacy:metadata:archive');
 
         // T-81: the sections of a document a candidate writes, and their versions. The name is
-        // spelt out for scripts/verifier-privacy.php, which reads it literally.
+        // spelt out for tests/privacy_coverage_test.php, which reads it literally.
         $collection->add_database_table('tool_vae_draft', [
             'uuid'            => 'privacy:metadata:draft:uuid',
             'candidateid'     => 'privacy:metadata:draft:candidateid',
@@ -211,6 +226,7 @@ class provider implements
             'section'         => 'privacy:metadata:draft:section',
             'slot'            => 'privacy:metadata:draft:slot',
             'fichecode'       => 'privacy:metadata:draft:fichecode',
+            'currentversion'  => 'privacy:metadata:draft:currentversion',
             'working'         => 'privacy:metadata:draft:working',
             'workingat'       => 'privacy:metadata:draft:workingat',
             'timecreated'     => 'privacy:metadata:draft:timecreated',
@@ -319,7 +335,7 @@ class provider implements
 
         // Lot 1b: the work situations of the vaeiste, their own material, with the snapshot each version takes, their tags,
         // their supporting pieces (files in the plugin's own area, in the vaeiste's context) and the links to them. The
-        // names are spelt out for scripts/verifier-privacy.php, which reads them literally.
+        // names are spelt out for tests/privacy_coverage_test.php, which reads them literally.
         $collection->add_database_table('tool_vae_situation', [
             'uuid'         => 'privacy:metadata:situation:uuid',
             'candidateid'  => 'privacy:metadata:situation:candidateid',
@@ -416,14 +432,22 @@ class provider implements
             'timeanswered'    => 'privacy:metadata:request:timeanswered',
         ], 'privacy:metadata:request');
 
-        // Privacy-exempt: tool_vae_obsolete.
-        // No personal data: a competency identifier, a source identifier, a date and a
-        // reason. The marker above is what `make doctor` reads, so the omission is a dated
-        // decision rather than a gap - a table added later and forgotten fails the build.
+        // Two tables that hold no personal data, declared all the same (decision of the project owner, 19 November 2026): the
+        // administrator who answers a request reads every table of the plugin, and why it holds nothing about a person.
+        $collection->add_database_table('tool_vae_obsolete', [
+            'competencyid'    => 'privacy:metadata:obsolete:competencyid',
+            'sourceid'        => 'privacy:metadata:obsolete:sourceid',
+            'detectedat'      => 'privacy:metadata:obsolete:detectedat',
+            'kind'            => 'privacy:metadata:obsolete:kind',
+        ], 'privacy:metadata:obsolete');
 
-        // Privacy-exempt: tool_vae_ref.
-        // No personal data: an address that a certifier publishes, a short title chosen by an
-        // administrator and the day they checked the page. The event of the log says who acted.
+        $collection->add_database_table('tool_vae_ref', [
+            'sourceid'        => 'privacy:metadata:ref:sourceid',
+            'title'           => 'privacy:metadata:ref:title',
+            'url'             => 'privacy:metadata:ref:url',
+            'checkedat'       => 'privacy:metadata:ref:checkedat',
+            'timecreated'     => 'privacy:metadata:ref:timecreated',
+        ], 'privacy:metadata:ref');
 
         // This plugin causes the competency subsystem to write on the candidate's behalf.
         // Not declaring the link would leave the administrator's answer incomplete even
@@ -1287,7 +1311,7 @@ class provider implements
 
                 // The requests for precision and their answers (T-20): the candidate reads every one on
                 // their declarations; a manager's own request covers the questions they asked.
-                $precisions = [];
+                $precisionrequests = [];
                 $asked = $DB->get_records_sql(
                     "SELECT q.id, q.uuid, q.authorid, q.question, q.questionhash, q.timecreated, q.answer,
                             q.answerhash, q.timeanswered, e.uuid AS declaration
@@ -1317,12 +1341,12 @@ class provider implements
                             $entry['answer'] = $request->answer;
                         }
                     }
-                    $precisions[] = $entry;
+                    $precisionrequests[] = $entry;
                 }
-                if ($precisions) {
+                if ($precisionrequests) {
                     writer::with_context($context)->export_data(
                         [get_string('pluginname', 'tool_vae'), get_string('privacy:path:requests', 'tool_vae')],
-                        (object) ['requests' => $precisions]
+                        (object) ['requests' => $precisionrequests]
                     );
                 }
 
@@ -1671,8 +1695,8 @@ class provider implements
     /**
      * Remove a candidate's dossier and their identity map entry.
      *
-     * The work itself is in \tool_vae\local\purge, which is also what the observer on
-     * account deletion calls. One erasure, one implementation: a table added to the schema and
+     * The work itself is in \tool_vae\local\purge, which is also what the follow-up of an
+     * account deletion calls (\tool_vae\local\deletion_followup). One erasure, one implementation: a table added to the schema and
      * forgotten is then forgotten on every path at once, which a test can catch, rather than on
      * one path only, which nothing can.
      *

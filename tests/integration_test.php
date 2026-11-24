@@ -100,9 +100,9 @@ final class integration_test extends \advanced_testcase {
     }
 
     /**
-     * The plugin has a place in the administration tree, and it is under competencies.
+     * The plugin has a place in the administration tree, and it is under competencies, in its own category.
      *
-     * Trap 3 of docs/BANC-ESSAI.md: on the command line, with no session, has_capability() is
+     * A known trap of the test bench: on the command line, with no session, has_capability() is
      * false for everyone and the whole tree builds empty - which reads exactly like a plugin
      * that failed to register. Setting the admin user first is what makes this test able to
      * fail for the right reason.
@@ -129,14 +129,27 @@ final class integration_test extends \advanced_testcase {
         // test runs as one, so the entry would look present here and vanish for everyone else.
         // Verified by mutation: filed under 'tools', the assertion above stays green and this
         // one turns red.
+        // Since lot S4 the pages of the plugin are filed in a category of their own, 'toolvaefolder', itself a direct child of
+        // competencies: the page must be in that category, and that category directly under competencies.
         $children = array_map(function ($child) {
             return $child->name;
         }, $category->children);
 
         $this->assertContains(
-            'toolvae',
+            'toolvaefolder',
             $children,
-            'The page left the competencies category, where every administrator can reach it.'
+            'The category of the plugin left the competencies category, where every administrator can reach it.'
+        );
+
+        $folder = $root->locate('toolvaefolder');
+        $pages = array_map(function ($child) {
+            return $child->name;
+        }, $folder->children);
+
+        $this->assertContains(
+            'toolvae',
+            $pages,
+            'The page left the category of the plugin under competencies, where every administrator can reach it.'
         );
     }
 

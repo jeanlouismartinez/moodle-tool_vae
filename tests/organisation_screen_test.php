@@ -19,6 +19,11 @@ namespace tool_vae;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\organisation;
 use tool_vae\local\organisation_screen;
+use tool_vae\output\organisation_cell;
+use tool_vae\output\organisation_followed;
+use tool_vae\output\organisation_notice;
+use tool_vae\output\organisation_pathway;
+use tool_vae\output\organisation_site;
 
 /**
  * What the pathway of a candidate shows (T-90).
@@ -32,7 +37,25 @@ use tool_vae\local\organisation_screen;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\organisation_screen::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(organisation_pathway::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(organisation_followed::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(organisation_site::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(organisation_notice::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(organisation_cell::class)]
 final class organisation_screen_test extends \advanced_testcase {
+    /**
+     * A piece drawn by the renderer of the plugin, as the old screen organisation_screen was drawn under PHPUnit (its calls
+     * ported here by lot 7, MMR-520 ticket 4, wave 4b; no assertion changed).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function draw(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     /**
      * The pieces are open unless a test says otherwise: the column is drawn.
      */
@@ -110,7 +133,7 @@ final class organisation_screen_test extends \advanced_testcase {
             (object) ['courseid' => 987654, 'fullname' => null, 'visible' => 0],
         ];
 
-        $html = organisation_screen::mine($this->pathway([$this->row(['courses' => $courses])]));
+        $html = self::draw(new organisation_pathway($this->pathway([$this->row(['courses' => $courses])])));
 
         $this->assertStringContainsString('/course/view.php?id=' . $named->id, $html);
         $this->assertStringContainsString('Cours visible', $html);
@@ -131,7 +154,7 @@ final class organisation_screen_test extends \advanced_testcase {
             'plans' => [$plan],
         ];
 
-        $html = organisation_screen::mine($this->pathway([$row], ['planned' => ['RS200' => $planned]]));
+        $html = self::draw(new organisation_pathway($this->pathway([$row], ['planned' => ['RS200' => $planned]])));
 
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringNotContainsString('<img', $html);
@@ -148,7 +171,7 @@ final class organisation_screen_test extends \advanced_testcase {
         $second = $this->row(['idnumber' => 'RNCP100-C02', 'shortname' => 'Aider au repas', 'declarations' => 0, 'pieces' => 0,
             'attested' => 0]);
 
-        $html = organisation_screen::mine($this->pathway([$first, $second]));
+        $html = self::draw(new organisation_pathway($this->pathway([$first, $second])));
         $rows = $this->cells($html);
 
         $this->assertCount(3, $rows);
@@ -172,7 +195,7 @@ final class organisation_screen_test extends \advanced_testcase {
         $this->setTimezone('UTC');
         $stamp = 1780000000;
 
-        $rows = $this->cells(organisation_screen::mine($this->pathway([$this->row(['lastact' => $stamp])])));
+        $rows = $this->cells(self::draw(new organisation_pathway($this->pathway([$this->row(['lastact' => $stamp])]))));
 
         $this->assertSame(userdate($stamp, get_string('strftimedate', 'langconfig')), $rows[1][4]);
     }
@@ -192,7 +215,7 @@ final class organisation_screen_test extends \advanced_testcase {
         $this->setTimezone('UTC');
         $day = fn(int $stamp): string => userdate($stamp, get_string('strftimedate', 'langconfig'));
 
-        $html = organisation_screen::mine($this->pathway([$bloc, $under]));
+        $html = self::draw(new organisation_pathway($this->pathway([$bloc, $under])));
         $rows = $this->cells($html);
 
         $this->assertSame(['RNCP100-BC01 — Bloc 1 (bloc)', '4', '5', '2', $day(1780000000), 'none', 'none', 'none'], $rows[1]);
@@ -208,7 +231,7 @@ final class organisation_screen_test extends \advanced_testcase {
      * A site that hides the plans from their owner is not told "none": the plans exist, the reader may not read them.
      */
     public function test_plans_the_reader_may_not_read_are_not_drawn_as_none(): void {
-        $rows = $this->cells(organisation_screen::mine($this->pathway([$this->row()], ['plansreadable' => false])));
+        $rows = $this->cells(self::draw(new organisation_pathway($this->pathway([$this->row()], ['plansreadable' => false]))));
 
         $this->assertSame('Not readable with your rights', $rows[1][7]);
         $this->assertSame('none', $rows[1][6]);
@@ -223,10 +246,10 @@ final class organisation_screen_test extends \advanced_testcase {
             'activities' => [], 'activitiesunreadable' => false, 'plans' => [],
         ];
 
-        $html = organisation_screen::mine($this->pathway(
+        $html = self::draw(new organisation_pathway($this->pathway(
             [$this->row(['coursesunreadable' => true]), $this->row(['idnumber' => 'RNCP100-C02'])],
             ['planned' => ['RS200' => $planned]]
-        ));
+        )));
         $rows = $this->cells($html);
 
         $this->assertSame('Not readable with your rights', $rows[1][5]);
@@ -252,7 +275,7 @@ final class organisation_screen_test extends \advanced_testcase {
             'coursesunreadable' => false, 'activities' => [], 'activitiesunreadable' => false, 'plans' => [$plan],
         ];
 
-        $html = organisation_screen::mine($this->pathway([], ['declared' => [], 'planned' => ['RS200' => $planned]]));
+        $html = self::draw(new organisation_pathway($this->pathway([], ['declared' => [], 'planned' => ['RS200' => $planned]])));
 
         $this->assertStringContainsString('Records of your learning plans, without any declaration yet', $html);
         $this->assertStringContainsString('RS200', $html);
@@ -266,7 +289,7 @@ final class organisation_screen_test extends \advanced_testcase {
      * Nothing to draw: nothing is drawn.
      */
     public function test_a_pathway_with_nothing_draws_nothing(): void {
-        $this->assertSame('', organisation_screen::mine($this->pathway([], ['declared' => []])));
+        $this->assertSame('', self::draw(new organisation_pathway($this->pathway([], ['declared' => []]))));
     }
 
     /**
@@ -275,12 +298,12 @@ final class organisation_screen_test extends \advanced_testcase {
     public function test_the_empty_pathway_tells_hidden_plans_from_no_plan(): void {
         $empty = $this->pathway([], ['declared' => []]);
 
-        $readable = organisation_screen::nothing($empty);
+        $readable = self::draw(organisation_notice::nothing($empty));
         $this->assertStringContainsString('none of the learning plans you can read names a certification record', $readable);
         $this->assertStringNotContainsString('not readable with your rights', $readable);
 
         $empty->plansreadable = false;
-        $hidden = organisation_screen::nothing($empty);
+        $hidden = self::draw(organisation_notice::nothing($empty));
         $this->assertStringContainsString('not readable with your rights', $hidden);
         $this->assertStringNotContainsString('none of the learning plans', $hidden);
     }
@@ -292,9 +315,12 @@ final class organisation_screen_test extends \advanced_testcase {
     public function test_the_box_of_a_sentence_has_no_button_to_close_it(): void {
         $this->assertSame(
             '<div class="alert alert-info">Only you &amp; nobody else.</div>',
-            organisation_screen::notice('Only you & nobody else.')
+            self::draw(new organisation_notice('Only you & nobody else.'))
         );
-        $this->assertStringNotContainsString('dismiss', organisation_screen::nothing($this->pathway([], ['declared' => []])));
+        $this->assertStringNotContainsString(
+            'dismiss',
+            self::draw(organisation_notice::nothing($this->pathway([], ['declared' => []])))
+        );
     }
 
     /**
@@ -303,8 +329,8 @@ final class organisation_screen_test extends \advanced_testcase {
     public function test_hidden_plans_are_announced_once_under_the_tables(): void {
         $note = 'Your learning plans are not readable with your rights: the records that only a plan names cannot be shown.';
 
-        $hidden = organisation_screen::mine($this->pathway([$this->row()], ['plansreadable' => false]));
-        $readable = organisation_screen::mine($this->pathway([$this->row()]));
+        $hidden = self::draw(new organisation_pathway($this->pathway([$this->row()], ['plansreadable' => false])));
+        $readable = self::draw(new organisation_pathway($this->pathway([$this->row()])));
 
         $this->assertSame(1, substr_count($hidden, $note));
         $this->assertStringNotContainsString('only a plan names', $readable);
@@ -317,8 +343,14 @@ final class organisation_screen_test extends \advanced_testcase {
         $pathway = $this->pathway([$this->row()]);
         $pathway->declared['RNCP100']->name = 'Assistant de vie aux familles';
 
-        $this->assertStringContainsString('RNCP100 — Assistant de vie aux familles', organisation_screen::mine($pathway));
-        $this->assertStringNotContainsString('RNCP100 — RNCP100', organisation_screen::mine($this->pathway([$this->row()])));
+        $this->assertStringContainsString(
+            'RNCP100 — Assistant de vie aux familles',
+            self::draw(new organisation_pathway($pathway))
+        );
+        $this->assertStringNotContainsString(
+            'RNCP100 — RNCP100',
+            self::draw(new organisation_pathway($this->pathway([$this->row()])))
+        );
     }
 
     /**
@@ -332,13 +364,13 @@ final class organisation_screen_test extends \advanced_testcase {
         $pathway = $this->pathway([$this->row()]);
         $pathway->declared['RNCP100']->source = $source;
 
-        $html = organisation_screen::mine($pathway);
+        $html = self::draw(new organisation_pathway($pathway));
         $this->assertStringContainsString('RNCP100 — RS - specific register', $html);
         $this->assertStringContainsString('France compétences', $html);
         $this->assertStringContainsString('Licence Ouverte 2.0', $html);
 
         $source->fichetype = 'rncp';
-        $this->assertStringContainsString('RNCP100 — RNCP - national register', organisation_screen::mine($pathway));
+        $this->assertStringContainsString('RNCP100 — RNCP - national register', self::draw(new organisation_pathway($pathway)));
     }
 
     /**
@@ -358,7 +390,7 @@ final class organisation_screen_test extends \advanced_testcase {
         ];
         $pathway->planned = ['RS200' => $planned];
 
-        $html = organisation_screen::mine($pathway);
+        $html = self::draw(new organisation_pathway($pathway));
 
         foreach (['<u>', '<i>', '<b>', '<s>', '<em>'] as $tag) {
             $this->assertStringNotContainsString($tag, $html);
@@ -374,19 +406,19 @@ final class organisation_screen_test extends \advanced_testcase {
         set_config('piecesopen', 0, 'tool_vae');
         $nopiece = $this->row(['pieces' => 0]);
 
-        $rows = $this->cells(organisation_screen::mine($this->pathway([$nopiece])));
+        $rows = $this->cells(self::draw(new organisation_pathway($this->pathway([$nopiece]))));
         $this->assertSame(
             ['Competency', 'Declarations', 'Attestations in force', 'Last act', 'Courses', 'Activities', 'Learning plans'],
             $rows[0]
         );
         $this->assertSame(['RNCP100-C01 — Aider au lever', '2', '1', '', 'none', 'none', 'none'], $rows[1]);
 
-        $held = $this->cells(organisation_screen::mine($this->pathway([$this->row(['pieces' => 3])])));
+        $held = $this->cells(self::draw(new organisation_pathway($this->pathway([$this->row(['pieces' => 3])]))));
         $this->assertSame('Pieces', $held[0][2], 'A piece held is shown, whatever the setting is now.');
         $this->assertSame('3', $held[1][2]);
 
         set_config('piecesopen', 1, 'tool_vae');
-        $open = $this->cells(organisation_screen::mine($this->pathway([$nopiece])));
+        $open = $this->cells(self::draw(new organisation_pathway($this->pathway([$nopiece]))));
         $this->assertSame('Pieces', $open[0][2]);
         $this->assertSame('0', $open[1][2]);
     }
@@ -402,7 +434,7 @@ final class organisation_screen_test extends \advanced_testcase {
             (object) ['courseid' => $hidden->id, 'fullname' => 'Cours masque', 'visible' => 0],
         ];
 
-        $rows = $this->cells(organisation_screen::mine($this->pathway([$this->row(['courses' => $courses])])));
+        $rows = $this->cells(self::draw(new organisation_pathway($this->pathway([$this->row(['courses' => $courses])]))));
 
         $this->assertSame('Cours visibleCours masque hidden', $rows[1][5], 'Only the hidden course carries the mark.');
     }
@@ -428,7 +460,7 @@ final class organisation_screen_test extends \advanced_testcase {
             'plans' => [$plan('Plan de la competence')],
         ]);
 
-        $rows = $this->cells(organisation_screen::mine($this->pathway([$bloc, $child])));
+        $rows = $this->cells(self::draw(new organisation_pathway($this->pathway([$bloc, $child]))));
 
         $this->assertSame(['Cours du bloc', 'none', 'Plan du bloc (Active)'], array_slice($rows[1], 5));
         $this->assertSame(['Cours de la competence', 'none', 'Plan de la competence (Active)'], array_slice($rows[2], 5));
@@ -440,7 +472,7 @@ final class organisation_screen_test extends \advanced_testcase {
     public function test_the_last_act_is_written_in_the_timezone_of_the_reader(): void {
         $this->setTimezone('Australia/Perth');
 
-        $rows = $this->cells(organisation_screen::mine($this->pathway([$this->row(['lastact' => 1780000000])])));
+        $rows = $this->cells(self::draw(new organisation_pathway($this->pathway([$this->row(['lastact' => 1780000000])]))));
 
         $this->assertSame('29 May 2026', $rows[1][4], '1780000000 is 28 May 20:26 in UTC and 29 May 04:26 in Perth.');
     }
@@ -458,7 +490,7 @@ final class organisation_screen_test extends \advanced_testcase {
             'activities' => [], 'activitiesunreadable' => false, 'plans' => [],
         ];
 
-        $html = organisation_screen::mine($this->pathway([$bloc, $gone], ['planned' => ['RS200' => $planned]]));
+        $html = self::draw(new organisation_pathway($this->pathway([$bloc, $gone], ['planned' => ['RS200' => $planned]])));
 
         $this->assertStringContainsString('No longer appears in the certification record.', $html);
         $this->assertStringContainsString('A bloc line adds up the declarations, pieces and attestations', $html);
@@ -496,7 +528,7 @@ final class organisation_screen_test extends \advanced_testcase {
         $core->create_course_competency(['courseid' => $hidden->id, 'competencyid' => $competencyid]);
 
         $this->setUser($candidate);
-        $html = organisation_screen::mine(organisation::for_candidate((int) $candidate->id));
+        $html = self::draw(new organisation_pathway(organisation::for_candidate((int) $candidate->id)));
 
         $this->assertStringNotContainsString('Reclassement du service X', $html);
         $this->assertStringContainsString('A hidden course', $html);
@@ -507,7 +539,7 @@ final class organisation_screen_test extends \advanced_testcase {
         role_assign($viewer, $candidate->id, \context_system::instance()->id);
         accesslib_clear_all_caches_for_unit_testing();
 
-        $html = organisation_screen::mine(organisation::for_candidate((int) $candidate->id));
+        $html = self::draw(new organisation_pathway(organisation::for_candidate((int) $candidate->id)));
 
         $this->assertStringContainsString('Reclassement du service X', $html);
         $this->assertStringContainsString('/course/view.php?id=' . $hidden->id, $html);
@@ -556,7 +588,7 @@ final class organisation_screen_test extends \advanced_testcase {
         $plan = (object) ['name' => 'Plan AES', 'status' => 1, 'statuslabel' => 'Active'];
         $data = $this->followed_data([$this->followed_candidate(['plans' => [$plan]])]);
 
-        $html = organisation_screen::followed($data, $this->page_url());
+        $html = self::draw(new organisation_followed($data, $this->page_url()));
         $rows = $this->cells($html);
 
         $this->assertCount(2, $rows);
@@ -564,6 +596,23 @@ final class organisation_screen_test extends \advanced_testcase {
         $this->assertSame(['Camille Vaeiste', 'RNCP100 — Accompagnant éducatif', 'Plan AES (Active)', '2', '1'], $rows[1]);
         $this->assertStringContainsString('dossier.php?userid=7', $html);
         $this->assertStringContainsString('generaltable tool-vae-organisation tool-vae-followed', $html);
+    }
+
+    /**
+     * The table of the followed vaeistes has a caption, hidden on screen like those of the other tabs, so that a screen
+     * reader says what the table is. The caption is the only text added: the five columns and the rows do not change.
+     */
+    public function test_followed_has_a_hidden_caption(): void {
+        $data = $this->followed_data([$this->followed_candidate()]);
+
+        $html = self::draw(new organisation_followed($data, $this->page_url()));
+
+        $this->assertStringContainsString(
+            '<caption class="visually-hidden">Followed vaeistes, with their records, plans, '
+                . 'declarations and attestations waiting</caption>',
+            $html
+        );
+        $this->assertCount(2, $this->cells($html), 'The caption adds no row and no column.');
     }
 
     public function test_followed_says_unreadable_plans_and_never_none(): void {
@@ -579,7 +628,7 @@ final class organisation_screen_test extends \advanced_testcase {
         foreach ($cases as $label => [$plans, $drafts, $list, $expected]) {
             $candidate = $this->followed_candidate(['plansreadable' => $plans, 'draftsreadable' => $drafts, 'plans' => $list]);
 
-            $rows = $this->cells(organisation_screen::followed($this->followed_data([$candidate]), $this->page_url()));
+            $rows = $this->cells(self::draw(new organisation_followed($this->followed_data([$candidate]), $this->page_url())));
 
             $this->assertSame($expected, $rows[1][2], $label);
         }
@@ -593,7 +642,7 @@ final class organisation_screen_test extends \advanced_testcase {
             'plans' => [$plan],
         ]);
 
-        $html = organisation_screen::followed($this->followed_data([$candidate]), $this->page_url());
+        $html = self::draw(new organisation_followed($this->followed_data([$candidate]), $this->page_url()));
 
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringNotContainsString('<i>', $html);
@@ -607,7 +656,7 @@ final class organisation_screen_test extends \advanced_testcase {
             $this->followed_candidate(['id' => 8, 'name' => 'Denis Vaeiste', 'declarations' => 0, 'pending' => 0]),
         ]);
 
-        $html = organisation_screen::followed($data, $this->page_url());
+        $html = self::draw(new organisation_followed($data, $this->page_url()));
         $rows = $this->cells($html);
 
         $this->assertCount(5, $rows[0]);
@@ -623,7 +672,7 @@ final class organisation_screen_test extends \advanced_testcase {
     }
 
     public function test_followed_filter_form_is_offered_only_with_choices_and_keeps_the_tab(): void {
-        $without = organisation_screen::followed($this->followed_data([$this->followed_candidate()]), $this->page_url());
+        $without = self::draw(new organisation_followed($this->followed_data([$this->followed_candidate()]), $this->page_url()));
         $this->assertStringNotContainsString('<select', $without);
         $this->assertStringNotContainsString('<form', $without);
 
@@ -633,7 +682,7 @@ final class organisation_screen_test extends \advanced_testcase {
         ];
         $data = $this->followed_data([$this->followed_candidate()], ['choices' => $choices, 'chosen' => 'RNCP100|BC01']);
 
-        $html = organisation_screen::followed($data, $this->page_url());
+        $html = self::draw(new organisation_followed($data, $this->page_url()));
 
         $this->assertStringContainsString('<select', $html);
         $this->assertStringContainsString('name="bloc"', $html);
@@ -648,7 +697,7 @@ final class organisation_screen_test extends \advanced_testcase {
     }
 
     public function test_followed_empty_data_says_nocandidates(): void {
-        $html = organisation_screen::followed($this->followed_data([]), $this->page_url());
+        $html = self::draw(new organisation_followed($this->followed_data([]), $this->page_url()));
 
         $this->assertStringContainsString('alert alert-info', $html);
         $this->assertStringContainsString(get_string('nocandidates', 'tool_vae'), $html);
@@ -690,7 +739,7 @@ final class organisation_screen_test extends \advanced_testcase {
         ]);
         $powerdata = (object) ($powers + [
             'capabilities' => [(object) [
-                'name' => 'tool/vae:viewany', 'label' => 'View any candidate\'s dossier',
+                'name' => 'tool/vae:viewany', 'label' => 'View any vaeiste\'s dossier',
                 'allow' => ['Direction'], 'prevent' => [], 'prohibit' => [],
             ]],
             'cohorts' => [],
@@ -702,7 +751,7 @@ final class organisation_screen_test extends \advanced_testcase {
     }
 
     public function test_site_draws_the_record_table_with_the_code_in_a_row_header_and_a_caption(): void {
-        $html = organisation_screen::site($this->site_data());
+        $html = self::draw(new organisation_site($this->site_data()));
 
         $this->assertStringContainsString('tool-vae-site-fiches', $html);
         $this->assertStringContainsString('tool-vae-site-powers', $html);
@@ -714,8 +763,8 @@ final class organisation_screen_test extends \advanced_testcase {
 
     public function test_site_writes_a_dash_for_a_record_of_one_level_or_without_a_framework(): void {
         $dash = get_string('orgnoblocs', 'tool_vae');
-        $one = organisation_screen::site($this->site_data(['blocs' => 0, 'competencies' => 5]));
-        $gone = organisation_screen::site($this->site_data(['name' => 'RNCP100', 'blocs' => null, 'competencies' => null]));
+        $one = self::draw(new organisation_site($this->site_data(['blocs' => 0, 'competencies' => 5])));
+        $gone = self::draw(new organisation_site($this->site_data(['name' => 'RNCP100', 'blocs' => null, 'competencies' => null])));
 
         $this->assertMatchesRegularExpression('~<td[^>]*>' . $dash . '</td>~', $one);
         $this->assertMatchesRegularExpression('~<td[^>]*class="[^"]*\bc2\b[^"]*"[^>]*>5</td>~', $one);
@@ -725,7 +774,7 @@ final class organisation_screen_test extends \advanced_testcase {
 
     public function test_site_escapes_every_name(): void {
         $evil = '<script>alert(1)</script>';
-        $html = organisation_screen::site($this->site_data(
+        $html = self::draw(new organisation_site($this->site_data(
             [
                 'name' => $evil,
                 'models' => [(object) ['templateid' => 1, 'name' => $evil, 'visible' => 1]],
@@ -739,7 +788,7 @@ final class organisation_screen_test extends \advanced_testcase {
                 ]],
                 'cohorts' => [(object) ['cohortid' => 1, 'name' => $evil, 'roleid' => 1, 'rolename' => 'Suivi']],
             ]
-        ));
+        )));
 
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringContainsString('&lt;script&gt;', $html);
@@ -747,7 +796,7 @@ final class organisation_screen_test extends \advanced_testcase {
 
     public function test_site_escapes_a_name_once(): void {
         // A role's name is given as role_get_names() gives it, already through format_string().
-        $html = organisation_screen::site($this->site_data(
+        $html = self::draw(new organisation_site($this->site_data(
             ['name' => 'Soins & accompagnement', 'models' => [(object) ['templateid' => 1, 'name' => 'R&D', 'visible' => 1]]],
             [
                 'capabilities' => [(object) [
@@ -758,7 +807,7 @@ final class organisation_screen_test extends \advanced_testcase {
                     'cohortid' => 1, 'name' => 'Promotion A&B', 'roleid' => 1, 'rolename' => 'Suivi &amp; VAE',
                 ]],
             ]
-        ));
+        )));
 
         foreach (['Soins &amp; accompagnement', 'R&amp;D', 'Promotion A&amp;B', 'Suivi &amp; VAE'] as $expected) {
             $this->assertStringContainsString($expected, $html);
@@ -767,10 +816,10 @@ final class organisation_screen_test extends \advanced_testcase {
     }
 
     public function test_site_draws_a_hidden_template_and_a_hidden_course_as_a_word_without_a_name(): void {
-        $html = organisation_screen::site($this->site_data([
+        $html = self::draw(new organisation_site($this->site_data([
             'models' => [(object) ['templateid' => 2, 'name' => null, 'visible' => 0]],
             'courses' => [(object) ['courseid' => 9, 'fullname' => null, 'visible' => 0]],
-        ]));
+        ])));
 
         $this->assertStringContainsString('A hidden template', $html);
         $this->assertStringContainsString('A hidden course', $html);
@@ -778,26 +827,26 @@ final class organisation_screen_test extends \advanced_testcase {
     }
 
     public function test_site_says_unreadable_courses_and_never_none(): void {
-        $html = organisation_screen::site($this->site_data(['coursesunreadable' => true]));
+        $html = self::draw(new organisation_site($this->site_data(['coursesunreadable' => true])));
 
         $this->assertStringContainsString(get_string('orgcoursesunreadable', 'tool_vae'), $html);
     }
 
     public function test_site_names_the_referents_by_bloc_and_says_when_none_is_active(): void {
-        $html = organisation_screen::site($this->site_data(['referents' => [
+        $html = self::draw(new organisation_site($this->site_data(['referents' => [
             (object) ['ficherang' => '', 'names' => ['Alice Referente', 'Zoe Referente']],
             (object) ['ficherang' => 'BC02', 'names' => []],
-        ]]));
+        ]])));
 
         $this->assertStringContainsString('whole record: Alice Referente, Zoe Referente', $html);
         $this->assertStringContainsString('bloc BC02: no active referent', $html);
     }
 
     public function test_site_draws_the_rights_with_a_line_for_a_right_nobody_gives(): void {
-        $html = organisation_screen::site($this->site_data([], ['capabilities' => [(object) [
+        $html = self::draw(new organisation_site($this->site_data([], ['capabilities' => [(object) [
             'name' => 'tool/vae:export', 'label' => 'Export a dossier', 'allow' => [],
             'prevent' => ['Retirant'], 'prohibit' => ['Interdisant'],
-        ]]]));
+        ]]])));
 
         $this->assertStringContainsString('tool/vae:export', $html);
         $this->assertStringContainsString('no role', $html);
@@ -807,24 +856,24 @@ final class organisation_screen_test extends \advanced_testcase {
     }
 
     public function test_site_says_when_the_site_has_no_cohort_roles_and_when_a_cohort_was_deleted(): void {
-        $none = organisation_screen::site($this->site_data([], ['cohorts' => null]));
+        $none = self::draw(new organisation_site($this->site_data([], ['cohorts' => null])));
         $this->assertStringContainsString(get_string('orgcohortsunavailable', 'tool_vae'), $none);
         $this->assertStringNotContainsString('tool-vae-site-cohorts', $none);
 
-        $gone = organisation_screen::site($this->site_data([], ['cohorts' => [
+        $gone = self::draw(new organisation_site($this->site_data([], ['cohorts' => [
             (object) ['cohortid' => 5, 'name' => null, 'roleid' => 3, 'rolename' => 'Suivi VAE'],
-        ]]));
+        ]])));
         $this->assertStringContainsString('tool-vae-site-cohorts', $gone);
         $this->assertStringContainsString('cohort deleted', $gone);
         $this->assertStringContainsString('Suivi VAE', $gone);
     }
 
     public function test_site_draws_the_settings_open_or_closed_and_the_reminder_in_days(): void {
-        $html = organisation_screen::site($this->site_data([], ['settings' => [
+        $html = self::draw(new organisation_site($this->site_data([], ['settings' => [
             (object) ['name' => 'validationopen', 'value' => 1, 'open' => true],
             (object) ['name' => 'aiopen', 'value' => 0, 'open' => false],
             (object) ['name' => 'overduedays', 'value' => 14, 'open' => true],
-        ]]));
+        ]])));
 
         $this->assertMatchesRegularExpression('~<td[^>]*>open</td>~', $html);
         $this->assertMatchesRegularExpression('~<td[^>]*>closed</td>~', $html);
@@ -835,7 +884,7 @@ final class organisation_screen_test extends \advanced_testcase {
         $data = $this->site_data();
         $data->fiches = null;
 
-        $html = organisation_screen::site($data);
+        $html = self::draw(new organisation_site($data));
 
         $this->assertStringNotContainsString('tool-vae-site-fiches', $html);
         $this->assertStringContainsString(get_string('errorcompetenciesdisabled', 'tool_vae'), $html);
@@ -846,11 +895,11 @@ final class organisation_screen_test extends \advanced_testcase {
         $data = $this->site_data();
         $data->fiches = [];
 
-        $this->assertStringContainsString(get_string('orgsitenofiche', 'tool_vae'), organisation_screen::site($data));
+        $this->assertStringContainsString(get_string('orgsitenofiche', 'tool_vae'), self::draw(new organisation_site($data)));
     }
 
     public function test_site_has_no_colour_no_total_and_no_action(): void {
-        $html = organisation_screen::site($this->site_data(['plans' => 12]));
+        $html = self::draw(new organisation_site($this->site_data(['plans' => 12])));
 
         $this->assertDoesNotMatchRegularExpression('~style="[^"]*(color|background)~i', $html);
         $this->assertStringNotContainsString('<form', $html);
@@ -873,7 +922,7 @@ final class organisation_screen_test extends \advanced_testcase {
             (object) ['course' => null, 'name' => null, 'type' => null, 'url' => null],
         ];
 
-        $html = organisation_screen::mine($this->pathway([$this->row(['activities' => $activities])]));
+        $html = self::draw(new organisation_pathway($this->pathway([$this->row(['activities' => $activities])])));
 
         $this->assertStringContainsString('<a href="https://example.org/mod/quiz/view.php?id=7">Quiz &lt;un&gt;</a> (Quiz)', $html);
         $this->assertStringContainsString('Cours A &amp; B › An activity that is not visible', $html);
@@ -885,8 +934,10 @@ final class organisation_screen_test extends \advanced_testcase {
      * "None" where no activity carries the competency, "not readable" where some do and the reader may see none.
      */
     public function test_no_activity_and_activities_withheld_are_told_apart(): void {
-        $none = $this->cells(organisation_screen::mine($this->pathway([$this->row()])));
-        $withheld = $this->cells(organisation_screen::mine($this->pathway([$this->row(['activitiesunreadable' => true])])));
+        $none = $this->cells(self::draw(new organisation_pathway($this->pathway([$this->row()]))));
+        $withheld = $this->cells(
+            self::draw(new organisation_pathway($this->pathway([$this->row(['activitiesunreadable' => true])])))
+        );
 
         $this->assertSame('none', $none[1][6]);
         $this->assertSame('Not readable with your rights', $withheld[1][6]);
@@ -904,16 +955,19 @@ final class organisation_screen_test extends \advanced_testcase {
             (object) ['course' => null, 'name' => null, 'type' => null, 'url' => null],
         ]);
 
-        $html = organisation_screen::site($this->site_data(['activities' => $three]));
+        $html = self::draw(new organisation_site($this->site_data(['activities' => $three])));
         $this->assertStringContainsString('<summary', $html);
         $this->assertStringContainsString('3 activities', $html);
         $this->assertStringContainsString('<details', $html);
         $this->assertStringContainsString('Cours › An activity that is not visible', $html);
-        $this->assertStringContainsString('1 activity', organisation_screen::site($this->site_data(['activities' => $one])));
-        $this->assertStringNotContainsString('<details', organisation_screen::site($this->site_data()));
+        $this->assertStringContainsString(
+            '1 activity',
+            self::draw(new organisation_site($this->site_data(['activities' => $one])))
+        );
+        $this->assertStringNotContainsString('<details', self::draw(new organisation_site($this->site_data())));
         $this->assertStringContainsString(
             get_string('orgcoursesunreadable', 'tool_vae'),
-            organisation_screen::site($this->site_data(['activitiesunreadable' => true]))
+            self::draw(new organisation_site($this->site_data(['activitiesunreadable' => true])))
         );
     }
 
@@ -927,7 +981,7 @@ final class organisation_screen_test extends \advanced_testcase {
             (object) ['course' => 'Cours', 'name' => null, 'type' => null, 'url' => null],
         ];
 
-        $html = organisation_screen::mine($this->pathway([$this->row(['activities' => $activities])]));
+        $html = self::draw(new organisation_pathway($this->pathway([$this->row(['activities' => $activities])])));
 
         $this->assertStringContainsString('Etiquette (Type &lt;b&gt;gras&lt;/b&gt;)', $html);
         $this->assertStringNotContainsString('<b>gras</b>', $html);
@@ -940,12 +994,12 @@ final class organisation_screen_test extends \advanced_testcase {
      * The number of plans is drawn as it comes, in its column, and the closed rule addresses are not drawn as none.
      */
     public function test_the_plan_count_is_in_its_cell_and_closed_addresses_are_said_closed(): void {
-        $rows = $this->cells(organisation_screen::site($this->site_data(['plans' => 1, 'rules' => null])));
+        $rows = $this->cells(self::draw(new organisation_site($this->site_data(['plans' => 1, 'rules' => null]))));
 
         $this->assertSame('1', $rows[1][6]);
         $this->assertSame(get_string('orgrulesclosed', 'tool_vae'), $rows[1][8]);
 
-        $rows = $this->cells(organisation_screen::site($this->site_data(['plans' => 3])));
+        $rows = $this->cells(self::draw(new organisation_site($this->site_data(['plans' => 3]))));
         $this->assertSame('3', $rows[1][6]);
         $this->assertSame('none', $rows[1][8]);
     }
@@ -954,9 +1008,9 @@ final class organisation_screen_test extends \advanced_testcase {
      * A day is a day, not "1 days".
      */
     public function test_the_reminder_delay_of_one_day_is_in_the_singular(): void {
-        $html = organisation_screen::site($this->site_data([], [
+        $html = self::draw(new organisation_site($this->site_data([], [
             'settings' => [(object) ['name' => 'overduedays', 'value' => 1, 'open' => true]],
-        ]));
+        ])));
 
         $this->assertStringContainsString(get_string('orgdayone', 'tool_vae'), $html);
         $this->assertStringNotContainsString('1 days', $html);
@@ -986,7 +1040,7 @@ final class organisation_screen_test extends \advanced_testcase {
             (object) ['key' => 'jury', 'account' => false, 'rights' => []],
         ];
 
-        $html = organisation_screen::site($this->site_data([], ['actors' => $actors]));
+        $html = self::draw(new organisation_site($this->site_data([], ['actors' => $actors])));
         $document = new \DOMDocument();
         $document->loadHTML('<?xml encoding="utf-8"?><body>' . $html . '</body>', LIBXML_NOERROR);
         $xpath = new \DOMXPath($document);

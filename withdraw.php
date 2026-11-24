@@ -30,9 +30,8 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\form\withdraw_form;
 use tool_vae\local\access;
-use tool_vae\local\attest_screen;
 use tool_vae\local\attestation_manager;
-use tool_vae\local\presenter;
+use tool_vae\output\withdraw_page;
 
 require_login();
 
@@ -94,12 +93,9 @@ if ($data = $form->get_data()) {
     );
 }
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('withdrawheading', 'tool_vae'));
-
-echo attest_screen::declaration($evidence, $context);
-echo presenter::attestations([$attestation->id => $attestation]);
-
-$form->display();
-
+echo $renderer->render(new withdraw_page($evidence, $context, $attestation, $form));
 echo $OUTPUT->footer();

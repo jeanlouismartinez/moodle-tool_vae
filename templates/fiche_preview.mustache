@@ -1,0 +1,76 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/fiche_preview
+
+    The preview of an import of records from an export of France compétences: where the export comes from, its dates, the
+    warnings, a word to check, the table of the records, "nothing to import" when nothing is ready, the provenance, the
+    note on the records already imported, and that a record is open to declarations at once.
+
+    Every text comes from the context, worded by tool_vae\output\fiche_preview. The template holds no logic. The texts are
+    escaped (double braces). Two keys are HTML (triple braces): tablehtml, the table drawn by the template tool_vae/table
+    (its cells by tool_vae/fiche_cell); provenancehtml, a sentence of the language file whose link is drawn by the template
+    tool_vae/cell_content and whose other parameters are escaped by tool_vae\output\fiche_preview.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * source - string, where the export comes from
+    * dates - string, the day of the export and the day of its files
+    * warnings - array of objects {text}: the warnings
+    * check - string, the word to check the titles
+    * tablehtml - HTML, the table of the records
+    * none - false, or an object {text}: nothing can be imported
+    * provenancehtml - HTML, the sentence of the provenance
+    * gonenote - false, or an object {text}: the note on the records already imported
+    * visible - string, the record is open to declarations at once
+
+    Example context (json):
+    {
+        "source": "Uploaded file: export-fiches-csv-2026-10-19.zip (9.3 MB).",
+        "dates": "Export of Monday 19 October 2026. The files are dated Sunday 18 October 2026.",
+        "warnings": [{"text": "The number RNCP99001 was typed several times."}],
+        "check": "Read the titles before importing.",
+        "tablehtml": "<table class=\"generaltable\"><tr><td>RNCP99001</td></tr></table>",
+        "none": {"text": "Nothing can be imported."},
+        "provenancehtml": "Source: <a href=\"https://www.data.gouv.fr/\">data.gouv.fr</a>, France compétences.",
+        "gonenote": {"text": "A competency gone from the export stays."},
+        "visible": "An imported record is open to declarations at once."
+    }
+}}
+<p>{{source}}</p>
+<p>{{dates}}</p>
+{{#warnings}}
+<div class="alert alert-warning">{{text}}</div>
+{{/warnings}}
+<div class="alert alert-info">{{check}}</div>
+{{{tablehtml}}}
+{{#none}}
+<div class="alert alert-danger">{{text}}</div>
+{{/none}}
+<p class="small">{{{provenancehtml}}}</p>
+{{#gonenote}}
+<p class="small">{{text}}</p>
+{{/gonenote}}
+<p class="small">{{visible}}</p>

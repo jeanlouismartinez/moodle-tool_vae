@@ -251,6 +251,47 @@ final class organisation {
     }
 
     /**
+     * The address of the link "VAE" of the primary navigation for the current user, or null when no link is due (lot S3).
+     *
+     * The link is shown to whoever may open a tab of this page, and to nobody else: out of "log in as" and with the
+     * competency subsystem on, exactly when tabs() is not empty; with the subsystem off, exactly when the tab of the site
+     * may be opened, as the profile offers it (lib.php), and the link then names that tab. Never in a session of "log in
+     * as", whatever the page would open in it.
+     *
+     * ASKED ON EVERY PAGE OF THE SITE: the cases are tried from the cheapest to the dearest and the first yes ends the
+     * test. viewany and one's own dossier read nothing the page has not read already; following somebody is asked by
+     * access::follows_anyone(), one query whatever the number of candidates followed, and not by tabs(), which reads one
+     * context per candidate. Nothing is kept in a cache: a role given or taken shows on the next page.
+     *
+     * @return \moodle_url|null
+     */
+    public static function entry_url(): ?\moodle_url {
+        global $USER;
+
+        if (!isloggedin() || isguestuser()) {
+            return null;
+        }
+        if (\core\session\manager::is_loggedinas()) {
+            return null;
+        }
+
+        $url = new \moodle_url('/admin/tool/vae/organisation.php');
+        $enabled = competency_gateway::is_subsystem_enabled();
+        if (has_capability('tool/vae:viewany', \context_system::instance())) {
+            // With the subsystem off, the other two tabs only say that it is off: the link names the tab of the site.
+            return $enabled ? $url : new \moodle_url($url, ['tab' => self::TAB_SITE]);
+        }
+        if (!$enabled) {
+            return null;
+        }
+        if (access::can_view((int) $USER->id) || access::follows_anyone()) {
+            return $url;
+        }
+
+        return null;
+    }
+
+    /**
      * Refuse the address of a tab the current user may not open, with the right that opens it.
      *
      * @param string $tab TAB_MINE, TAB_FOLLOWED or TAB_SITE.
@@ -523,14 +564,48 @@ final class organisation {
     /**
      * The roles, cohorts and settings behind the rights of the plugin (see site()).
      *
-     * Only what the site defines at its top level is read: the roles as the site defines them, not the overrides made
-     * lower down nor who holds a role. A site administrator holds every right whatever a role says: the screen says it.
+     * The rights given by the roles and the settings are those of role_rights(); the cohorts followed through a role
+     * that gives a right of the plugin are added (cohort_roles(), which asks the right to view any dossier).
      *
      * @param bool|null $cohortrolesavailable Whether the site has tool_cohortroles; asked of the database when null. A
      *                  test passes false: no test can uninstall that tool.
      * @return \stdClass capabilities, cohorts and settings, and the grid of the actors built from them (actors::grid()).
+     * @throws \required_capability_exception Without the right to view any dossier (cohort_roles()).
      */
     private static function site_powers(?bool $cohortrolesavailable = null): \stdClass {
+        global $DB;
+
+        $rights = self::role_rights();
+        $rolenames = role_get_names(\context_system::instance(), ROLENAME_ORIGINAL, true);
+
+        $cohorts = self::cohort_roles(
+            $cohortrolesavailable ?? $DB->get_manager()->table_exists('tool_cohortroles'),
+            $rights->givingroles
+        );
+        foreach ($cohorts ?? [] as $cohort) {
+            $cohort->rolename = $rolenames[$cohort->roleid] ?? '';
+        }
+
+        return (object) [
+            'capabilities' => $rights->capabilities,
+            'cohorts' => $cohorts,
+            'settings' => $rights->settings,
+            'actors' => actors::grid($rights->capabilities, $rights->settings),
+        ];
+    }
+
+    /**
+     * The rights of the plugin as the roles of the site give them, and the settings of the plugin.
+     *
+     * Only what the site defines at its top level is read: the roles as the site defines them, not the overrides made
+     * lower down nor who holds a role. A site administrator holds every right whatever a role says: the screen says it.
+     * No person and no cohort is read, and no right is asked: the roles and the settings of the site name nobody.
+     *
+     * @return \stdClass capabilities (each with name, label and the names of the roles that allow, prevent and prohibit
+     *                   it), givingroles (the ids of the roles that allow at least one right of the plugin) and settings
+     *                   (each with name, value and open).
+     */
+    public static function role_rights(): \stdClass {
         global $DB;
 
         $system = \context_system::instance();
@@ -576,14 +651,6 @@ final class organisation {
             }
         }
 
-        $cohorts = self::cohort_roles(
-            $cohortrolesavailable ?? $DB->get_manager()->table_exists('tool_cohortroles'),
-            array_keys($givingroles)
-        );
-        foreach ($cohorts ?? [] as $cohort) {
-            $cohort->rolename = $rolenames[$cohort->roleid] ?? '';
-        }
-
         $settings = [];
         foreach (self::SITE_SETTINGS as $name) {
             $value = (int) get_config('tool_vae', $name);
@@ -594,9 +661,8 @@ final class organisation {
 
         return (object) [
             'capabilities' => array_values($byname),
-            'cohorts' => $cohorts,
+            'givingroles' => array_keys($givingroles),
             'settings' => $settings,
-            'actors' => actors::grid(array_values($byname), $settings),
         ];
     }
 

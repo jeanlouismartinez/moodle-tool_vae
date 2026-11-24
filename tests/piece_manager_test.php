@@ -544,7 +544,7 @@ final class piece_manager_test extends \advanced_testcase {
      * is accepted without them.
      */
     public function test_every_action_of_the_list_is_still_refused_in_a_real_pdf(): void {
-        $real = (string) file_get_contents(__DIR__ . '/fixtures/piece-essai.pdf');
+        $real = (string) file_get_contents(__DIR__ . '/fixtures/piece-sample.pdf');
         $this->assertStringContainsString('/Size 4', $real);
         $path = $this->file($real);
         $this->assertSame(['pdf', 'application/pdf'], piece_manager::detect_type($path));

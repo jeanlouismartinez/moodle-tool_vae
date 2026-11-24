@@ -23,7 +23,6 @@ use tool_vae\local\coverage;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\importer;
 use tool_vae\local\pending_report;
-use tool_vae\local\presenter;
 use tool_vae\local\purge;
 use tool_vae\local\scope_manager;
 
@@ -41,7 +40,7 @@ use tool_vae\local\scope_manager;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\scope_manager::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\presenter::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\scope_box::class)]
 final class scope_manager_test extends \advanced_testcase {
     /** @var \stdClass The candidate. */
     private $candidate;
@@ -70,6 +69,18 @@ final class scope_manager_test extends \advanced_testcase {
         accesslib_clear_all_caches_for_unit_testing();
         $this->setUser($this->candidate);
         set_config('scopeopen', 1, 'tool_vae');
+    }
+
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
     }
 
     public function test_the_candidate_says_it_and_takes_it_back(): void {
@@ -236,19 +247,27 @@ final class scope_manager_test extends \advanced_testcase {
     }
 
     public function test_the_box_lists_the_marks_with_the_sentence_and_hides_when_empty(): void {
-        $this->assertSame('', presenter::scope_box([], [], false, true), 'Nothing for a reader who is not the candidate.');
-        $this->assertSame('', presenter::scope_box([], [], true, false), 'Nothing for a candidate on a closed site.');
+        $this->assertSame(
+            '',
+            self::render(new output\scope_box([], [], false, true)),
+            'Nothing for a reader who is not the candidate.'
+        );
+        $this->assertSame(
+            '',
+            self::render(new output\scope_box([], [], true, false)),
+            'Nothing for a candidate on a closed site.'
+        );
 
         scope_manager::mark((int) $this->candidate->id, 'RS00000', 'C01', 'Note du <b>candidat</b>');
         $marks = scope_manager::for_candidate((int) $this->candidate->id);
-        $html = presenter::scope_box($marks, scope_manager::labels($marks), false, false);
+        $html = self::render(new output\scope_box($marks, scope_manager::labels($marks), false, false));
 
         $this->assertStringContainsString('RS00000-C01', $html);
         $this->assertStringContainsString('Aider au lever', $html);
         $this->assertStringContainsString(s(get_string('scopesentence', 'tool_vae')), $html);
         $this->assertStringContainsString('&lt;b&gt;candidat&lt;/b&gt;', $html);
         $this->assertStringNotContainsString('scope.php', $html, 'Only the candidate is offered the way to change it.');
-        $this->assertStringContainsString('scope.php', presenter::scope_box($marks, [], true, true));
+        $this->assertStringContainsString('scope.php', self::render(new output\scope_box($marks, [], true, true)));
     }
 
     public function test_an_erasure_of_the_dossier_removes_the_marks_of_this_candidate_only(): void {

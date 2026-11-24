@@ -1,0 +1,80 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/index_page
+
+    The administration overview, below its heading: the link to the setup; then the error that the competencies are
+    disabled, or the notice that no record is imported, or what is said of the records whose framework is gone (a warning,
+    a warning and the table of the records that can be removed) and the table of the records; then the two buttons to
+    import, side by side with nothing between them.
+
+    Every text comes from the context, already worded by tool_vae\output\index_page. The template holds no logic. The link
+    is escaped (double braces). Eight keys are HTML (triple braces): errorhtml, nonehtml, warninghtml and removablehtml,
+    notifications made by the core; tablehtml, a table drawn by the template tool_vae/table; sourceshtml, drawn by the
+    template tool_vae/sources; primaryhtml and buttonhtml, buttons made by the core.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * setup - {url, label}: the link to the setup
+    * errorhtml, nonehtml, warninghtml, removablehtml, tablehtml, sourceshtml - each false, or HTML
+    * buttons - false, or {primaryhtml, buttonhtml}: the two buttons to import
+
+    Example context (json):
+    {
+        "setup": {"url": "https://example.com/admin/tool/vae/setup.php", "label": "Getting started"},
+        "errorhtml": false,
+        "nonehtml": "<div class=\"alert alert-info\">No record imported.</div>",
+        "warninghtml": false,
+        "removablehtml": false,
+        "tablehtml": false,
+        "sourceshtml": false,
+        "buttons": {"primaryhtml": "<div class=\"singlebutton\"><button type=\"submit\">Import records</button></div>",
+            "buttonhtml": "<div class=\"singlebutton\"><button type=\"submit\">Import a file</button></div>"}
+    }
+}}
+{{#setup}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/setup}}
+{{#errorhtml}}
+{{{errorhtml}}}
+{{/errorhtml}}
+{{#nonehtml}}
+{{{nonehtml}}}
+{{/nonehtml}}
+{{#warninghtml}}
+{{{warninghtml}}}
+{{/warninghtml}}
+{{#removablehtml}}
+{{{removablehtml}}}
+{{/removablehtml}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}
+{{#sourceshtml}}
+{{{sourceshtml}}}
+{{/sourceshtml}}
+{{#buttons}}
+<div class="d-flex flex-wrap gap-2 tool-vae-import-buttons">{{{primaryhtml}}}{{{buttonhtml}}}</div>
+{{/buttons}}

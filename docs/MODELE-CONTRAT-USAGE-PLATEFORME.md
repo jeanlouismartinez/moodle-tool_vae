@@ -1,5 +1,14 @@
 # Modèle — Contrat d'usage de la plateforme de cheminement VAE
 
+> **Summary in English.** This is a model of terms of use of the platform, for a site that installs the plugin, to be adapted
+> and validated by the site's data protection officer and, if needed, a lawyer. It stays in French because it is a contract under
+> French law, for French sites (the VAE is a French scheme). It sets the use of the platform and carries the legal basis of the
+> processing (GDPR, article 6(1)(b), the contract), in twelve articles: parties and purpose, what the platform does not do,
+> acceptance and refusal, data processed and purposes, recipients, AI help, retention periods, rights of the candidate, duties of
+> the candidate and of the site, changes, applicable law; then how the administrator publishes it with the core tool "Policies"
+> (`tool_policy`), without code. The plugin holds no frozen copy of it: the text belongs to the site. English summary of the
+> personal data the plugin handles: [docs/en/privacy.md](en/privacy.md).
+
 > **Modèle à adapter et à faire valider par le délégué à la protection des données (DPO) et, si besoin, par un juriste du site.** Il
 > ne remplace pas la convention de VAE, ni le contrat de travail : il règle **l'usage de la plateforme** (le plugin « VAE -
 > cheminement ») et porte la base légale de ses traitements (RGPD, article 6, paragraphe 1, point b). Les mots entre crochets sont à

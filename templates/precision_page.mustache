@@ -1,0 +1,92 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/precision_page
+
+    The page "Demandes de précision", below its heading: what a request is, the declaration, the heading of the requests,
+    one sentence when there is none, each question (its heading, author and time, text) and its answer or the word that it
+    waits, then the form or the notice that the declaration is attested, and the way back to the dossier.
+
+    Every text comes from the context, already worded by tool_vae\output\precision_page. The template holds no logic.
+    Every text and address is escaped (double braces). Six keys are HTML (triple braces): declarationhtml, drawn by the
+    template tool_vae/attest_declaration; headinghtml, a heading made by the core; questionhtml and answerhtml, the text
+    typed passed through format_text() of the core as plain text; formhtml, the form of the core ($form->render());
+    attestedhtml, a notification made by the core.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, what a request is
+    * declarationhtml - HTML, the declaration and the warning of its anchor
+    * headinghtml - HTML, the heading of the requests
+    * none - false, or a string: the sentence drawn when there is no request
+    * requests - array of {questionheading, meta, questionhtml, waiting (false or a string), answer (false or {heading, date,
+      answerhtml})}
+    * formhtml - false, or HTML: the form
+    * attestedhtml - false, or HTML: the notice that the declaration is attested
+    * back - {url, label}: the way back to the dossier
+
+    Example context (json):
+    {
+        "intro": "A manager asks; the vaeiste answers.",
+        "declarationhtml": "<dl class=\"tool-vae-claim\"><dt>Record</dt><dd>RS5000-C01</dd></dl>",
+        "headinghtml": "<h3>Requests</h3>",
+        "none": false,
+        "requests": [{"questionheading": "Question", "meta": "Hugo Bernard - 1 June 2026, 10:00",
+            "questionhtml": "<div class=\"text_to_html\">Which shift?</div>", "waiting": false,
+            "answer": {"heading": "Answer", "date": "2 June 2026, 10:00",
+                "answerhtml": "<div class=\"text_to_html\">Night.</div>"} }],
+        "formhtml": false,
+        "attestedhtml": false,
+        "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=3", "label": "Back to the dossier"}
+    }
+}}
+<p>{{intro}}</p>
+{{{declarationhtml}}}
+{{{headinghtml}}}
+{{#none}}
+<p>{{none}}</p>
+{{/none}}
+{{#requests}}
+<h4 class="h5">{{questionheading}}</h4>
+<p class="text-muted small">{{meta}}</p>
+{{{questionhtml}}}
+{{#waiting}}
+<p class="text-muted">{{waiting}}</p>
+{{/waiting}}
+{{#answer}}
+<h4 class="h5">{{heading}}</h4>
+<p class="text-muted small">{{date}}</p>
+{{{answerhtml}}}
+{{/answer}}
+{{/requests}}
+{{#formhtml}}
+{{{formhtml}}}
+{{/formhtml}}
+{{#attestedhtml}}
+{{{attestedhtml}}}
+{{/attestedhtml}}
+{{#back}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/back}}

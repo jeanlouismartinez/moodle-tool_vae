@@ -17,6 +17,7 @@
 namespace tool_vae\form;
 
 use tool_vae\local\piece_manager;
+use tool_vae\output\form_note;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -26,9 +27,10 @@ require_once($CFG->libdir . '/formslib.php');
 /**
  * Attaching a file to a declaration as a supporting piece (T-13).
  *
- * The plain upload field, not the draft area of the core: it works without JavaScript, and the plugin checks the file itself
- * (type read on the content, antivirus, size, digest). The reminder sits against the title, the only free field: the name of
- * the file is never kept.
+ * The file picker of the core (review MMR-520): the file goes to a draft area of the vaeiste, the form sends the number of the
+ * area, and the page reads it there (draft_upload). The plugin still checks the file itself (type read on the content,
+ * antivirus, size, digest: piece_manager). The reminder sits against the title, the only free field: the name of the file is
+ * never kept.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
@@ -39,9 +41,17 @@ class piece_file_form extends \moodleform {
     private const REMINDER_ID = 'tool_vae_anonymise_piecefile';
 
     /**
+     * The extensions the file picker offers and checks: those of piece_manager::TYPES, and .jpeg beside .jpg. The type that
+     * counts is the one read on the content, by piece_manager::detect_type().
+     */
+    public const ACCEPTED_TYPES = ['.pdf', '.odt', '.docx', '.jpg', '.jpeg', '.png'];
+
+    /**
      * Build the form. Custom data: `evidenceid` (int), `maxbytes` (int).
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $mform->addElement('hidden', 'evidenceid', (int) $this->_customdata['evidenceid']);
@@ -53,11 +63,7 @@ class piece_file_form extends \moodleform {
             'tool_vae',
             display_size((int) $this->_customdata['maxbytes'])
         ));
-        $mform->addElement('html', \html_writer::div(
-            get_string('anonymisepiece', 'tool_vae'),
-            'alert alert-info tool-vae-anonymise',
-            ['id' => self::REMINDER_ID]
-        ));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::piece(self::REMINDER_ID)));
 
         $mform->addElement(
             'select',
@@ -71,21 +77,7 @@ class piece_file_form extends \moodleform {
             'size' => 60, 'maxlength' => piece_manager::TITLE_MAXLENGTH, 'aria-describedby' => self::REMINDER_ID,
         ]);
         $mform->setType('filetitle', PARAM_TEXT);
-        // A plain field of the page, not the `file` element of the form library: that element is a fatal error on this
-        // version of the core (HTML_QuickForm_file::_findValue() does not match its parent under PHP 8.3). The form is sent
-        // as multipart and the page reads the upload itself. The label is a real one, tied to the field.
-        $mform->updateAttributes(['enctype' => 'multipart/form-data']);
-        $mform->addElement('html', \html_writer::div(
-            \html_writer::label(get_string('piecefilelabel', 'tool_vae'), 'id_piecefile')
-            . \html_writer::empty_tag('input', [
-                'type' => 'file',
-                'name' => 'piecefile',
-                'id' => 'id_piecefile',
-                'accept' => '.pdf,.odt,.docx,.jpg,.jpeg,.png',
-                'class' => 'form-control-file d-block',
-            ]),
-            'form-group'
-        ));
+        self::add_file_picker($mform, (int) $this->_customdata['maxbytes']);
 
         $this->add_action_buttons(false, get_string('pieceaddfilesubmit', 'tool_vae'));
     }
@@ -96,6 +88,22 @@ class piece_file_form extends \moodleform {
     public function definition_after_data() {
         parent::definition_after_data();
         reminder_pointers::apply(['id_filetitle' => [self::REMINDER_ID]]);
+    }
+
+    /**
+     * The file picker of a piece: one file, of the accepted types, within the limit said on the page.
+     *
+     * The same for the pieces of a declaration and for those of a work situation (spiece_file_form). Not required by a rule of
+     * the form: no file chosen is said by the page, in the words it always used (errorpiecenofile).
+     *
+     * @param \MoodleQuickForm $mform
+     * @param int $maxbytes
+     */
+    public static function add_file_picker(\MoodleQuickForm $mform, int $maxbytes): void {
+        $mform->addElement('filepicker', 'piecefile', get_string('piecefilelabel', 'tool_vae'), null, [
+            'maxbytes' => $maxbytes,
+            'accepted_types' => self::ACCEPTED_TYPES,
+        ]);
     }
 
     /**

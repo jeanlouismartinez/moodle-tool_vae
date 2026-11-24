@@ -21,6 +21,8 @@ defined('MOODLE_INTERNAL') || die();
 // Not autoloaded - see withdraw_form.php for the fatal error this line prevents.
 require_once($CFG->libdir . '/formslib.php');
 
+use tool_vae\output\form_note;
+
 /**
  * Asking for a precision on a declaration, or answering the question (T-20).
  *
@@ -40,6 +42,8 @@ class precision_form extends \moodleform {
      * Build the form. Custom data: `answering` (bool), `requestid` (int, when answering).
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
         $answering = !empty($this->_customdata['answering']);
 
@@ -47,11 +51,7 @@ class precision_form extends \moodleform {
         $mform->setType('requestid', PARAM_INT);
 
         if ($answering) {
-            $mform->addElement('html', \html_writer::div(
-                get_string('anonymisereminder', 'tool_vae'),
-                'alert alert-info tool-vae-anonymise',
-                ['id' => self::REMINDER_ID]
-            ));
+            $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::reminder(self::REMINDER_ID)));
         }
         $mform->addElement(
             'textarea',

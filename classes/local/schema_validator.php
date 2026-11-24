@@ -32,6 +32,13 @@ namespace tool_vae\local;
  * Objects are expected as json_decode() returns them without its second argument - stdClass -
  * so that an empty object and an empty array stay distinct.
  *
+ * AN ERROR IS DATA FIRST, A SENTENCE SECOND (lot 9 of review MMR-520). errors() gives each error as the JSON pointer of the
+ * value, the rule it breaks and the values of the sentence; validate() turns them into sentences of the language file, in
+ * the language of the person the page is for (message()), because those sentences reach the screen: the import of an
+ * archive shows the first one when it refuses the archive. Who needs the pointer (the exporter, to name the faulty field)
+ * reads it from errors(), never out of a sentence. A schema this class cannot read is still a coding_exception, in
+ * English: that one is for a developer.
+ *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -58,14 +65,48 @@ final class schema_validator {
     }
 
     /**
-     * The errors of a document against a schema file, empty when it conforms.
+     * The errors of a document against a schema file, as sentences, empty when it conforms.
      *
      * @param mixed $data The decoded document.
      * @param string $file The schema, relative to the schema directory.
-     * @return string[] One line per error, each starting with the JSON pointer of the value.
+     * @return string[] One sentence per error, in the language of the page, each naming the JSON pointer of the value.
      */
     public function validate($data, string $file = 'preuve.schema.json'): array {
+        return array_map([self::class, 'message'], $this->errors($data, $file));
+    }
+
+    /**
+     * The errors of a document against a schema file, as data, empty when it conforms.
+     *
+     * @param mixed $data The decoded document.
+     * @param string $file The schema, relative to the schema directory.
+     * @return array[] One entry per error: `pointer`, the JSON pointer of the value (/name/0/name, no escaping); `rule`, the
+     *                 end of the name of its sentence in the language file (schemaerror<rule>); `a`, the values of the sentence.
+     */
+    public function errors($data, string $file = 'preuve.schema.json'): array {
         return $this->check($data, $this->document($file), $file, '');
+    }
+
+    /**
+     * The sentence of one error, in the language of the page.
+     *
+     * @param array $error As errors() gives it.
+     * @return string
+     */
+    public static function message(array $error): string {
+        return get_string('schemaerror' . $error['rule'], 'tool_vae', (object) $error['a']);
+    }
+
+    /**
+     * One error, as errors() gives it.
+     *
+     * @param string $rule The end of the name of its sentence (schemaerror<rule>).
+     * @param string $pointer Where the value sits in the document.
+     * @param array $values The other values of the sentence, besides the pointer.
+     * @return array
+     */
+    private static function error(string $rule, string $pointer, array $values = []): array {
+        return ['pointer' => $pointer, 'rule' => $rule, 'a' => ['pointer' => $pointer] + $values];
     }
 
     /**
@@ -75,14 +116,14 @@ final class schema_validator {
      * @param mixed $schema
      * @param string $file The file the schema comes from, to resolve its references.
      * @param string $pointer Where the value sits in the document.
-     * @return string[]
+     * @return array[] As errors() gives them.
      */
     private function check($data, $schema, string $file, string $pointer): array {
         if ($schema === true) {
             return [];
         }
         if ($schema === false) {
-            return ["$pointer is not allowed"];
+            return [self::error('false', $pointer)];
         }
         if (!$schema instanceof \stdClass) {
             throw new \coding_exception("Malformed schema in $file at $pointer");
@@ -101,43 +142,43 @@ final class schema_validator {
                 case 'type':
                     if (!self::has_type($data, $rule)) {
                         // Nothing else holds for a value of the wrong type.
-                        return ["$pointer must be of type $rule"];
+                        return [self::error('type', $pointer, ['type' => $rule])];
                     }
                     break;
                 case 'enum':
                     if (!in_array($data, $rule, true)) {
-                        $errors[] = "$pointer is not one of the allowed values";
+                        $errors[] = self::error('enum', $pointer);
                     }
                     break;
                 case 'const':
                     if ($data !== $rule) {
-                        $errors[] = "$pointer must be " . json_encode($rule);
+                        $errors[] = self::error('const', $pointer, ['value' => json_encode($rule)]);
                     }
                     break;
                 case 'pattern':
                     // D: an ECMAScript $ never matches before a final newline; PHP's does without it.
                     if (is_string($data) && !preg_match('/' . str_replace('/', '\/', $rule) . '/uD', $data)) {
-                        $errors[] = "$pointer does not match $rule";
+                        $errors[] = self::error('pattern', $pointer, ['pattern' => $rule]);
                     }
                     break;
                 case 'minLength':
                     if (is_string($data) && \core_text::strlen($data) < $rule) {
-                        $errors[] = "$pointer is shorter than $rule characters";
+                        $errors[] = self::error('minlength', $pointer, ['limit' => $rule]);
                     }
                     break;
                 case 'maxLength':
                     if (is_string($data) && \core_text::strlen($data) > $rule) {
-                        $errors[] = "$pointer is longer than $rule characters";
+                        $errors[] = self::error('maxlength', $pointer, ['limit' => $rule]);
                     }
                     break;
                 case 'minimum':
                     if ((is_int($data) || is_float($data)) && $data < $rule) {
-                        $errors[] = "$pointer is below $rule";
+                        $errors[] = self::error('minimum', $pointer, ['limit' => $rule]);
                     }
                     break;
                 case 'maximum':
                     if ((is_int($data) || is_float($data)) && $data > $rule) {
-                        $errors[] = "$pointer is above $rule";
+                        $errors[] = self::error('maximum', $pointer, ['limit' => $rule]);
                     }
                     break;
                 case 'format':
@@ -145,14 +186,14 @@ final class schema_validator {
                         throw new \coding_exception("Unsupported format $rule in $file");
                     }
                     if (is_string($data) && !self::is_date_time($data)) {
-                        $errors[] = "$pointer is not a date-time";
+                        $errors[] = self::error('datetime', $pointer);
                     }
                     break;
                 case 'required':
                     if ($data instanceof \stdClass) {
                         foreach ($rule as $name) {
                             if (!property_exists($data, $name)) {
-                                $errors[] = "$pointer/$name is required";
+                                $errors[] = self::error('required', "$pointer/$name");
                             }
                         }
                     }
@@ -195,7 +236,7 @@ final class schema_validator {
                         }
                     }
                     if ($keyword === 'anyOf' ? $passing === 0 : $passing !== 1) {
-                        $errors[] = "$pointer matches " . ($passing ? 'more than one' : 'none') . " of the allowed shapes";
+                        $errors[] = self::error($passing ? 'shapesmany' : 'shapesnone', $pointer);
                     }
                     break;
                 default:

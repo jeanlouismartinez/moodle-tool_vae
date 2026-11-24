@@ -36,11 +36,12 @@ require_once($CFG->libdir . '/adminlib.php');
 
 use tool_vae\form\fiche_confirm_form;
 use tool_vae\form\fiche_import_form;
+use tool_vae\local\draft_upload;
 use tool_vae\local\fiche_import;
 use tool_vae\local\fiche_messages;
 use tool_vae\local\fiche_plan_store;
 use tool_vae\local\fiche_refusal;
-use tool_vae\local\fiche_screen;
+use tool_vae\output\import_fiches_page;
 
 $self = new moodle_url('/admin/tool/vae/import_fiches.php');
 admin_externalpage_setup('toolvae', '', null, $self);
@@ -50,13 +51,14 @@ require_capability('tool/vae:import', $context);
 $index = new moodle_url('/admin/tool/vae/index.php');
 $notify = \core\output\notification::class;
 $PAGE->set_title(get_string('fcimportheading', 'tool_vae'));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 // The refusals that can be said before anything is read or requested.
 $unavailable = fiche_import::unavailable($context);
 if ($unavailable !== null) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('fcimportheading', 'tool_vae'));
-    echo $OUTPUT->notification(get_string($unavailable, 'tool_vae'), $notify::NOTIFY_ERROR);
+    echo $renderer->render(import_fiches_page::unavailable($unavailable));
     echo $OUTPUT->footer();
     die();
 }
@@ -82,16 +84,10 @@ if ($token !== '') {
         $PAGE->set_title(get_string('fcimportresultheading', 'tool_vae'));
         echo $OUTPUT->header();
         echo $OUTPUT->heading(get_string('fcimportresultheading', 'tool_vae'));
-        echo fiche_screen::results($plan);
         $untouched = array_filter($plan->results, fn($result) => $result->status !== 'imported');
-        if ($untouched) {
-            // Some records were not written: the numbers come back to the form, ready for another try.
-            echo html_writer::tag('p', html_writer::link(
-                new moodle_url($self, ['redo' => $token]),
-                get_string('fcimportredo', 'tool_vae')
-            ));
-        }
-        echo $OUTPUT->continue_button($index);
+        // Some records were not written: the numbers come back to the form, ready for another try.
+        $redo = $untouched ? new moodle_url($self, ['redo' => $token]) : null;
+        echo $renderer->render(import_fiches_page::results($plan, $redo, $index));
         echo $OUTPUT->footer();
         die();
     }
@@ -115,9 +111,7 @@ if ($token !== '') {
                 $PAGE->set_title(get_string('fcimportresultheading', 'tool_vae'));
                 echo $OUTPUT->header();
                 echo $OUTPUT->heading(get_string('fcimportresultheading', 'tool_vae'));
-                echo $OUTPUT->notification(get_string('fcimportresultunsaved', 'tool_vae'), $notify::NOTIFY_WARNING);
-                echo fiche_screen::results($applied);
-                echo $OUTPUT->continue_button($index);
+                echo $renderer->render(import_fiches_page::unsaved($applied, $index));
                 echo $OUTPUT->footer();
                 die();
             }
@@ -134,30 +128,15 @@ if ($token !== '') {
     $PAGE->set_title(get_string('fcimportpreviewheading', 'tool_vae'));
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('fcimportpreviewheading', 'tool_vae'));
-    echo fiche_screen::preview($plan);
-    if ($counts->importable || $counts->older) {
-        echo html_writer::tag('p', get_string('fcimportwaitapply', 'tool_vae'), ['class' => 'small']);
-    }
-    $form->display();
+    echo $renderer->render(import_fiches_page::preview($plan, $counts->importable || $counts->older, $form));
     echo $OUTPUT->footer();
     die();
 }
 
-// THE NUMBERS, AND THE TWO WAYS. The upload is taken BEFORE the form is built: the form library empties $_FILES when it processes a
-// submission, and its own file element is not used here (see fiche_import_form).
-$upload = $_FILES['exportzip'] ?? null;
+// THE NUMBERS, AND THE TWO WAYS. The zip comes through the file picker of the core: the form sends the number of a draft area
+// of the administrator, and the page reads the file there once the form gave its data (fiche_import::upload_path()).
 $maxbytes = get_max_upload_file_size();
 $PAGE->set_url($self);
-
-// A file larger than post_max_size arrives as an empty POST: the form would simply come back, with no word.
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$_POST && !$upload && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
-    redirect(
-        $self,
-        fiche_messages::html(new fiche_refusal(fiche_refusal::UPLOAD)),
-        null,
-        $notify::NOTIFY_ERROR
-    );
-}
 
 $form = new fiche_import_form($self->out(false), ['maxbytes' => $maxbytes]);
 if ($form->is_cancelled()) {
@@ -178,8 +157,9 @@ if ($data = $form->get_data()) {
             if ($fetch) {
                 $newtoken = $import->from_data_gouv($parsed->numbers, $parsed->repeated);
             } else {
-                $path = fiche_import::upload_path(is_array($upload) ? $upload : null);
-                $name = clean_param((string) ($upload['name'] ?? ''), PARAM_FILE);
+                $upload = fiche_import::upload_path(draft_upload::file((int) ($data->exportzip ?? 0)));
+                $path = $upload->path;
+                $name = $upload->name;
                 $typed = empty($data->exportdate) ? null : (int) $data->exportdate;
                 $newtoken = $import->from_upload($path, $name, $parsed->numbers, $typed, $parsed->repeated);
             }
@@ -189,6 +169,9 @@ if ($data = $form->get_data()) {
     } catch (Throwable $e) {
         // The detail goes to the debugging messages of the site, never to the screen.
         $failure = fiche_import::exception_html($e);
+    } finally {
+        // Read, refused or not even asked for (the fetch): nothing stays in the draft area, nor in the copy.
+        draft_upload::discard((int) ($data->exportzip ?? 0), $upload ?? null);
     }
     if ($newtoken !== null) {
         redirect(new moodle_url($self, ['token' => $newtoken]));
@@ -212,17 +195,12 @@ if (!$form->is_submitted()) {
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('fcimportheading', 'tool_vae'));
-if ($failure !== null) {
-    echo $OUTPUT->notification($failure, $notify::NOTIFY_ERROR);
-}
-echo html_writer::tag('p', get_string('fcimportintro', 'tool_vae'));
-echo html_writer::tag('p', get_string('fcimportneutral', 'tool_vae'), ['class' => 'small']);
-if ($known) {
-    // More records than the form takes at a time: the link says how many it takes back, and of how many.
-    $label = $knowntotal > count($known)
-        ? get_string('fcimportexistingmany', 'tool_vae', (object) ['count' => count($known), 'total' => $knowntotal])
-        : get_string('fcimportexisting', 'tool_vae');
-    echo html_writer::tag('p', html_writer::link(new moodle_url($self, ['known' => 1]), $label));
-}
-$form->display();
+// The failure is HTML that is already safe (fiche_messages::html()); the link takes back the numbers already imported.
+echo $renderer->render(import_fiches_page::numbers(
+    $failure,
+    count($known),
+    $knowntotal,
+    new moodle_url($self, ['known' => 1]),
+    $form
+));
 echo $OUTPUT->footer();

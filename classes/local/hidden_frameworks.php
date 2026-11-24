@@ -29,7 +29,8 @@ namespace tool_vae\local;
  * AND IT IS HOW A FORM SENT TOO LATE IS GIVEN BACK. A form opened before the record was hidden cannot choose the competency
  * any more: the list no longer holds it and the form drops a value it does not offer, so the page used to learn nothing and
  * ended on the generic "this competency does not exist", the text lost. sent() reads what the request holds, and the pages
- * give the form back with what was typed; kept_text() is for the page that has no form left to give it back in.
+ * give the form back with what was typed; tool_vae\output\kept_text draws it for the page that has no form left to give
+ * it back in.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
@@ -188,9 +189,12 @@ final class hidden_frameworks {
     /**
      * A parameter of the request, read where the core reads it (the form sent, then the address), an array being read as absent.
      *
-     * optional_param() raises a coding exception on an array. That is the rule of the core for a page that expects one value,
-     * but the declaration page used to meet such a request through the form of the core, which cleans it, and a request made by
-     * hand must not end on an error of coding before any form is built.
+     * optional_param() raises a coding exception on an array ("clean() can not process arrays", \core\param::clean(), before
+     * any debugging message). That is the rule of the core for a page that expects one value, but the declaration page used to
+     * meet such a request through the form of the core, which cleans it, and a request made by hand must not end on an error of
+     * coding before any form is built. So the request is read by optional_param() itself - the form sent first, then the
+     * address, as the core reads it - and its coding exception is read as "absent". The names and types are written in sent(),
+     * so the only coding exception that can come from here is the one of an array (or of an object, which a request cannot hold).
      *
      * @param string $name The name of the parameter.
      * @param mixed $default What is given back when the parameter is absent or is not a single value.
@@ -198,38 +202,10 @@ final class hidden_frameworks {
      * @return mixed The value, cleaned as optional_param() cleans it.
      */
     private static function single_param(string $name, $default, string $type) {
-        $raw = $_POST[$name] ?? $_GET[$name] ?? null;
-
-        return is_array($raw) ? $default : optional_param($name, $default, $type);
-    }
-
-    /**
-     * The text typed, given back in fields that can be read and copied, for the page that has no form to give it back in.
-     *
-     * That is the case when every record has been hidden since the form was opened: no competency can be chosen, so there is
-     * no form. The page says so, and gives the text back instead of letting it vanish.
-     *
-     * @param string $situation The narrative.
-     * @param string $settingdetail The detail on the setting.
-     * @return string HTML, empty when nothing was typed.
-     */
-    public static function kept_text(string $situation, string $settingdetail = ''): string {
-        $html = '';
-        foreach (['situation' => $situation, 'settingdetail' => $settingdetail] as $field => $text) {
-            if (trim($text) === '') {
-                continue;
-            }
-            $id = 'tool_vae_kept_' . $field;
-            $html .= \html_writer::label(get_string($field, 'tool_vae'), $id, true, ['class' => 'font-weight-bold d-block'])
-                . \html_writer::tag('textarea', s($text), [
-                    'id' => $id,
-                    'readonly' => 'readonly',
-                    'rows' => $field === 'situation' ? 12 : 2,
-                    'cols' => 70,
-                    'class' => 'form-control mb-3',
-                ]);
+        try {
+            return optional_param($name, $default, $type);
+        } catch (\coding_exception $e) {
+            return $default;
         }
-
-        return $html === '' ? '' : \html_writer::tag('p', get_string('declarekeptintro', 'tool_vae')) . $html;
     }
 }

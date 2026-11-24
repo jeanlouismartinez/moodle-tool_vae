@@ -167,10 +167,10 @@ final class validation_deposit_test extends \advanced_testcase {
         $this->assertSame('validation', $deposit->doctype);
         $this->assertSame(1, (int) $deposit->number);
         $this->assertSame(hash('sha256', $deposit->content), $deposit->contenthash);
-        $rubriques = deposit_manager::validation_rubriques($deposit);
-        $this->assertSame(['bc01_decrire', 'bc02_analyser'], array_column($rubriques, 'code'));
-        $this->assertSame('Seconde version.', $rubriques[0]['texte']);
-        $this->assertSame(2, $rubriques[0]['version']);
+        $headings = deposit_manager::validation_sections($deposit);
+        $this->assertSame(['bc01_decrire', 'bc02_analyser'], array_column($headings, 'code'));
+        $this->assertSame('Seconde version.', $headings[0]['texte']);
+        $this->assertSame(2, $headings[0]['version']);
         $this->assertStringNotContainsString('Brouillon en cours', $deposit->content);
         $this->assertStringNotContainsString('Premiere version', $deposit->content);
     }
@@ -184,7 +184,7 @@ final class validation_deposit_test extends \advanced_testcase {
         $manager = new deposit_manager();
         $deposit = $manager->get((int) $this->candidate->id, 1, draft_manager::DOCTYPE_VALIDATION);
 
-        $this->assertSame('Texte depose.', deposit_manager::validation_rubriques($deposit)[0]['texte']);
+        $this->assertSame('Texte depose.', deposit_manager::validation_sections($deposit)[0]['texte']);
         $this->assertCount(1, $manager->deposits((int) $this->candidate->id, draft_manager::DOCTYPE_VALIDATION));
     }
 
@@ -195,17 +195,17 @@ final class validation_deposit_test extends \advanced_testcase {
         $draft = $drafts->section((int) $this->candidate->id, draft_manager::DOCTYPE_FAISABILITE, 'objectifs');
         $drafts->save_version((int) $draft->id, 'Obtenir le diplome.');
 
-        $faisabilite = (new deposit_manager())->deposit((int) $this->candidate->id);
+        $feasibility = (new deposit_manager())->deposit((int) $this->candidate->id);
         $validation = $this->deposit();
 
-        $this->assertSame(1, (int) $faisabilite->number);
+        $this->assertSame(1, (int) $feasibility->number);
         $this->assertSame(1, (int) $validation->number);
         $this->assertCount(1, (new deposit_manager())->deposits((int) $this->candidate->id));
         $this->assertCount(
             1,
             (new deposit_manager())->deposits((int) $this->candidate->id, draft_manager::DOCTYPE_VALIDATION)
         );
-        $this->assertSame([], deposit_manager::validation_rubriques($faisabilite));
+        $this->assertSame([], deposit_manager::validation_sections($feasibility));
     }
 
     public function test_who_may_not_read_deposits_reads_nothing(): void {
@@ -302,6 +302,8 @@ final class validation_deposit_test extends \advanced_testcase {
         $this->preventResetByRollback();
 
         $this->deposit();
+        // The managers to tell are found from cron (lot 9, ticket 3 of review MMR-520), then the message is sent.
+        $this->runAdhocTasks('\tool_vae\task\queue_notifications');
         $this->runAdhocTasks('\tool_vae\task\send_notification');
 
         $messages = $sink->get_messages();

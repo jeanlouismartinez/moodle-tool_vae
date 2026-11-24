@@ -90,11 +90,11 @@ Feature: A manager reads the candidates they follow, with their records and, whe
     When I am on the "tool_vae > Organisation" page
     Then "My pathway" "link" should exist in the ".nav-tabs" "css_element"
     And "Followed candidates" "link" should not exist in the ".nav-tabs" "css_element"
-    And the "candidat" "Organisation followed" page should be refused with "Sorry, but you do not currently have permissions to do that (View the dossier of a candidate one follows)."
+    And the "candidat" "Organisation followed" page should be refused with "Sorry, but you do not currently have permissions to do that (View the dossier of a vaeiste one follows)."
 
   Scenario: A manager who follows nobody is refused the tab as well
     Given I log in as "etranger"
-    Then the "etranger" "Organisation followed" page should be refused with "Sorry, but you do not currently have permissions to do that (View the dossier of a candidate one follows)."
+    Then the "etranger" "Organisation followed" page should be refused with "Sorry, but you do not currently have permissions to do that (View the dossier of a vaeiste one follows)."
 
   Scenario: A referent counts the declarations on their bloc and keeps the list of the candidates they follow
     Given I log in as "admin"

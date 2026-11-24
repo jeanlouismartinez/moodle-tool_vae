@@ -66,9 +66,9 @@ final class validation_deposit_text_test extends \advanced_testcase {
     public function test_the_intro_keeps_only_the_promises_the_code_keeps(string $lang, array $forbidden, array $required): void {
         // The plugin's own language files are read: the test site has no French pack installed, so the string manager would
         // answer in English whatever language is asked for.
-        global $CFG;
-        $string = [];
-        include($CFG->dirroot . '/admin/tool/vae/lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        \tool_vae\fixtures\lang_files::skip_unless_present($lang);
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
         $text = $string['validationdepositintro'];
 
         foreach ($forbidden as $promise) {

@@ -1,0 +1,42 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/anchor_warning
+
+    The warning a claim carries when the platform no longer says what the claim says; nothing when the anchor holds.
+
+    The template holds no logic. One key is HTML (triple braces): noticehtml, a notification made by the core
+    ($output->notification()), whose message names the record escaped by tool_vae\output\anchor_warning.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * noticehtml - false, or HTML: the warning
+
+    Example context (json):
+    {
+        "noticehtml": "<div class=\"alert alert-warning alert-block fade in\" role=\"alert\">The record was renamed.</div>"
+    }
+}}
+{{#noticehtml}}{{{noticehtml}}}{{/noticehtml}}

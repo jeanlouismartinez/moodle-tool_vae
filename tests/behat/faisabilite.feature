@@ -65,6 +65,8 @@ Feature: A candidate follows the sections of the dossier de faisabilité from on
     And I set the field "id_niveau_formation" to "Level 4"
     And I press "Save a version"
     Then I should see "Version 1 saved."
+    # Lot 7 (wave 3b): the page of the fields says where the section stands, read from its draft.
+    And I should see "Latest saved version: 1."
     When I visit "/admin/tool/vae/section.php?section=statut"
     And I set the field "id_statut_benevole" to "1"
     And I set the field "id_convention" to "1486"
@@ -85,3 +87,18 @@ Feature: A candidate follows the sections of the dossier de faisabilité from on
     And I log in as "balises"
     When I visit "/admin/tool/vae/section.php?section=contact"
     Then I should see "<i>Ville</i> & cie"
+
+  # Lot 7 (wave 3b): the page drawn after a version refused for a conflict was played by no scenario. It says so, keeps the
+  # text sent, and its first link reloads the section, where the draft of the other tab is read.
+  Scenario: A version sent from a page another tab overtook is refused, the text sent is kept and the page can be reloaded
+    Given I log in as "candidat"
+    When I visit "/admin/tool/vae/section.php?section=objectifs"
+    And another tab of "candidat" saves the draft in progress "Le texte de l'autre onglet." of the section "objectifs"
+    And I set the field "Text of the section" to "Le texte de cette page."
+    And I press "Save a version"
+    Then I should see "This text was changed somewhere else since you opened it."
+    And I should see "The text you were saving is still in the form below"
+    And the field "Text of the section" matches value "Le texte de cette page."
+    When I follow "Reload the page to read the more recent draft"
+    Then I should see "Objectives of the approach"
+    And the field "Text of the section" matches value "Le texte de l'autre onglet."

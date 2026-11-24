@@ -32,6 +32,8 @@ use tool_vae\local\evaluation_manager;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\evaluation_manager::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\certification_manager::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\positioning_line::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\positioning_section::class)]
 final class positioning_test extends \advanced_testcase {
     /** @var \stdClass The candidate, who declared on RNCP100 and on RS200. */
     private $candidate;
@@ -613,13 +615,14 @@ final class positioning_test extends \advanced_testcase {
     }
 
     public function test_no_word_of_validation_in_the_new_strings(): void {
-        global $CFG;
         $checked = 0;
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             // The word "candidate" is the English word of the plugin; "candidat" is never written in French.
             $forbidden = $lang === 'fr' ? '~\bvalid|acquis|candidat|\btaux\b|\bnote\b|\bscore\b~iu' : '~\bvalid|\bscore\b~iu';
-            $string = [];
-            require($CFG->dirroot . '/admin/tool/vae/lang/' . $lang . '/tool_vae.php');
+            require_once(__DIR__ . '/fixtures/lang_files.php');
+            $string = \tool_vae\fixtures\lang_files::strings($lang);
             foreach ($string as $key => $text) {
                 if (
                     !preg_match(
@@ -807,10 +810,22 @@ final class positioning_test extends \advanced_testcase {
      * @return string HTML.
      */
     private function section(): string {
-        return \tool_vae\local\positioning_screen::section(
+        return self::draw(new \tool_vae\output\positioning_section(
             (int) $this->candidate->id,
             \context_user::instance($this->candidate->id)
-        );
+        ));
+    }
+
+    /**
+     * A piece drawn by the renderer of the plugin, as the pages draw it (lot 7, MMR-520 ticket 4).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function draw(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
     }
 
     public function test_a_certification_says_until_when_it_stands_and_one_with_no_date_says_nothing_of_it(): void {
@@ -818,8 +833,8 @@ final class positioning_test extends \advanced_testcase {
         $undated = $this->certify_until('', 'BC02', 'Deux.', 'Exception motivee.', '2026-11-04');
         $context = \context_user::instance($this->candidate->id);
 
-        $with = \tool_vae\local\positioning_screen::line($dated, $context, 'certif');
-        $without = \tool_vae\local\positioning_screen::line($undated, $context, 'certif');
+        $with = self::draw(new \tool_vae\output\positioning_line($dated, $context, 'certif'));
+        $without = self::draw(new \tool_vae\output\positioning_line($undated, $context, 'certif'));
 
         $this->assertStringContainsString(s(get_string('positioninguntil', 'tool_vae', '2027-11-04')), $with);
         $this->assertStringNotContainsString('stands until', $without);
@@ -870,10 +885,10 @@ final class positioning_test extends \advanced_testcase {
         ]);
         $this->setUser($this->direction);
 
-        $html = \tool_vae\local\positioning_screen::section(
+        $html = self::draw(new \tool_vae\output\positioning_section(
             (int) $this->direction->id,
             \context_user::instance($this->direction->id)
-        );
+        ));
 
         $this->assertStringContainsString(get_string('positioningtorenew', 'tool_vae'), $html, 'The date is told.');
         $this->assertStringNotContainsString(get_string('positioningrenewlink', 'tool_vae'), $html);

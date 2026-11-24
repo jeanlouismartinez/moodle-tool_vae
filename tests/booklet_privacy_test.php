@@ -230,6 +230,7 @@ final class booklet_privacy_test extends \advanced_testcase {
         global $DB;
 
         delete_user($this->manager);
+        $this->run_purge_of_deleted_accounts();
 
         $this->assertSame(0, $DB->count_records('tool_vae_booklet_auth', ['managerid' => $this->manager->id]));
     }
@@ -238,9 +239,19 @@ final class booklet_privacy_test extends \advanced_testcase {
         global $DB;
 
         delete_user($this->direction);
+        $this->run_purge_of_deleted_accounts();
 
         $rows = $DB->get_records('tool_vae_booklet_auth', ['managerid' => $this->manager->id]);
         $this->assertCount(1, $rows);
         $this->assertNull(reset($rows)->grantedby);
+    }
+
+    /**
+     * Run the purge the observer of an account deletion queued, as cron would, and only it (ticket 3 of review MMR-520).
+     */
+    private function run_purge_of_deleted_accounts(): void {
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\purge_deleted_account::class);
+        ob_end_clean();
     }
 }

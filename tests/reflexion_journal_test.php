@@ -193,14 +193,14 @@ final class reflexion_journal_test extends \advanced_testcase {
     public function test_nobody_deletes_another_persons_entry_or_another_document(): void {
         global $DB;
         $draft = $this->write(1, 'Un texte.');
-        $faisabilite = (new draft_manager())->section(
+        $feasibility = (new draft_manager())->section(
             (int) $this->candidate->id,
             draft_manager::DOCTYPE_FAISABILITE,
             'objectifs'
         );
         $manager = new draft_manager();
 
-        $this->assert_refused(fn() => $manager->delete_entry((int) $faisabilite->id), 'errordraftrefused');
+        $this->assert_refused(fn() => $manager->delete_entry((int) $feasibility->id), 'errordraftrefused');
         $this->assert_refused(fn() => $manager->delete_entry(999999), 'errordraftrefused');
 
         foreach ([$this->draftreader, get_admin()] as $user) {
@@ -243,6 +243,6 @@ final class reflexion_journal_test extends \advanced_testcase {
         $this->write(1, 'Un texte tres personnel.');
 
         $this->assertNull(validation_overview::document((int) $this->candidate->id));
-        $this->assertSame([], \tool_vae\local\faisabilite_overview::saved_versions((int) $this->candidate->id));
+        $this->assertSame([], \tool_vae\local\feasibility_overview::saved_versions((int) $this->candidate->id));
     }
 }

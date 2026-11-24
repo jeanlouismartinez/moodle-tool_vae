@@ -36,6 +36,8 @@ use tool_vae\local\fiche_screen;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\fiche_screen::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\fiche_preview::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\fiche_results::class)]
 final class fiche_screen_test extends \advanced_testcase {
     /** @var int The day of the tests: 27 October 2026, noon, in the timezone of the reader. */
     private int $now;
@@ -89,6 +91,31 @@ final class fiche_screen_test extends \advanced_testcase {
         ]);
     }
 
+    /**
+     * The preview of a plan drawn by the renderer of the plugin (lot 7: fiche_screen::preview() became a piece).
+     *
+     * @param \stdClass $plan
+     * @param int $now
+     * @return string HTML.
+     */
+    private static function preview(\stdClass $plan, int $now): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(new \tool_vae\output\fiche_preview($plan, $now));
+    }
+
+    /**
+     * The result of a plan drawn by the renderer of the plugin (lot 7: fiche_screen::results() became a piece).
+     *
+     * @param \stdClass $plan
+     * @return string HTML.
+     */
+    private static function results(\stdClass $plan): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(new \tool_vae\output\fiche_results($plan));
+    }
+
     public function test_what_comes_from_the_export_leaves_escaped(): void {
         $hostile = self::record([
             'title' => '<img src=x onerror=alert(1)>',
@@ -107,7 +134,7 @@ final class fiche_screen_test extends \advanced_testcase {
             ]],
         ]);
 
-        $html = fiche_screen::preview($this->plan([$hostile, $refused], ['originname' => '<b>evil</b>.zip']), $this->now);
+        $html = self::preview($this->plan([$hostile, $refused], ['originname' => '<b>evil</b>.zip']), $this->now);
 
         foreach (['<img', '<script', '<b>x', '<i>31', '<u>publi', '<b>evil'] as $raw) {
             $this->assertStringNotContainsString($raw, $html, $raw);
@@ -125,7 +152,7 @@ final class fiche_screen_test extends \advanced_testcase {
             'refusal' => (object) ['reason' => fiche_refusal::NO_BLOC, 'params' => (object) ['number' => 'RNCP99003']],
         ]);
 
-        $html = fiche_screen::preview($this->plan([$ready, $second, $refused]), $this->now);
+        $html = self::preview($this->plan([$ready, $second, $refused]), $this->now);
 
         $this->assertStringContainsString('<caption', $html);
         $this->assertStringContainsString(get_string('fcimportcaption', 'tool_vae'), $html);
@@ -145,7 +172,7 @@ final class fiche_screen_test extends \advanced_testcase {
         $this->assertStringContainsString(get_string('fcimporterrornobloc', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('fcimportcheck', 'tool_vae'), $html);
         $this->assertStringContainsString(
-            get_string('fcimportvisible', 'tool_vae'),
+            s(get_string('fcimportvisible', 'tool_vae')),
             $html,
             'Always said: it is open to declarations at once.'
         );
@@ -157,7 +184,7 @@ final class fiche_screen_test extends \advanced_testcase {
             'refusal' => (object) ['reason' => fiche_refusal::NOT_FOUND, 'params' => (object) ['number' => 'RNCP00000']],
         ]);
 
-        $html = fiche_screen::preview($this->plan([$refused]), $this->now);
+        $html = self::preview($this->plan([$refused]), $this->now);
 
         $this->assertStringContainsString(get_string('fcimportnone', 'tool_vae'), $html);
         $this->assertStringNotContainsString('<details', $html);
@@ -180,7 +207,7 @@ final class fiche_screen_test extends \advanced_testcase {
             self::record(['number' => 'RNCP90005', 'state' => 'adopted']),
         ];
 
-        $html = fiche_screen::preview($this->plan($records), $this->now);
+        $html = self::preview($this->plan($records), $this->now);
 
         $this->assertStringContainsString(get_string('fcimportmoodlenew', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('fcimportdonenew', 'tool_vae', 2), $html);
@@ -204,7 +231,7 @@ final class fiche_screen_test extends \advanced_testcase {
         $odd = self::record(['number' => 'RNCP90007', 'active' => 'SUSPENDUE', 'enddate' => 'bientôt']);
         $active = self::record(['number' => 'RNCP90008', 'active' => 'ACTIVE', 'enddate' => '31/12/2099']);
 
-        $html = fiche_screen::preview($this->plan([$inactive, $odd, $active]), $this->now);
+        $html = self::preview($this->plan([$inactive, $odd, $active]), $this->now);
 
         $this->assertStringContainsString(get_string('fcimportstateinactive', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('fcimportstateother', 'tool_vae', 'SUSPENDUE'), $html);
@@ -227,7 +254,7 @@ final class fiche_screen_test extends \advanced_testcase {
             'forecast' => (object) ['created' => 5, 'updated' => 0, 'gone' => 0, 'diverged' => 0],
         ]);
 
-        $html = fiche_screen::preview($this->plan([$older]), $this->now);
+        $html = self::preview($this->plan([$older]), $this->now);
 
         $this->assertStringContainsString(get_string('fcimportolderskip', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('fcimportolder', 'tool_vae', (object) [
@@ -248,7 +275,7 @@ final class fiche_screen_test extends \advanced_testcase {
         $today = self::record(['number' => 'RNCP90011', 'enddate' => '27/10/2026']);
         $yesterday = self::record(['number' => 'RNCP90012', 'enddate' => '26/10/2026']);
 
-        $html = fiche_screen::preview($this->plan([$today, $yesterday]), $this->now);
+        $html = self::preview($this->plan([$today, $yesterday]), $this->now);
 
         $this->assertStringContainsString(get_string('fcimportendreg', 'tool_vae', '27/10/2026'), $html, 'The whole day counts.');
         $this->assertStringNotContainsString(
@@ -263,14 +290,14 @@ final class fiche_screen_test extends \advanced_testcase {
         $long = self::record(['number' => 'RNCP90009', 'long' => ['BC02', 'BC03'], 'markup' => ['BC01']]);
         $title = self::record(['number' => 'RNCP90010', 'name' => 'RNCP90010', 'title' => str_repeat('Titre très long ', 10)]);
 
-        $html = fiche_screen::preview($this->plan([$long, $title]), $this->now);
+        $html = self::preview($this->plan([$long, $title]), $this->now);
 
         $this->assertStringContainsString(
-            get_string('fcimportnotelong', 'tool_vae', (object) ['count' => 2, 'ranks' => 'BC02, BC03']),
+            s(get_string('fcimportnotelong', 'tool_vae', (object) ['count' => 2, 'ranks' => 'BC02, BC03'])),
             $html
         );
         $this->assertStringContainsString(
-            get_string('fcimportnotemarkup', 'tool_vae', (object) ['count' => 1, 'ranks' => 'BC01']),
+            s(get_string('fcimportnotemarkup', 'tool_vae', (object) ['count' => 1, 'ranks' => 'BC01'])),
             $html
         );
         $this->assertStringContainsString(get_string('fcimportnotetitle', 'tool_vae'), $html);
@@ -330,7 +357,7 @@ final class fiche_screen_test extends \advanced_testcase {
     }
 
     public function test_the_provenance_and_the_source_are_said_without_a_form_to_fill(): void {
-        $html = fiche_screen::preview($this->plan([self::record()]), $this->now);
+        $html = self::preview($this->plan([self::record()]), $this->now);
 
         $this->assertStringContainsString('export-fiches-csv-2026-10-19.zip', $html);
         $this->assertStringContainsString(get_string('fcimportexportdate', 'tool_vae', display_date::format(
@@ -340,7 +367,7 @@ final class fiche_screen_test extends \advanced_testcase {
         $this->assertStringContainsString('Licence Ouverte 2.0', $html);
         $this->assertStringContainsString('France compétences', $html);
 
-        $fetched = fiche_screen::preview($this->plan([self::record()], [
+        $fetched = self::preview($this->plan([self::record()], [
             'origin' => 'fetch',
             'resource' => (object) [
                 'id' => 'c302e089-f5c6-4e52-a685-c877e3a6cdf5',
@@ -363,7 +390,7 @@ final class fiche_screen_test extends \advanced_testcase {
             (object) ['number' => 'RNCP99005', 'status' => 'notrun', 'html' => ''],
         ]]);
 
-        $html = fiche_screen::results($plan);
+        $html = self::results($plan);
 
         $this->assertStringContainsString(get_string('fcimportresultline', 'tool_vae', (object) [
             'code' => 'RNCP99001', 'summary' => '4 competencies added.',
@@ -380,7 +407,7 @@ final class fiche_screen_test extends \advanced_testcase {
         $this->assertStringContainsString('Does one of these records replace another?', $html);
         $this->assertStringContainsString('/admin/tool/vae/supersession.php', $html);
 
-        $none = fiche_screen::results($this->plan([self::record()], ['results' => [
+        $none = self::results($this->plan([self::record()], ['results' => [
             (object) ['number' => 'RNCP99004', 'status' => 'refused', 'html' => 'No bloc.'],
         ]]));
         $this->assertStringNotContainsString(
@@ -400,7 +427,7 @@ final class fiche_screen_test extends \advanced_testcase {
         $adopted = self::record(['number' => 'RNCP90024', 'title' => $long, 'name' => 'RNCP90024', 'state' => 'adopted']);
         $note = get_string('fcimportnotetitle', 'tool_vae');
 
-        $count = fn(array $records) => substr_count(fiche_screen::preview($this->plan($records), $this->now), $note);
+        $count = fn(array $records) => substr_count(self::preview($this->plan($records), $this->now), $note);
 
         $this->assertSame(1, $count([$new]));
         $this->assertSame(1, $count([$rebuilt]));
@@ -425,7 +452,7 @@ final class fiche_screen_test extends \advanced_testcase {
             'refusal' => (object) ['reason' => fiche_refusal::NO_BLOC_ACTIVE, 'params' => (object) ['number' => 'RNCP90025']],
         ]);
 
-        $html = fiche_screen::preview($this->plan([$refused]), $this->now);
+        $html = self::preview($this->plan([$refused]), $this->now);
 
         $this->assertStringContainsString(get_string('fcimporterrornoblocactive', 'tool_vae'), $html);
         $this->assertStringNotContainsString(get_string('fcimporterrornobloc', 'tool_vae'), $html);

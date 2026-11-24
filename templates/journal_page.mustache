@@ -1,0 +1,78 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/journal_page
+
+    The page "Journal réflexif", below its heading: the two notes (the journal is private; name nobody in it), what the
+    journal is, the notice when it is closed, the button to start an entry (or the notification that the journal is full),
+    one sentence when there is no entry or the table of the entries, and the way back to the dossier.
+
+    Every text comes from the context, already worded by tool_vae\output\journal_page. The template holds no logic. Every
+    text and address is escaped (double braces), except three keys of HTML (triple braces): closedhtml, a notification made
+    by the core ($output->notification()); starthtml, the button to start an entry ($output->single_button()) or the
+    notification that the journal is full; tablehtml, a table drawn by the template tool_vae/table (its texts and links are
+    escaped by the template tool_vae/cell_content).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * private - string, the note that the journal is private
+    * consigne - string, the note to name nobody in it
+    * intro - string, what the journal is
+    * closedhtml - false, or HTML: the notice that the journal is closed
+    * starthtml - false, or HTML: the button to start an entry, or the notification that the journal is full
+    * none - false, or a string: the sentence drawn when there is no entry
+    * tablehtml - false, or HTML: the table of the entries
+    * back - {url, label}: the way back to the dossier
+
+    Example context (json):
+    {
+        "private": "This journal is yours: nobody else reads it.",
+        "consigne": "Name nobody in it.",
+        "intro": "Write here what you learn as you go.",
+        "closedhtml": false,
+        "starthtml": "<div class=\"singlebutton\"><button type=\"submit\" class=\"btn btn-secondary\">New entry</button></div>",
+        "none": false,
+        "tablehtml": "<table class=\"generaltable tool-vae-journal\"><tbody><tr><td>Entry 1</td></tr></tbody></table>",
+        "back": {"url": "https://example.com/admin/tool/vae/dossier.php", "label": "Back to the dossier"}
+    }
+}}
+<div class="alert alert-info tool-vae-labelling" role="note">{{private}}</div>
+<div class="alert alert-warning tool-vae-anonymise" role="note">{{consigne}}</div>
+<p>{{intro}}</p>
+{{#closedhtml}}
+{{{closedhtml}}}
+{{/closedhtml}}
+{{#starthtml}}
+{{{starthtml}}}
+{{/starthtml}}
+{{#none}}
+<p>{{none}}</p>
+{{/none}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}
+{{#back}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/back}}

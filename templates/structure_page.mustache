@@ -1,0 +1,68 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/structure_page
+
+    The page "Archive de la structure", below its heading: a notification and the way back to the dossier; or the archive
+    produced, with the link to download it; or, above the confirmation of the core that the page draws itself, what the
+    archive is, who may read it and whether it replaces one in place.
+
+    Every text comes from the context, already worded by tool_vae\output\structure_page. The template holds no logic: the
+    states exclude one another before. Every text and address is escaped (double braces), except three keys of HTML made by
+    the core (triple braces): noticehtml and replaceshtml, notifications ($output->notification(); a refusal is escaped
+    before); continuehtml, the button that goes back to the dossier ($output->continue_button()).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - false, or a string: what the archive of the structure is
+    * noticehtml - false, or HTML: the notification of the state (off, refused, produced, who may read the archive)
+    * replaceshtml - false, or HTML: the notice that the archive replaces the one in place
+    * download - false, or {url, label}: the link to download the archive produced
+    * continuehtml - false, or HTML: the way back to the dossier
+
+    Example context (json):
+    {
+        "intro": "The archive of the structure holds the positionings of the vaeiste, in a document of their own.",
+        "noticehtml": "<div class=\"alert alert-info\">Only the direction reads this archive.</div>",
+        "replaceshtml": "<div class=\"alert alert-warning\">The new archive replaces the one in place.</div>",
+        "download": {"url": "https://example.com/pluginfile.php/5/tool_vae/structure/7/structure.zip", "label": "Download"},
+        "continuehtml": "<div class=\"continuebutton\"><a href=\"https://example.com/dossier.php\">Continue</a></div>"
+    }
+}}
+{{#intro}}
+<p>{{intro}}</p>
+{{/intro}}
+{{#noticehtml}}
+{{{noticehtml}}}
+{{/noticehtml}}
+{{#replaceshtml}}
+{{{replaceshtml}}}
+{{/replaceshtml}}
+{{#download}}
+<a href="{{url}}" class="btn btn-primary">{{label}}</a>
+{{/download}}
+{{#continuehtml}}
+{{{continuehtml}}}
+{{/continuehtml}}

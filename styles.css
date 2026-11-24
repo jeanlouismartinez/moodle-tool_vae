@@ -1,8 +1,26 @@
 /*
+ * This file is part of Moodle - http://moodle.org/
+ *
+ * Moodle is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Moodle is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
  * Styles for tool_vae.
  *
  * WHY THIS FILE EXISTS. The plugin emitted five class names and defined none of them: hooks
- * with nothing behind them, in a plugin that has no templates either. The most important of
+ * with nothing behind them, in a plugin that had no templates either when this file was
+ * written (its pages have been drawn by Mustache templates since). The most important of
  * the five carries the anonymisation reminder - the measure the whole regime 2 argument rests
  * on. It was readable, and nothing set it apart from the rest of the form.
  *
@@ -13,23 +31,27 @@
  * meaning - the reminder keeps its border AND its text, the warning keeps its icon from the
  * core notification it is rendered as.
  *
+ * EVERY RULE IS SCOPED TO THE PAGES OF THE PLUGIN. Moodle joins the style sheets of every plugin into one: a rule here applies
+ * on every page of the site. Each one starts with .path-admin-tool-vae, the class the core gives the body of every page under
+ * admin/tool/vae (moodle_page builds it from the page type); no class of this file is printed anywhere else.
+ *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /* One claim and everything attached to it, kept together as a block. */
-.tool-vae-claim-block {
+.path-admin-tool-vae .tool-vae-claim-block {
     border-left: 3px solid var(--bs-border-color, #dee2e6);
     padding-left: 1rem;
 }
 
 /* The fields of a claim, as a description list. */
-.tool-vae-claim dt {
+.path-admin-tool-vae .tool-vae-claim dt {
     font-weight: 600;
 }
 
-.tool-vae-claim dd {
+.path-admin-tool-vae .tool-vae-claim dd {
     margin-bottom: 0.75rem;
 }
 
@@ -38,13 +60,13 @@
  * faster than one of two hundred, and this is the one field somebody reads in full.
  * white-space preserves the paragraphs a candidate typed, which nl2br would have flattened.
  */
-.tool-vae-situation {
+.path-admin-tool-vae .tool-vae-situation {
     max-width: 70ch;
     white-space: pre-wrap;
 }
 
 /* The history of attestations, including the withdrawn ones. */
-.tool-vae-attestations {
+.path-admin-tool-vae .tool-vae-attestations {
     margin-bottom: 1rem;
 }
 
@@ -54,25 +76,25 @@
  * grey text: at 400% zoom, or on a small screen, an undelimited note reads as part of the
  * field label above it. Bootstrap's own alert classes carry the colour; this adds the weight.
  */
-.tool-vae-anonymise {
+.path-admin-tool-vae .tool-vae-anonymise {
     border-left: 4px solid var(--bs-info, #0f6cbf);
     margin-bottom: 0.5rem;
     max-width: 70ch;
 }
 
 /* The short reminder against a field: the same weight, in less room (T-54). */
-.tool-vae-anonymise-short {
+.path-admin-tool-vae .tool-vae-anonymise-short {
     padding: 0.25rem 0.75rem;
 }
 
 /* T-81: the comparison of two versions. Never colour alone: an addition is underlined, a removal is
    struck through, and each carries its own words for a screen reader (text_diff::html()). */
-.tool-vae-ins {
+.path-admin-tool-vae .tool-vae-ins {
     text-decoration: underline;
     text-decoration-style: solid;
     background: transparent;
 }
-.tool-vae-del {
+.path-admin-tool-vae .tool-vae-del {
     text-decoration: line-through;
 }
 
@@ -80,7 +102,7 @@
  * The pathway: the cells of courses and plans are lists, which start at the top of their row whatever the length of the others.
  * Nothing here ranks a line above another: no colour, no weight, no size.
  */
-.tool-vae-organisation td,
-.tool-vae-organisation th {
+.path-admin-tool-vae .tool-vae-organisation td,
+.path-admin-tool-vae .tool-vae-organisation th {
     vertical-align: top;
 }

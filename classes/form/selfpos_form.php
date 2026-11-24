@@ -23,6 +23,7 @@ require_once($CFG->libdir . '/formslib.php');
 
 use tool_vae\local\selfpos_manager;
 use tool_vae\local\selfpos_scale;
+use tool_vae\output\form_note;
 
 /**
  * Positioning oneself on a node of a record (lot 1a): a step of the scale and an optional justification.
@@ -40,6 +41,8 @@ class selfpos_form extends \moodleform {
      * Custom data: `canwithdraw` (bool), whether a level stands and may be withdrawn.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $options = selfpos_scale::labels();
@@ -49,13 +52,14 @@ class selfpos_form extends \moodleform {
         $mform->addElement('select', 'level', get_string('selfposlevellabel', 'tool_vae'), $options);
         $mform->setType('level', PARAM_INT);
 
-        $mform->addElement('html', \html_writer::div(s(get_string('anonymiseshort', 'tool_vae')), 'small text-muted mb-2'));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::short()));
         $mform->addElement(
             'textarea',
             'justification',
             get_string('selfposjustificationlabel', 'tool_vae'),
             ['rows' => 8, 'cols' => 70, 'maxlength' => selfpos_manager::MAX_LENGTH]
         );
+        // Free text: PARAM_RAW, as Moodle asks for a text area; checked by its manager and cleaned or escaped when shown.
         $mform->setType('justification', PARAM_RAW);
 
         $mform->addElement('advcheckbox', 'markdown', get_string('selfposformatmarkdown', 'tool_vae'));

@@ -65,8 +65,8 @@ final class fiche_converter_test extends \advanced_testcase {
      */
     private static function convert(string $number): \stdClass {
         return fiche_converter::convert(
-            self::fixture('export-blocs-exemple.csv'),
-            self::fixture('export-standard-exemple.csv'),
+            self::fixture('export-blocs-example.csv'),
+            self::fixture('export-standard-example.csv'),
             $number
         );
     }
@@ -128,7 +128,7 @@ final class fiche_converter_test extends \advanced_testcase {
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Bloc_Competences_Libelle is missing');
         $blocs = "\"Numero_Fiche\";\"Bloc_Competences_Code\"\r\n";
-        fiche_converter::convert($blocs, self::fixture('export-standard-exemple.csv'), 'RNCP99001');
+        fiche_converter::convert($blocs, self::fixture('export-standard-example.csv'), 'RNCP99001');
     }
 
     public function test_the_csv_written_is_the_one_the_import_reads(): void {
@@ -243,7 +243,7 @@ final class fiche_converter_test extends \advanced_testcase {
         try {
             fiche_converter::convert(
                 "\"Numero_Fiche\";\"Bloc_Competences_Code\"\r\n",
-                self::fixture('export-standard-exemple.csv'),
+                self::fixture('export-standard-example.csv'),
                 'RNCP99001'
             );
             $this->fail('A missing column must be refused.');
@@ -256,7 +256,7 @@ final class fiche_converter_test extends \advanced_testcase {
         }
 
         try {
-            fiche_converter::convert('', self::fixture('export-standard-exemple.csv'), 'RNCP99001');
+            fiche_converter::convert('', self::fixture('export-standard-example.csv'), 'RNCP99001');
             $this->fail('An empty file must be refused.');
         } catch (fiche_refusal $refusal) {
             $this->assertSame(fiche_refusal::FILE_EMPTY, $refusal->reason());
@@ -266,8 +266,8 @@ final class fiche_converter_test extends \advanced_testcase {
 
     public function test_convert_many_equals_convert_for_every_number(): void {
         $many = fiche_converter::convert_many(
-            self::fixture('export-blocs-exemple.csv'),
-            self::fixture('export-standard-exemple.csv'),
+            self::fixture('export-blocs-example.csv'),
+            self::fixture('export-standard-example.csv'),
             ['RNCP99001', 'RNCP99002', 'RS99005', 'RNCP99003', 'RNCP99004', 'RNCP00000']
         );
 
@@ -283,8 +283,8 @@ final class fiche_converter_test extends \advanced_testcase {
 
     public function test_convert_many_keeps_the_order_asked_and_reads_a_number_once(): void {
         $many = fiche_converter::convert_many(
-            self::fixture('export-blocs-exemple.csv'),
-            self::fixture('export-standard-exemple.csv'),
+            self::fixture('export-blocs-example.csv'),
+            self::fixture('export-standard-example.csv'),
             ['rncp99002', 'RNCP99001', ' RNCP99001 ']
         );
 
@@ -698,31 +698,64 @@ final class fiche_converter_test extends \advanced_testcase {
         $this->assertSame(40, mb_strlen($got->params()['codes']));
     }
 
-    public function test_the_script_does_not_say_a_file_was_written_when_it_was_not(): void {
-        $script = dirname(__DIR__) . '/scripts/convertir-fiche-rncp.php';
+    public function test_the_file_is_written_whole_or_said_not_written(): void {
+        // What cli/convert_fiche.php relies on before it says a file was written: the person who reads the end of its
+        // output would otherwise type nine fields for nothing.
         $directory = make_request_directory();
-        file_put_contents("$directory/blocs.csv", self::fixture('export-blocs-exemple.csv'));
-        file_put_contents("$directory/standard.csv", self::fixture('export-standard-exemple.csv'));
-        $run = function (string $output) use ($script, $directory): array {
-            $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . ' ' . escapeshellarg("$directory/blocs.csv")
-                . ' ' . escapeshellarg("$directory/standard.csv") . ' RNCP99001 ' . escapeshellarg($output) . ' 2>&1';
-            exec($command, $lines, $code);
+        $result = fiche_converter::convert(
+            self::fixture('export-blocs-example.csv'),
+            self::fixture('export-standard-example.csv'),
+            'RNCP99001'
+        );
+        $this->assertCount(4, $result->rows);
 
-            return [$code, implode(' | ', $lines)];
-        };
+        // The witness: a place that exists gets the whole file.
+        $this->assertTrue(fiche_converter::write_csv("$directory/output.csv", $result->rows));
+        $this->assertSame(fiche_converter::to_csv($result->rows), file_get_contents("$directory/output.csv"));
 
-        // The witness: a place that exists gets its file, and the script says so.
-        [$code, $text] = $run("$directory/sortie.csv");
-        $this->assertSame(0, $code, $text);
-        $this->assertFileExists("$directory/sortie.csv");
-        $this->assertStringContainsString('4 bloc(s) ecrit(s)', $text);
+        // A place that does not exist: no file, and the answer says so.
+        $this->assertFalse(fiche_converter::write_csv("$directory/nowhere/at/all/output.csv", $result->rows));
+        $this->assertFileDoesNotExist("$directory/nowhere/at/all/output.csv");
+        $this->assertDirectoryDoesNotExist("$directory/nowhere");
+    }
 
-        // A place that does not exist: no file, no claim, an error code.
-        [$code, $text] = $run("$directory/nulle/part/sortie.csv");
-        $this->assertSame(2, $code, $text);
-        $this->assertStringNotContainsString('bloc(s) ecrit(s)', $text);
-        $this->assertStringContainsString('Impossible d', $text);
-        $this->assertFileDoesNotExist("$directory/nulle/part/sortie.csv");
+    public function test_the_command_line_script_is_a_thin_moodle_script(): void {
+        // The script is a Moodle command line script that only reads options and calls this class; it says it wrote a
+        // file only after write_csv() said so.
+        $script = (string) file_get_contents(dirname(__DIR__) . '/cli/convert_fiche.php');
+
+        $this->assertMatchesRegularExpression("/^define\('CLI_SCRIPT', true\);$/m", $script);
+        $this->assertStringContainsString("require(__DIR__ . '/../../../../config.php');", $script);
+        $this->assertStringContainsString('cli_get_params(', $script);
+        $this->assertStringContainsString('fiche_converter::convert(', $script);
+        $written = strpos($script, "'cliwritten'");
+        $check = strpos($script, 'if (!fiche_converter::write_csv(');
+        $this->assertNotFalse($check);
+        $this->assertNotFalse($written);
+        $this->assertLessThan($written, $check, 'The claim comes after the check.');
+        $this->assertDoesNotMatchRegularExpression('/^\s*function\s/m', $script, 'No global function.');
+    }
+
+    public function test_every_sentence_the_command_line_script_prints_is_a_language_string(): void {
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $script = (string) file_get_contents(dirname(__DIR__) . '/cli/convert_fiche.php');
+
+        $this->assertStringNotContainsString('<<<', $script, 'No heredoc: the help is made of language strings.');
+        // A call that prints a literal of two words or more is a sentence written in the code.
+        $printed = '/(cli_error|cli_writeln|echo)\s*\(?\s*["\'][^"\']*[A-Za-z]+ [A-Za-z]+/';
+        $this->assertDoesNotMatchRegularExpression($printed, $script);
+        $joined = '/\.\s*["\'][^"\']*[A-Za-z]+ [A-Za-z]+[^"\']*["\']/';
+        $this->assertDoesNotMatchRegularExpression($joined, $script, 'No sentence is joined to a string either.');
+        preg_match_all("/get_string\('(cli[a-z_]+)', 'tool_vae'/", $script, $keys);
+        $this->assertNotEmpty($keys[1]);
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
+            $strings = \tool_vae\fixtures\lang_files::strings($lang);
+            foreach (array_unique($keys[1]) as $key) {
+                $this->assertArrayHasKey($key, $strings, "lang/$lang");
+            }
+        }
     }
 
     public function test_a_record_in_force_with_no_bloc_is_said_apart_from_an_old_one(): void {

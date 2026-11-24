@@ -1,0 +1,57 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/remove_record_page
+
+    The page "Retirer la ligne d'une fiche", below its heading: the refusal and the way back to the list, or the form that
+    lists what leaves with the row and asks for a confirmation.
+
+    The template holds no logic: the states exclude one another before (tool_vae\output\remove_record_page). Every value is
+    HTML made by the core, placed as it is (triple braces): noticehtml, a notification ($output->notification(), its message
+    escaped); continuehtml, the button back to the list ($output->continue_button()); formhtml, the form of the core
+    (moodleform::render()), drawn once.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * noticehtml - false, or HTML: the refusal
+    * continuehtml - false, or HTML: the way back to the list
+    * formhtml - false, or HTML: the form
+
+    Example context (json):
+    {
+        "noticehtml": "<div class=\"alert alert-danger\">Moodle still holds the framework of this record.</div>",
+        "continuehtml": "<div class=\"continuebutton\"><a href=\"https://example.com/admin/tool/vae/index.php\">Continue</a></div>",
+        "formhtml": false
+    }
+}}
+{{#noticehtml}}
+{{{noticehtml}}}
+{{/noticehtml}}
+{{#continuehtml}}
+{{{continuehtml}}}
+{{/continuehtml}}
+{{#formhtml}}
+{{{formhtml}}}
+{{/formhtml}}

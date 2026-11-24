@@ -64,6 +64,10 @@ class behat_tool_vae extends behat_base {
      * | Renewals | The certifications whose date has passed, renewals.php |
      * | Booklet authorization | The managers authorized to produce the archive of the structure, booklet_authorize.php |
      * | Pending | The declarations awaiting an attestation, pending.php |
+     * | Setup | The getting started page, setup.php |
+     * | Guide vaeiste | The guide of the vaeiste, guide.php?role=vaeiste |
+     * | Guide manager | The guide of the manager, guide.php?role=manager |
+     * | Guide direction | The guide of the direction, guide.php?role=direction |
      *
      * @param string $page
      * @return moodle_url
@@ -104,6 +108,13 @@ class behat_tool_vae extends behat_base {
                 return new moodle_url('/admin/tool/vae/refs.php');
             case 'validation':
                 return new moodle_url('/admin/tool/vae/validation.php');
+            case 'setup':
+                return new moodle_url('/admin/tool/vae/setup.php');
+            case 'guide vaeiste':
+            case 'guide manager':
+            case 'guide direction':
+                // The guide of a role (lot S5): the role is the second word of the name.
+                return new moodle_url('/admin/tool/vae/guide.php', ['role' => substr(strtolower($page), strlen('guide '))]);
             default:
                 throw new Exception('Unrecognised tool_vae page type "' . $page . '."');
         }
@@ -137,6 +148,10 @@ class behat_tool_vae extends behat_base {
      * | Organisation site | Any text         | The configuration of the scheme, organisation.php?tab=site |
      * | Renewals | Any text                  | The certifications whose date has passed, renewals.php   |
      * | Roles installer | Any text           | The creation of the VAE roles from the presets, roles_install.php |
+     * | Setup    | Any text                  | The getting started page, setup.php |
+     * | Guide vaeiste | Any text             | The guide of the vaeiste, guide.php?role=vaeiste |
+     * | Guide manager | Any text             | The guide of the manager, guide.php?role=manager |
+     * | Guide direction | Any text           | The guide of the direction, guide.php?role=direction |
      *
      * The identifier is a USERNAME or a TEXT, never an id: an id is assigned by the database and
      * differs on every run, so a scenario written against one would pass or fail depending on
@@ -234,6 +249,14 @@ class behat_tool_vae extends behat_base {
             case 'roles installer':
                 // No identifier either: the page is the same for everybody who may open it.
                 return new moodle_url('/admin/tool/vae/roles_install.php');
+            case 'setup':
+                // No identifier either: the page is the same for everybody who may open it (lot S1).
+                return new moodle_url('/admin/tool/vae/setup.php');
+            case 'guide vaeiste':
+            case 'guide manager':
+            case 'guide direction':
+                // No identifier either: the guide of a role is the same for everybody who may open it (lot S5).
+                return $this->resolve_page_url($page);
             case 'deposit':
                 $userid = $DB->get_field('user', 'id', ['username' => $identifier], MUST_EXIST);
                 return new moodle_url('/admin/tool/vae/deposit.php', ['userid' => $userid, 'number' => 1]);
@@ -302,45 +325,48 @@ class behat_tool_vae extends behat_base {
     }
 
     /**
-     * Attaches a fixture file of this plugin to a plain upload field.
+     * Uploads, through the file picker of the core, a fixture of this plugin under the name given.
      *
-     * WHY A STEP OF ITS OWN. The core has none for a plain `<input type="file">` (its steps are for the file manager and the
-     * file picker), and Mink's path is read from the working directory of the test process, which is not the plugin's:
-     * `I set the field` with a relative path attaches nothing and the page then says that no file was chosen. The path is
-     * built here from the place of the plugin, and the fixtures are the invented ones of tests/fixtures.
+     * WHY A STEP OF ITS OWN. The step of the core (`I upload "..." file to "..." filemanager`) sends a file under its own name;
+     * a refusal read on the CONTENT needs a file whose name the file picker accepts and whose content is not what the name says
+     * (a CSV named .pdf, a CSV named .zip). The copy is written in a directory of its own, so that two scenarios never share one,
+     * then handed to the step of the core, which needs the tag _file_upload.
      *
-     * @When I attach the fixture :file to the field :field
+     * @When I upload the fixture :file named :name to the :field file picker
      * @param string $file A file name under tests/fixtures.
-     * @param string $field The label, id or name of the upload field.
+     * @param string $name The name the browser will send.
+     * @param string $field The label of the file picker.
      */
-    public function i_attach_the_fixture_to_the_field(string $file, string $field): void {
-        $path = core_component::get_plugin_directory('tool', 'vae') . '/tests/fixtures/' . $file;
-        if (!is_readable($path)) {
-            throw new Exception('The fixture "' . $path . '" cannot be read.');
+    public function i_upload_the_fixture_named_to_the_file_picker(string $file, string $name, string $field): void {
+        $source = core_component::get_plugin_directory('tool', 'vae') . '/tests/fixtures/' . $file;
+        if (!is_readable($source)) {
+            throw new Exception('The fixture "' . $source . '" cannot be read.');
         }
+        $path = make_temp_directory('tool_vae_behat/' . uniqid('', true)) . '/' . $name;
+        copy($source, $path);
 
-        $this->find_field($field)->attachFile($path);
+        $this->execute('behat_repository_upload::i_upload_file_to_filemanager', [$path, $field]);
     }
 
     /**
-     * Attaches to a plain upload field an invented archive of the daily export of France compétences, under the name given.
+     * Uploads, through the file picker of the core, an invented archive of the daily export of France compétences.
      *
      * WHY A STEP OF ITS OWN. The archive is built when the step runs, from invented records, in the shape measured on the real
      * exports (tests/fixtures/export_zip_builder.php): no datum of France compétences is in the tree (open point PO-2), and the
      * name matters, since the browser sends it and the date of the export is read from it. The file is written in a directory
-     * of its own, so that two scenarios never share one.
+     * of its own, so that two scenarios never share one, then handed to the step of the core, which needs the tag _file_upload.
      *
-     * @When I attach a synthetic France Competences export named :name to the field :field
+     * @When I upload a synthetic France Competences export named :name to the :field file picker
      * @param string $name The name the browser will send, e.g. export-fiches-csv-2026-10-19.zip.
-     * @param string $field The label, id or name of the upload field.
+     * @param string $field The label of the file picker.
      */
-    public function i_attach_a_synthetic_export_to_the_field(string $name, string $field): void {
+    public function i_upload_a_synthetic_export_to_the_file_picker(string $name, string $field): void {
         require_once(__DIR__ . '/../fixtures/export_zip_builder.php');
 
         $directory = make_temp_directory('tool_vae_behat/' . uniqid('', true));
         $path = \tool_vae\fixtures\export_zip_builder::build($directory, $name);
 
-        $this->find_field($field)->attachFile($path);
+        $this->execute('behat_repository_upload::i_upload_file_to_filemanager', [$path, $field]);
     }
 
     /**
@@ -474,6 +500,31 @@ class behat_tool_vae extends behat_base {
         $frameworkid = (int) $DB->get_field('tool_vae_source', 'frameworkid', ['fichecode' => $code], MUST_EXIST);
         $DB->delete_records('competency', ['competencyframeworkid' => $frameworkid]);
         $DB->delete_records('competency_framework', ['id' => $frameworkid]);
+    }
+
+    /**
+     * Saves a draft in progress of a section of the dossier de faisabilite, as another tab of the same writer does.
+     *
+     * WHY A STEP OF ITS OWN. A scenario drives one window, and a conflict between two tabs needs a second writer between the
+     * moment the first page was drawn and its next autosave. What a second tab leaves behind is written here in the table: the
+     * text of the draft in progress and the time it was saved, the time being later than anything the first page knew.
+     *
+     * @Given another tab of :username saves the draft in progress :text of the section :section
+     * @param string $username The account of the writer.
+     * @param string $text The text the other tab saved.
+     * @param string $section The code of the section, as section.php names it.
+     */
+    public function another_tab_saves_the_draft_in_progress(string $username, string $text, string $section): void {
+        global $DB;
+
+        $userid = (int) $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
+        $draftid = (int) $DB->get_field('tool_vae_draft', 'id', [
+            'candidateid' => $userid,
+            'doctype' => \tool_vae\local\draft_manager::DOCTYPE_FAISABILITE,
+            'section' => $section,
+            'slot' => 0,
+        ], MUST_EXIST);
+        $DB->update_record('tool_vae_draft', (object) ['id' => $draftid, 'working' => $text, 'workingat' => time()]);
     }
 
     /**

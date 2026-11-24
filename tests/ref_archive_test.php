@@ -127,18 +127,18 @@ final class ref_archive_test extends \advanced_testcase {
     /**
      * The fiches of a referentiel by code.
      *
-     * @param array $referentiel
+     * @param array $referential
      * @return array
      */
-    private static function fiches(array $referentiel): array {
-        return array_column($referentiel['fiches'], null, 'code');
+    private static function fiches(array $referential): array {
+        return array_column($referential['fiches'], null, 'code');
     }
 
     public function test_the_archive_carries_the_addresses_once_the_site_opened_them(): void {
         set_config('refopen', 1, 'tool_vae');
 
-        [, $referentiel] = $this->snapshot();
-        $fiches = self::fiches($referentiel);
+        [, $referential] = $this->snapshot();
+        $fiches = self::fiches($referential);
 
         $this->assertSame([
             ['intitule' => 'Fiche du <b>répertoire</b>', 'adresse' => 'https://example.org/rncp/00000/',
@@ -149,21 +149,21 @@ final class ref_archive_test extends \advanced_testcase {
         $this->assertArrayNotHasKey('regle_validation', $fiches['RS11111']);
     }
 
-    public function test_a_closed_site_leaves_the_referentiel_as_it_always_was(): void {
+    public function test_a_closed_site_leaves_the_referential_as_it_always_was(): void {
         set_config('refopen', 0, 'tool_vae');
 
-        [, $referentiel] = $this->snapshot();
+        [, $referential] = $this->snapshot();
 
-        foreach ($referentiel['fiches'] as $fiche) {
+        foreach ($referential['fiches'] as $fiche) {
             $this->assertArrayNotHasKey('regle_validation', $fiche);
         }
     }
 
     public function test_the_printable_copy_writes_the_addresses_in_text_with_the_sentence(): void {
         set_config('refopen', 1, 'tool_vae');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $html = pdf_renderer::html($this->manifest(), $preuves, $referentiel);
+        $html = pdf_renderer::html($this->manifest(), $evidencefiles, $referential);
 
         $this->assertStringContainsString('https://example.org/rncp/00000/', $html);
         $this->assertStringContainsString('https://example.org/arrete', $html);
@@ -180,9 +180,9 @@ final class ref_archive_test extends \advanced_testcase {
 
     public function test_the_printable_copy_of_a_closed_site_names_no_address(): void {
         set_config('refopen', 0, 'tool_vae');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $html = pdf_renderer::html($this->manifest(), $preuves, $referentiel);
+        $html = pdf_renderer::html($this->manifest(), $evidencefiles, $referential);
 
         $this->assertStringNotContainsString('example.org', $html);
         $this->assertStringNotContainsString(s(get_string('refsentence', 'tool_vae')), $html);
@@ -190,9 +190,9 @@ final class ref_archive_test extends \advanced_testcase {
 
     public function test_the_editable_copy_writes_the_addresses_and_the_sentence(): void {
         set_config('refopen', 1, 'tool_vae');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $bytes = dossier_document::compose($this->candidate, $preuves, $referentiel, time())->odt();
+        $bytes = dossier_document::compose($this->candidate, $evidencefiles, $referential, time())->odt();
         $path = make_request_directory() . '/copie.odt';
         file_put_contents($path, $bytes);
         $zip = new \ZipArchive();
@@ -207,10 +207,10 @@ final class ref_archive_test extends \advanced_testcase {
 
     public function test_the_editable_copy_of_a_closed_site_names_no_address(): void {
         set_config('refopen', 0, 'tool_vae');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
         foreach (['odt', 'docx'] as $format) {
-            $bytes = dossier_document::compose($this->candidate, $preuves, $referentiel, time())->$format();
+            $bytes = dossier_document::compose($this->candidate, $evidencefiles, $referential, time())->$format();
             $path = make_request_directory() . '/copie.' . $format;
             file_put_contents($path, $bytes);
             $zip = new \ZipArchive();
@@ -225,14 +225,14 @@ final class ref_archive_test extends \advanced_testcase {
 
     public function test_a_new_address_makes_a_new_copy(): void {
         set_config('refopen', 1, 'tool_vae');
-        [$preuves, $referentiel] = $this->snapshot();
-        $before = dossier_document::digest($preuves, $referentiel);
+        [$evidencefiles, $referential] = $this->snapshot();
+        $before = dossier_document::digest($evidencefiles, $referential);
 
         $this->setAdminUser();
         ref_manager::add('RS00000', 'Troisième', 'https://example.org/troisieme');
         $this->setUser($this->candidate);
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $this->assertNotSame($before, dossier_document::digest($preuves, $referentiel));
+        $this->assertNotSame($before, dossier_document::digest($evidencefiles, $referential));
     }
 }

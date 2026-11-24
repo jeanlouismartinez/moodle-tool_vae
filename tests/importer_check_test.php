@@ -72,9 +72,9 @@ final class importer_check_test extends \advanced_testcase {
      */
     private function rows(array $rows): array {
         $out = [];
-        foreach ($rows as $rang => $label) {
-            [$intitule, $description] = is_array($label) ? $label : [$label, ''];
-            $out[] = (object) ['rang' => $rang, 'intitule' => $intitule, 'description' => $description];
+        foreach ($rows as $rank => $label) {
+            [$title, $description] = is_array($label) ? $label : [$label, ''];
+            $out[] = (object) ['rang' => $rank, 'intitule' => $title, 'description' => $description];
         }
 
         return $out;

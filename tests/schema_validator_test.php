@@ -24,7 +24,7 @@ use tool_vae\local\schema_validator;
  *
  * The validator reads docs/schema rather than restating it. What this test proves is that it
  * reads it the way ajv does in continuous integration: the two examples pass, and every one of
- * the schema's own counter-examples - built by the same single mutations scripts/verifier-schema.mjs
+ * the schema's own counter-examples - built by the same single mutations scripts/check-schema.mjs
  * applies - is refused.
  *
  * @package    tool_vae
@@ -90,7 +90,7 @@ final class schema_validator_test extends \advanced_testcase {
 
         $this->assertCount(39, $set->cas, 'The counter-example set changed size: check this test still runs all of it.');
         foreach ($set->cas as $case) {
-            $this->assertNotEmpty($importer->preuve_errors(self::mutate($base, $case)), "{$case->nom} passed: {$case->regle}");
+            $this->assertNotEmpty($importer->evidence_errors(self::mutate($base, $case)), "{$case->nom} passed: {$case->regle}");
         }
     }
 
@@ -187,11 +187,11 @@ final class schema_validator_test extends \advanced_testcase {
     }
 
     public function test_a_uuid_v4_conforms_but_is_not_imported(): void {
-        $preuve = self::read('exemples/preuve-minimale.json');
-        $preuve->competence = '3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b';
+        $evidence = self::read('exemples/preuve-minimale.json');
+        $evidence->competence = '3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b';
 
-        $this->assertSame([], (new schema_validator())->validate($preuve));
-        $errors = (new dossier_importer())->preuve_errors($preuve);
+        $this->assertSame([], (new schema_validator())->validate($evidence));
+        $errors = (new dossier_importer())->evidence_errors($evidence);
         $this->assertCount(1, $errors);
         $this->assertStringContainsString('/competence', $errors[0]);
     }
@@ -200,10 +200,10 @@ final class schema_validator_test extends \advanced_testcase {
      * A pattern ends where ajv ends it: PHP's $ also matches before a final newline unless told not to.
      */
     public function test_a_ulid_followed_by_a_newline_does_not_conform(): void {
-        $preuve = self::read('exemples/preuve-minimale.json');
-        $preuve->id .= "\n";
+        $evidence = self::read('exemples/preuve-minimale.json');
+        $evidence->id .= "\n";
 
-        $this->assertNotEmpty((new schema_validator())->validate($preuve));
+        $this->assertNotEmpty((new schema_validator())->validate($evidence));
     }
 
     public function test_date_time_is_rfc_3339_with_its_offset(): void {

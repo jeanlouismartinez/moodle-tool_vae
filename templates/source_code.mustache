@@ -1,0 +1,46 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/source_code
+
+    The code of a certification record in bold, then its provenance line when it has one, with nothing between them: a
+    cell of a table of the administration screen.
+
+    Every text comes from the context, given by tool_vae\output\source_code. The template holds no logic. The code is
+    escaped (double braces). One key is HTML (triple braces): provenancehtml, drawn by the template tool_vae/provenance,
+    which escapes its sentence.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * code - string, the code of the record
+    * provenancehtml - false, or HTML: the provenance line
+
+    Example context (json):
+    {
+        "code": "RNCP36832",
+        "provenancehtml": "<div class=\"small text-muted\">Source: France compétences, Licence Ouverte 2.0.</div>"
+    }
+}}
+<strong>{{code}}</strong>{{#provenancehtml}}{{{provenancehtml}}}{{/provenancehtml}}

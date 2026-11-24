@@ -178,14 +178,14 @@ class importer {
                 return \core_text::strtolower(trim((string) $name));
             }, (array) $reader->get_columns());
 
-            $rang = array_search('rang', $columns, true);
-            $intitule = array_search('intitule', $columns, true);
+            $rank = array_search('rang', $columns, true);
+            $label = array_search('intitule', $columns, true);
             $description = array_search('description', $columns, true);
             // T-33: the rank of the bloc a line sits under. Absent from a flat file, and then absent from the
             // rows, which is what tells an empty cell (top of the record) from no column at all (nothing said).
             $bloc = array_search('bloc', $columns, true);
 
-            if ($rang === false || $intitule === false) {
+            if ($rank === false || $label === false) {
                 return null;
             }
 
@@ -193,8 +193,8 @@ class importer {
             $reader->init();
             while ($line = $reader->next()) {
                 $row = (object) [
-                    'rang' => $line[$rang] ?? '',
-                    'intitule' => $line[$intitule] ?? '',
+                    'rang' => $line[$rank] ?? '',
+                    'intitule' => $line[$label] ?? '',
                     'description' => $description === false ? '' : ($line[$description] ?? ''),
                 ];
                 if ($bloc !== false) {
@@ -834,12 +834,12 @@ class importer {
             // drops blank lines while loading, so counting lines would name row 12 for a fault
             // that sits on line 13. errorimportrows says which counting this is.
             $line = $number + 1;
-            $rang = \core_text::strtoupper(self::tidy((string) ($row->rang ?? '')));
-            $intitule = self::tidy((string) ($row->intitule ?? ''));
+            $rank = \core_text::strtoupper(self::tidy((string) ($row->rang ?? '')));
+            $label = self::tidy((string) ($row->intitule ?? ''));
 
-            if ($rang === '') {
+            if ($rank === '') {
                 $faults[] = get_string('errorimportnorank', 'tool_vae', $line);
-            } else if (!preg_match(self::RANK_PATTERN, $rang)) {
+            } else if (!preg_match(self::RANK_PATTERN, $rank)) {
                 // ESCAPED HERE, WHERE THE CELL ENTERS THE MESSAGE. import.php shows the message in
                 // a notification that renders HTML, and a cell reading `<img src=x onerror=...>`
                 // would run in the administrator's session. Escaping at the page instead would
@@ -847,29 +847,29 @@ class importer {
                 // The repeated rank below has matched RANK_PATTERN, and holds nothing to escape.
                 $faults[] = get_string('errorimportbadrank', 'tool_vae', (object) [
                     'line' => $line,
-                    'rank' => s($rang),
+                    'rank' => s($rank),
                 ]);
-            } else if (isset($seen[$rang])) {
+            } else if (isset($seen[$rank])) {
                 $faults[] = get_string('errorimportduplicaterank', 'tool_vae', (object) [
                     'line' => $line,
-                    'rank' => $rang,
+                    'rank' => $rank,
                 ]);
             }
 
-            if ($intitule === '') {
+            if ($label === '') {
                 $faults[] = get_string('errorimportnolabel', 'tool_vae', $line);
-            } else if (\core_text::strlen($intitule) > self::LABEL_MAXLENGTH) {
+            } else if (\core_text::strlen($label) > self::LABEL_MAXLENGTH) {
                 $faults[] = get_string('errorimportlabeltoolong', 'tool_vae', (object) [
                     'line' => $line,
                     'max' => self::LABEL_MAXLENGTH,
-                    'length' => \core_text::strlen($intitule),
+                    'length' => \core_text::strlen($label),
                 ]);
             }
 
-            $seen[$rang] = true;
+            $seen[$rank] = true;
             $entry = (object) [
-                'rang' => $rang,
-                'intitule' => $intitule,
+                'rang' => $rank,
+                'intitule' => $label,
                 'description' => self::tidy((string) ($row->description ?? '')),
             ];
 

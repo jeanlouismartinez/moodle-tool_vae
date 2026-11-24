@@ -115,10 +115,11 @@ final class pending_report {
     /**
      * For each candidate, how many managers a declaration would be announced to: a number, never a name.
      *
-     * The audience of the notifier (notifier::evidence_declared): the followers of the candidate who may attest, whose account
-     * is neither suspended nor deleted. A holder of viewany who follows nobody is not counted, as the notifier does not tell
-     * them. The pointer of the referents of a bloc only changes WHO of these is told first, never how many may be, so it is
-     * left out. A zero says that nobody would be told; it says nothing of the candidate nor of the managers.
+     * The audience of the notifier (the recipients of a declaration, notifier::queue_recipients()): the followers of the
+     * candidate who may attest, whose account is neither suspended nor deleted. A holder of viewany who follows nobody is not
+     * counted, as the notifier does not tell them. The pointer of the referents of a bloc only changes WHO of these is told
+     * first, never how many may be, so it is left out. A zero says that nobody would be told; it says nothing of the candidate
+     * nor of the managers.
      *
      * @param int[] $candidateids
      * @return int[] candidateid => number, one key for each candidate asked, in the order given.

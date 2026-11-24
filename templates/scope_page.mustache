@@ -1,0 +1,90 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/scope_page
+
+    The page "Hors de mon activité", below its heading: what a mark is, whether the function is open, the error of the
+    last sending, the marks already said or one sentence, then the form to say one (or a notification when no record is
+    imported) and the way back to the dossier.
+
+    Every text comes from the context, already worded by tool_vae\output\scope_page. The template holds no logic. Every
+    text and address is escaped (double braces), except six keys of HTML made by the core or by another template (triple
+    braces): closedhtml, errorhtml and noframeworkhtml, notifications of the core ($output->notification()); tablehtml, the
+    table drawn by the template tool_vae/table; headinghtml, a heading of the core ($output->heading()); formhtml, the form
+    of the core (moodleform::render()), drawn once.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, what the page is for
+    * sentence - string, what a mark is
+    * closedhtml - false, or HTML: the notification that the function is not open
+    * errorhtml - false, or HTML: the error of the last sending
+    * none - false, or a string: the sentence drawn when nothing is said
+    * tablehtml - false, or HTML: the table of the marks
+    * noframeworkhtml - false, or HTML: the notification drawn when no record is imported
+    * headinghtml - false, or HTML: the heading above the form
+    * formhtml - false, or HTML: the form to say a mark
+    * back - {url, label}: the way back to the dossier
+
+    Example context (json):
+    {
+        "intro": "If a competency of a record does not belong to your activity, you can say so.",
+        "sentence": "This mark is the candidate's own word about their activity. It exempts from nothing.",
+        "closedhtml": false,
+        "errorhtml": false,
+        "none": false,
+        "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>RNCP1-C1 — Welcome</td></tr></tbody></table>",
+        "noframeworkhtml": false,
+        "headinghtml": "<h3>Say that a competency is outside my activity</h3>",
+        "formhtml": "<form method=\"post\" action=\"https://example.com/admin/tool/vae/scope.php\"></form>",
+        "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=7", "label": "Back to the dossier"}
+    }
+}}
+<p>{{intro}}</p>
+<p class="font-italic">{{sentence}}</p>
+{{#closedhtml}}
+{{{closedhtml}}}
+{{/closedhtml}}
+{{#errorhtml}}
+{{{errorhtml}}}
+{{/errorhtml}}
+{{#none}}
+<p>{{none}}</p>
+{{/none}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}
+{{#noframeworkhtml}}
+{{{noframeworkhtml}}}
+{{/noframeworkhtml}}
+{{#headinghtml}}
+{{{headinghtml}}}
+{{/headinghtml}}
+{{#formhtml}}
+{{{formhtml}}}
+{{/formhtml}}
+{{#back}}
+<div class="mt-3"><a href="{{url}}">{{label}}</a></div>
+{{/back}}

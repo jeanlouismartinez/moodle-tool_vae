@@ -1,0 +1,65 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/cell_content
+
+    What a cell of a table holds: parts side by side, with no space between them (a comment carries each line break of
+    the template, so that no space is drawn).
+
+    Every text comes from the context, given by tool_vae\output\cell_content; the template holds no logic beyond its
+    sections. Every text, label, address and class is escaped (double braces). One key is HTML, placed as it is (triple
+    braces): texthtml, made by the core (format_string(), or a method of the renderer such as a button).
+
+    Each kind of part is an object, never a bare string: a section that tested the string itself would draw nothing for
+    the text "0", which Mustache holds for empty.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * parts - array of parts, each with the five keys below, one of them set and the others false:
+        * text - false, or {label}: a text
+        * link - false, or {url, label}: a link
+        * span - false, or {class, label}: a span with its classes
+        * div - false, or {class, label}: a block with its classes
+        * html - false, or {texthtml}: HTML made by the core
+
+    Example context (json):
+    {
+        "parts": [
+            {"text": {"label": "DEMO — "}, "link": false, "span": false, "div": false, "html": false},
+            {"text": false, "link": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=3", "label": "Camille Durand"},
+                "span": false, "div": false, "html": false},
+            {"text": false, "link": false, "span": {"class": "small text-muted", "label": "Read only"}, "div": false,
+                "html": false},
+            {"text": false, "link": false, "span": false, "div": {"class": "small text-muted", "label": "Prepares the dossier."},
+                "html": false},
+            {"text": false, "link": false, "span": false, "div": false, "html": {"texthtml": "<strong>Demo</strong>"} }
+        ]
+    }
+}}
+{{#parts}}{{#text}}{{label}}{{/text}}{{!
+}}{{#link}}<a href="{{url}}">{{label}}</a>{{/link}}{{!
+}}{{#span}}<span class="{{class}}">{{label}}</span>{{/span}}{{!
+}}{{#div}}<div class="{{class}}">{{label}}</div>{{/div}}{{!
+}}{{#html}}{{{texthtml}}}{{/html}}{{/parts}}

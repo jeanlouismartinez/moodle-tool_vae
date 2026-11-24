@@ -29,6 +29,7 @@
 require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\draft_manager;
+use tool_vae\output\journal_page;
 
 require_login();
 
@@ -88,72 +89,10 @@ if ($delete > 0) {
     die();
 }
 
+// The notes, the button to start an entry and the table of the entries: worded by the class of output.
+$entries = draft_manager::reflection_entries($candidateid);
+$renderer = $PAGE->get_renderer('tool_vae');
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('reflexiontitle', 'tool_vae'));
-echo html_writer::div(s(get_string('reflexionprivate', 'tool_vae')), 'alert alert-info tool-vae-labelling', [
-    'role' => 'note',
-]);
-echo html_writer::div(s(get_string('reflexionconsigne', 'tool_vae')), 'alert alert-warning tool-vae-anonymise', [
-    'role' => 'note',
-]);
-echo html_writer::tag('p', s(get_string('reflexionintro', 'tool_vae')));
-if (!$open) {
-    echo $OUTPUT->notification(get_string('reflexionclosednote', 'tool_vae'), \core\output\notification::NOTIFY_WARNING);
-}
-
-$entries = draft_manager::reflection_entries($candidateid);
-if (!$open) {
-    // Nothing to start while it is closed.
-    echo '';
-} else if (count($entries) < draft_manager::REFLEXION_MAX) {
-    echo $OUTPUT->single_button(
-        new moodle_url($url, ['new' => 1, 'sesskey' => sesskey()]),
-        get_string('reflexionnew', 'tool_vae'),
-        'post'
-    );
-} else {
-    echo $OUTPUT->notification(
-        get_string('errorreflexionfull', 'tool_vae', draft_manager::REFLEXION_MAX),
-        \core\output\notification::NOTIFY_INFO
-    );
-}
-
-if (!$entries) {
-    echo html_writer::tag('p', s(get_string('reflexionnone', 'tool_vae')));
-} else {
-    $table = new html_table();
-    $table->attributes['class'] = 'generaltable tool-vae-journal';
-    $table->head = [
-        get_string('reflexioncolentry', 'tool_vae'),
-        get_string('reflexioncolwritten', 'tool_vae'),
-        get_string('reflexioncolstate', 'tool_vae'),
-        get_string('faisabcolactions', 'tool_vae'),
-    ];
-    foreach ($entries as $entry) {
-        $edit = new moodle_url('/admin/tool/vae/section.php', [
-            'doctype' => draft_manager::DOCTYPE_REFLEXION,
-            'section' => draft_manager::REFLEXION_SECTION,
-            'slot' => (int) $entry->slot,
-        ]);
-        $state = (int) $entry->currentversion > 0
-            ? get_string('sectioncurrentversion', 'tool_vae', (int) $entry->currentversion)
-            : get_string('sectionnoversion', 'tool_vae');
-        $table->data[] = [
-            s(draft_manager::label($entry)),
-            s(userdate((int) $entry->timecreated, get_string('strftimedatetime', 'langconfig'))),
-            s($state),
-            ($open ? html_writer::link($edit, get_string('reflexionopen', 'tool_vae')) . ' ' : '')
-                . html_writer::link(
-                    new moodle_url($url, ['delete' => (int) $entry->id]),
-                    get_string('reflexiondelete', 'tool_vae')
-                ),
-        ];
-    }
-    echo html_writer::table($table);
-}
-
-echo html_writer::tag('p', html_writer::link(
-    new moodle_url('/admin/tool/vae/dossier.php'),
-    get_string('reflexionbacktodossier', 'tool_vae')
-));
+echo $renderer->render(new journal_page($open, $entries, $url));
 echo $OUTPUT->footer();

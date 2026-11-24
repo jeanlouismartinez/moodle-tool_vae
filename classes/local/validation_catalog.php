@@ -44,7 +44,7 @@ final class validation_catalog {
     /** @var string The part written once for the record as a whole. */
     public const SYNTHESIS = 'synthese';
 
-    /** @var int The most blocs a record may have for the preparation to go bloc by bloc (as faisabilite_catalog). */
+    /** @var int The most blocs a record may have for the preparation to go bloc by bloc (as feasibility_catalog). */
     public const MAX_BLOCS = 12;
 
     /**
@@ -90,7 +90,7 @@ final class validation_catalog {
             if (!$node->children) {
                 continue;
             }
-            $rank = passage_manager::rank_of((string) $node->competency->idnumber, $fichecode);
+            $rank = correspondence_manager::rank_of((string) $node->competency->idnumber, $fichecode);
             if (!preg_match(importer::RANK_PATTERN, $rank)) {
                 continue;
             }

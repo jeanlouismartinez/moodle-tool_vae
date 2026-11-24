@@ -283,15 +283,15 @@ final class situation_archive {
                 if (!isset($pieceuuids[(int) $link->pieceid])) {
                     continue;
                 }
-                $lien = [
+                $linkentry = [
                     'piece' => $pieceuuids[(int) $link->pieceid],
                     'partie' => (string) $link->part,
                     'ajoutee_le' => exporter::iso((int) $link->timecreated),
                 ];
                 if ($link->timeremoved !== null) {
-                    $lien['retiree_le'] = exporter::iso((int) $link->timeremoved);
+                    $linkentry['retiree_le'] = exporter::iso((int) $link->timeremoved);
                 }
-                $entry['pieces'][] = $lien;
+                $entry['pieces'][] = $linkentry;
             }
             $out[] = $entry;
         }

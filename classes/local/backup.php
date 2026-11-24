@@ -165,7 +165,7 @@ final class backup {
         bool $enforcelimits = true,
         ?exporter $exporter = null
     ): \stored_file {
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
+        $person = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
 
         $file = ($exporter ?? new exporter())->store(
             $candidateid,
@@ -173,7 +173,7 @@ final class backup {
             'user',
             'private',
             self::FILEPATH,
-            'dossier-' . $personne . '-',
+            'dossier-' . $person . '-',
             $enforcelimits,
             // The backup of an administrator stays on the platform, where they already open the pieces, and it is the safety net
             // of an uninstall: the bytes and the addresses go in (T-13, MC-28). Another account that was given the right to back
@@ -191,7 +191,7 @@ final class backup {
             // preparation (exporter::store()), the backup stays whole (decision of the project owner, 9 November 2026).
             true
         );
-        $file->set_source(self::SOURCE_PREFIX . $personne);
+        $file->set_source(self::SOURCE_PREFIX . $person);
 
         return $file;
     }
@@ -223,11 +223,11 @@ final class backup {
     /**
      * Delete every backup of a candidate, in whoever's private files it sits.
      *
-     * @param string $personne The candidate's ULID.
+     * @param string $person The candidate's ULID.
      * @return int How many backups were deleted.
      */
-    public static function discard(string $personne): int {
-        $records = self::files_of($personne);
+    public static function discard(string $person): int {
+        $records = self::files_of($person);
 
         $fs = get_file_storage();
         foreach ($records as $record) {
@@ -264,10 +264,10 @@ final class backup {
         $fs = get_file_storage();
         $count = 0;
         foreach ($rows as $row) {
-            $personne = substr((string) $row->source, strlen(self::SOURCE_PREFIX));
+            $person = substr((string) $row->source, strlen(self::SOURCE_PREFIX));
             $known = $DB->record_exists('tool_vae_identity', [
                 'itemtype' => identity_map::TYPE_USER,
-                'uuid' => $personne,
+                'uuid' => $person,
             ]);
             if (!$known) {
                 $fs->get_file_instance($row)->delete();
@@ -304,22 +304,22 @@ final class backup {
         global $DB;
 
         // Read, not uuid_for(): a candidate without a ULID was never backed up, and needs no ULID now.
-        $personne = $DB->get_field('tool_vae_identity', 'uuid', [
+        $person = $DB->get_field('tool_vae_identity', 'uuid', [
             'itemtype' => identity_map::TYPE_USER,
             'itemid' => $candidateid,
         ]);
-        if ($personne === false) {
+        if ($person === false) {
             return 0;
         }
 
         $owners = [];
-        foreach (self::files_of($personne) as $record) {
+        foreach (self::files_of($person) as $record) {
             $owner = \context::instance_by_id($record->contextid, IGNORE_MISSING);
             if ($owner && (int) $owner->contextlevel === CONTEXT_USER) {
                 $owners[(int) $owner->instanceid] = true;
             }
         }
-        self::discard($personne);
+        self::discard($person);
 
         // A dossier emptied since the request was approved has nothing left to back up; its old
         // copies still had to go.
@@ -372,17 +372,17 @@ final class backup {
             if (!preg_match('/^dossier-([0-9A-Z]{26})-[0-9A-Z]{26}\.zip$/D', (string) $row->filename, $found)) {
                 continue;
             }
-            $personne = $found[1];
-            $known = identity_map::is_valid_ulid($personne) && $DB->record_exists('tool_vae_identity', [
+            $person = $found[1];
+            $known = identity_map::is_valid_ulid($person) && $DB->record_exists('tool_vae_identity', [
                 'itemtype' => identity_map::TYPE_USER,
-                'uuid' => $personne,
+                'uuid' => $person,
             ]);
             $owner = $known ? \context::instance_by_id($row->contextid, IGNORE_MISSING) : false;
             if (!$owner || (int) $owner->contextlevel !== CONTEXT_USER || !self::may_hold((int) $owner->instanceid)) {
                 continue;
             }
 
-            $fs->get_file_instance($row)->set_source(self::SOURCE_PREFIX . $personne);
+            $fs->get_file_instance($row)->set_source(self::SOURCE_PREFIX . $person);
             $marked++;
         }
 
@@ -397,10 +397,10 @@ final class backup {
      * who had read a candidate's ULID in an archive handed to a jury named a file after it, and the next refresh wrote the
      * whole dossier there. The copies that predate the mark were marked by the upgrade - see mark_unmarked().
      *
-     * @param string $personne The candidate's ULID.
+     * @param string $person The candidate's ULID.
      * @return \stdClass[] Rows of the files table.
      */
-    private static function files_of(string $personne): array {
+    private static function files_of(string $person): array {
         global $DB;
 
         return $DB->get_records_select(
@@ -410,7 +410,7 @@ final class backup {
             [
                 'component' => 'user',
                 'filearea' => 'private',
-                'source' => self::SOURCE_PREFIX . $personne,
+                'source' => self::SOURCE_PREFIX . $person,
             ]
         );
     }

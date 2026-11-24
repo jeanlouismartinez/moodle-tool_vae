@@ -16,20 +16,6 @@
 
 namespace tool_vae;
 
-use tool_vae\event\attestation_withdrawn;
-use tool_vae\event\certification_recorded;
-use tool_vae\event\competency_left_record;
-use tool_vae\event\consent_changed;
-use tool_vae\event\deposit_created;
-use tool_vae\event\evaluation_recorded;
-use tool_vae\event\evidence_attested;
-use tool_vae\event\evidence_declared;
-use tool_vae\event\note_recorded;
-use tool_vae\event\opinion_created;
-use tool_vae\event\piece_added;
-use tool_vae\event\request_created;
-use tool_vae\event\withdrawal_refused;
-use tool_vae\event\withdrawal_requested;
 use tool_vae\local\access;
 use tool_vae\local\attestation_manager;
 use tool_vae\local\consent_manager;
@@ -38,6 +24,7 @@ use tool_vae\local\importer;
 use tool_vae\local\note_manager;
 use tool_vae\local\piece_manager;
 use tool_vae\local\referent_manager;
+use tool_vae\output\message_body;
 use tool_vae\task\send_notification;
 
 /**
@@ -62,14 +49,18 @@ use tool_vae\task\send_notification;
  * compétences - and links to the dossier, where the rights guarding the rest are checked again.
  * notifier_test reads every field of every message for the text of the dossier.
  *
- * TWO MOMENTS, TWO PLACES. The observers run in the request that raised the event, and only
- * decide WHO is to be told: one ad hoc task per recipient, carrying identifiers and nothing
- * else. The message is composed and sent from cron, by deliver(). The first version sent from
- * the request, and adversarial review measured the cost: a record that loses a block can concern
- * a hundred candidates, that was a hundred synchronous emails in the import request, and a
- * request killed half way had told half of them - for good, since a departure already committed
- * is never announced again. One task per recipient also means that one failure costs one
- * message, retried by the task manager and visible in the task logs.
+ * THREE MOMENTS, TWO PLACES. The callbacks of the events are not here: they are in
+ * \tool_vae\notification_observer, run in the request that raised the event, and they read nothing
+ * (ticket 3 of review MMR-520, lot 9). When the event names the one person to tell, the callback
+ * queues that message; otherwise it queues one task queue_notifications, and queue_recipients()
+ * decides WHO is to be told at the first run of cron after the event: one ad hoc task per
+ * recipient, carrying identifiers and nothing else. The message is composed and sent from cron,
+ * by deliver(). The first version sent from the request, and adversarial review measured the
+ * cost: a record that loses a block can concern a hundred candidates, that was a hundred
+ * synchronous emails in the import request, and a request killed half way had told half of them -
+ * for good, since a departure already committed is never announced again. One task per recipient
+ * also means that one failure costs one message, retried by the task manager and visible in the
+ * task logs.
  *
  * DELIVERY ASKS AGAIN. Between the event and cron, a right can be removed, an account suspended,
  * a declaration purged or already attested, a departure undone. deliver() asks every
@@ -151,7 +142,10 @@ class notifier {
     /** @var string A line of positioning of the structure was written: told to the candidate, never what it says (T-84). */
     public const POSITIONING_RECORDED = 'positioningrecorded';
 
-    /** @var string A manager the vaeiste consented to annotated their situations or self-positioning: told to the vaeiste (lot 1b). */
+    /**
+     * @var string A manager the vaeiste consented to annotated their situations or self-positioning: told to the vaeiste
+     *      (lot 1b).
+     */
     public const NOTE_ADDED = 'noteadded';
 
     /** @var string The vaeiste consented to a manager annotating: told to that manager, with the vaeiste's name (lot 1b). */
@@ -189,19 +183,19 @@ class notifier {
     public const ERASURE_GRACE = 15 * MINSECS;
 
     /**
-     * A candidate declared: queue a message for each manager who follows them and may attest.
+     * The recipients of a declaration, found from cron: each manager who follows the candidate and may attest, the referents
+     * of the bloc first (T-23).
      *
-     * @param evidence_declared $event
+     * @param int $candidateid
+     * @param int $evidenceid
      */
-    public static function evidence_declared(evidence_declared $event): void {
+    private static function queue_declaration(int $candidateid, int $evidenceid): void {
         try {
-            $candidateid = (int) $event->relateduserid;
-
             $eligible = fn(int $readerid): bool => access::can_attest($candidateid, $readerid);
-            foreach (self::routed_followers($candidateid, (int) $event->objectid, $eligible) as $readerid) {
+            foreach (self::routed_followers($candidateid, $evidenceid, $eligible) as $readerid) {
                 if (access::can_attest($candidateid, $readerid)) {
                     self::queue(self::DECLARATION_PENDING, $readerid, $candidateid, [
-                        'evidenceid' => (int) $event->objectid,
+                        'evidenceid' => $evidenceid,
                     ]);
                 }
             }
@@ -246,23 +240,23 @@ class notifier {
     }
 
     /**
-     * A candidate deposited their dossier de faisabilité: queue a message for each manager who
-     * follows them and may read their deposits (T-21).
+     * The recipients of a deposit, found from cron: each manager who follows the candidate and may read their deposits (T-21).
      *
      * The message carries the candidate's name and the number of the deposit, nothing of it.
      *
-     * @param deposit_created $event
+     * @param int $candidateid
+     * @param int $number The number of the deposit.
+     * @param string $doctype The document deposited.
      */
-    public static function deposit_created(deposit_created $event): void {
+    private static function queue_deposit(int $candidateid, int $number, string $doctype): void {
         try {
-            $candidateid = (int) $event->relateduserid;
             $context = \context_user::instance($candidateid);
 
             foreach (access::followers($candidateid) as $readerid) {
                 if (has_capability('tool/vae:readdeposit', $context, $readerid)) {
                     self::queue(self::DEPOSIT_MADE, $readerid, $candidateid, [
-                        'number' => (int) $event->other['number'],
-                        'doctype' => (string) ($event->other['doctype'] ?? draft_manager::DOCTYPE_FAISABILITE),
+                        'number' => $number,
+                        'doctype' => $doctype,
                     ]);
                 }
             }
@@ -272,18 +266,19 @@ class notifier {
     }
 
     /**
-     * A supporting piece was added: when the declaration already carries a signature that did not cover it, tell the managers
-     * who follow the candidate and may attest (T-13, lot 2).
+     * The recipients of a supporting piece, found from cron: when the declaration carries a signature, the managers who
+     * follow the candidate and may attest (T-13, lot 2).
      *
      * Nobody reads a piece added after a signature, and it leaves in the archive: this message is what remains of the third
-     * control for it. Candidate's name and the reference of the declaration, nothing of the piece.
+     * control for it. Candidate's name and the reference of the declaration, nothing of the piece. Whether the signature
+     * covers the piece is asked at delivery.
      *
-     * @param piece_added $event
+     * @param int $candidateid
+     * @param int $evidenceid
+     * @param int $pieceid
      */
-    public static function piece_added(piece_added $event): void {
+    private static function queue_piece_after(int $candidateid, int $evidenceid, int $pieceid): void {
         try {
-            $candidateid = (int) $event->relateduserid;
-            $evidenceid = (int) $event->other['evidenceid'];
             $context = \context_user::instance($candidateid);
 
             if (attestation_manager::active_attestation($evidenceid) === null) {
@@ -295,109 +290,12 @@ class notifier {
                 if (access::can_attest($candidateid, $readerid) && has_capability('tool/vae:attest', $context, $readerid)) {
                     self::queue(self::PIECE_AFTER_ATTEST, $readerid, $candidateid, [
                         'evidenceid' => $evidenceid,
-                        'pieceid' => (int) $event->objectid,
+                        'pieceid' => $pieceid,
                     ]);
                 }
             }
         } catch (\Throwable $e) {
             self::not_queued(self::PIECE_AFTER_ATTEST, $e);
-        }
-    }
-
-    /**
-     * A manager wrote an opinion on a deposit: queue a message for the candidate.
-     *
-     * Neither the author nor the text: the number of the deposit. The candidate reads the opinion,
-     * and who wrote it, in the dossier.
-     *
-     * @param opinion_created $event
-     */
-    public static function opinion_created(opinion_created $event): void {
-        try {
-            $candidateid = (int) $event->relateduserid;
-            self::queue(self::OPINION_MADE, $candidateid, $candidateid, [
-                'number' => (int) $event->other['number'],
-            ]);
-        } catch (\Throwable $e) {
-            self::not_queued(self::OPINION_MADE, $e);
-        }
-    }
-
-    /**
-     * An evaluation was written: queue a message for the candidate.
-     *
-     * Neither the status, nor the reason, nor the author: only that a line was added. The candidate reads the line,
-     * and who wrote it, in the dossier (T-84, the information of the person).
-     *
-     * @param evaluation_recorded $event
-     */
-    public static function evaluation_recorded(evaluation_recorded $event): void {
-        self::positioning_written((int) $event->relateduserid);
-    }
-
-    /**
-     * A certification was written: queue a message for the candidate, the same way.
-     *
-     * @param certification_recorded $event
-     */
-    public static function certification_recorded(certification_recorded $event): void {
-        self::positioning_written((int) $event->relateduserid);
-    }
-
-    /**
-     * Queue the message of a positioning line for the person it is about.
-     *
-     * @param int $candidateid
-     */
-    private static function positioning_written(int $candidateid): void {
-        try {
-            self::queue(self::POSITIONING_RECORDED, $candidateid, $candidateid, []);
-        } catch (\Throwable $e) {
-            self::not_queued(self::POSITIONING_RECORDED, $e);
-        }
-    }
-
-    /**
-     * An annotation was written: queue a message for the vaeiste (lot 1b).
-     *
-     * A withdrawal tells nobody: the author takes their word back, and the vaeiste reads it in the dossier. The task carries
-     * the id of the annotation and nothing else; neither its text nor its author.
-     *
-     * @param note_recorded $event
-     */
-    public static function note_recorded(note_recorded $event): void {
-        try {
-            if (($event->other['state'] ?? null) !== note_manager::ACTIVE) {
-                return;
-            }
-            $candidateid = (int) $event->relateduserid;
-            self::queue(self::NOTE_ADDED, $candidateid, $candidateid, ['noteid' => (int) $event->objectid]);
-        } catch (\Throwable $e) {
-            self::not_queued(self::NOTE_ADDED, $e);
-        }
-    }
-
-    /**
-     * The vaeiste consented to a person annotating: queue a message for that person (lot 1b).
-     *
-     * A withdrawal tells nobody: the consent is the vaeiste's to take back, and the person reads it in the dossier.
-     *
-     * @param consent_changed $event
-     */
-    public static function consent_changed(consent_changed $event): void {
-        try {
-            if (($event->other['state'] ?? null) !== consent_manager::GIVEN) {
-                return;
-            }
-            // The manager is the person the event is about; the vaeiste is the owner of the context it is raised in.
-            self::queue(
-                self::CONSENT_GIVEN,
-                (int) $event->relateduserid,
-                (int) $event->contextinstanceid,
-                ['consentid' => (int) $event->objectid]
-            );
-        } catch (\Throwable $e) {
-            self::not_queued(self::CONSENT_GIVEN, $e);
         }
     }
 
@@ -428,53 +326,17 @@ class notifier {
     }
 
     /**
-     * A manager asked for a precision on a declaration: queue a message for the candidate.
-     *
-     * Neither the author nor the question: the candidate reads both in the dossier.
-     *
-     * @param request_created $event
-     */
-    public static function request_created(request_created $event): void {
-        try {
-            $candidateid = (int) $event->relateduserid;
-            self::queue(self::PRECISION_ASKED, $candidateid, $candidateid, [
-                'requestid' => (int) $event->objectid,
-            ]);
-        } catch (\Throwable $e) {
-            self::not_queued(self::PRECISION_ASKED, $e);
-        }
-    }
-
-    /**
-     * A declaration was attested: queue a message for its candidate.
-     *
-     * @param evidence_attested $event
-     */
-    public static function evidence_attested(evidence_attested $event): void {
-        try {
-            $candidateid = (int) $event->relateduserid;
-            self::queue(self::EVIDENCE_ATTESTED, $candidateid, $candidateid, [
-                'evidenceid' => (int) $event->other['evidenceid'],
-            ]);
-        } catch (\Throwable $e) {
-            self::not_queued(self::EVIDENCE_ATTESTED, $e);
-        }
-    }
-
-    /**
-     * An attestation was withdrawn: queue a message for the candidate.
+     * The recipients of a withdrawal, found from cron: the candidate, and each manager who follows them and may attest.
      *
      * The message will not say who withdrew it, nor why. The reason is a closed list and names
      * nobody, but it is shown in the dossier, next to the declaration it concerns; the message
      * has no need to carry it outside.
      *
-     * @param attestation_withdrawn $event
+     * @param int $candidateid
+     * @param int $evidenceid
      */
-    public static function attestation_withdrawn(attestation_withdrawn $event): void {
+    private static function queue_withdrawal(int $candidateid, int $evidenceid): void {
         try {
-            $candidateid = (int) $event->relateduserid;
-            $evidenceid = (int) $event->other['evidenceid'];
-
             self::queue(self::ATTESTATION_WITHDRAWN, $candidateid, $candidateid, [
                 'evidenceid' => $evidenceid,
             ]);
@@ -584,50 +446,8 @@ class notifier {
     }
 
     /**
-     * A manager asked a signatory to withdraw their attestation: the signatory is told.
-     *
-     * @param withdrawal_requested $event
-     */
-    public static function withdrawal_requested(withdrawal_requested $event): void {
-        global $DB;
-
-        try {
-            $attestation = $DB->get_record('tool_vae_attest', ['id' => (int) $event->objectid], '*', MUST_EXIST);
-            if ($attestation->attestantid === null) {
-                return;
-            }
-
-            // Tied to THIS request - who asked and when - so that a message still waiting in the queue
-            // after a refusal is not delivered under the next person's request.
-            self::queue(self::WITHDRAWAL_REQUESTED, (int) $attestation->attestantid, (int) $event->other['candidateid'], [
-                'evidenceid' => (int) $event->other['evidenceid'],
-                'requesterid' => (int) $event->userid,
-                'requestedat' => (int) $attestation->withdrawreqat,
-            ]);
-        } catch (\Throwable $e) {
-            self::not_queued(self::WITHDRAWAL_REQUESTED, $e);
-        }
-    }
-
-    /**
-     * A signatory refused a request to withdraw: the manager who asked is told.
-     *
-     * @param withdrawal_refused $event
-     */
-    public static function withdrawal_refused(withdrawal_refused $event): void {
-        try {
-            // The related user is the manager who asked; the candidate is in other.
-            self::queue(self::WITHDRAWAL_REFUSED, (int) $event->relateduserid, (int) $event->other['candidateid'], [
-                'evidenceid' => (int) $event->other['evidenceid'],
-            ]);
-        } catch (\Throwable $e) {
-            self::not_queued(self::WITHDRAWAL_REFUSED, $e);
-        }
-    }
-
-    /**
-     * A competency left its certification record: queue one message per candidate who declared
-     * against it, to be sent after the grace period if the departure still stands.
+     * The recipients of a departure, found from cron: every candidate who declared against the competency, once each, to be
+     * sent after the grace period if the departure still stands.
      *
      * ONE MESSAGE PER CANDIDATE, not one per declaration. Someone who declared five activities
      * against the competency has one thing to learn, not five.
@@ -638,13 +458,15 @@ class notifier {
      * exists outside a test bench. The column carries no index: a departure is a rare event, and
      * the table holds the declarations of one site.
      *
-     * @param competency_left_record $event
+     * @param int $competencyid
+     * @param int $sourceid
+     * @param int $markid
+     * @param int $runat When the messages may be sent: the end of the grace period.
      */
-    public static function competency_left_record(competency_left_record $event): void {
+    private static function queue_departure(int $competencyid, int $sourceid, int $markid, int $runat): void {
         global $DB;
 
         try {
-            $competencyid = (int) $event->other['competencyid'];
             $candidateids = $DB->get_fieldset_sql(
                 'SELECT DISTINCT candidateid FROM {tool_vae_evidence} WHERE competencyid = :competencyid',
                 ['competencyid' => $competencyid]
@@ -653,14 +475,64 @@ class notifier {
             foreach ($candidateids as $candidateid) {
                 self::queue(self::COMPETENCY_LEFT_RECORD, (int) $candidateid, (int) $candidateid, [
                     'competencyid' => $competencyid,
-                    'sourceid' => (int) $event->other['sourceid'],
-                    // The mark of THIS departure, so that still_gone() can tell it from a later one.
-                    'markid' => (int) $event->objectid,
-                ], time() + self::DEPARTURE_GRACE);
+                    'sourceid' => $sourceid,
+                    'markid' => $markid,
+                ], $runat);
             }
         } catch (\Throwable $e) {
             self::not_queued(self::COMPETENCY_LEFT_RECORD, $e);
         }
+    }
+
+    /**
+     * Find the recipients of an event and queue their messages. Called from cron by queue_notifications.
+     *
+     * The events whose recipients must be looked for (ticket 3 of review MMR-520, lot 9): a declaration, a deposit, a piece
+     * added, whose recipients are managers who follow the candidate and hold a right; a withdrawal, whose recipients are the
+     * candidate and the managers who may attest; a departure, whose recipients are the candidates who declared against the
+     * competency. Their callbacks (\tool_vae\notification_observer) read nothing and loop on nothing: they queue one task with
+     * the identifiers of the event, and this finds the recipients at the first run of cron after the event, with the same
+     * messages, the same checks and the same failures caught as when the request found them. The recipients are those of the
+     * moment cron runs; deliver() asks every question again when each message is sent.
+     *
+     * @param \stdClass $data kind (DECLARATION_PENDING, DEPOSIT_MADE, PIECE_AFTER_ATTEST, ATTESTATION_WITHDRAWN or
+     *                        COMPETENCY_LEFT_RECORD), then candidateid and evidenceid; or candidateid, number and doctype;
+     *                        or candidateid, evidenceid and pieceid; or competencyid, sourceid, markid and runat.
+     */
+    public static function queue_recipients(\stdClass $data): void {
+        $kind = (string) ($data->kind ?? '');
+
+        if ($kind === self::DECLARATION_PENDING) {
+            self::queue_declaration((int) $data->candidateid, (int) $data->evidenceid);
+
+            return;
+        }
+        if ($kind === self::DEPOSIT_MADE) {
+            self::queue_deposit(
+                (int) $data->candidateid,
+                (int) $data->number,
+                (string) ($data->doctype ?? draft_manager::DOCTYPE_FAISABILITE)
+            );
+
+            return;
+        }
+        if ($kind === self::PIECE_AFTER_ATTEST) {
+            self::queue_piece_after((int) $data->candidateid, (int) $data->evidenceid, (int) $data->pieceid);
+
+            return;
+        }
+        if ($kind === self::ATTESTATION_WITHDRAWN) {
+            self::queue_withdrawal((int) $data->candidateid, (int) $data->evidenceid);
+
+            return;
+        }
+        if ($kind === self::COMPETENCY_LEFT_RECORD) {
+            self::queue_departure((int) $data->competencyid, (int) $data->sourceid, (int) $data->markid, (int) $data->runat);
+
+            return;
+        }
+
+        throw new \coding_exception("Unknown kind of recipients '$kind'.");
     }
 
     /**
@@ -782,6 +654,13 @@ class notifier {
         }
 
         if ($provider === self::DECLARATION_PENDING) {
+            // A deleted account is refused first, as in every other kind of message, and before the rights: a process
+            // that read them before the deletion still holds them in the caches of accesslib (lot 10 of review MMR-520).
+            $candidate = \core_user::get_user($candidateid);
+            if (!$candidate || !empty($candidate->deleted)) {
+                return false;
+            }
+
             $readerid = (int) $recipient->id;
             if (!access::follows($candidateid, $readerid) || !access::can_attest($candidateid, $readerid)) {
                 return false;
@@ -789,11 +668,6 @@ class notifier {
 
             // Attested in the meantime: it no longer awaits anybody.
             if (attestation_manager::active_attestation((int) $claim->id) !== null) {
-                return false;
-            }
-
-            $candidate = \core_user::get_user($candidateid);
-            if (!$candidate) {
                 return false;
             }
 
@@ -1371,18 +1245,7 @@ class notifier {
      * @param int $runat When to send it; as soon as cron runs when 0.
      */
     private static function queue(string $provider, int $recipientid, int $candidateid, array $about, int $runat = 0): void {
-        $task = new send_notification();
-        $task->set_custom_data((object) ([
-            'provider' => $provider,
-            'recipientid' => $recipientid,
-            'candidateid' => $candidateid,
-        ] + $about));
-
-        if ($runat > 0) {
-            $task->set_next_run_time($runat);
-        }
-
-        \core\task\manager::queue_adhoc_task($task);
+        send_notification::queue($provider, $recipientid, $candidateid, $about, $runat);
     }
 
     /**
@@ -1469,10 +1332,10 @@ class notifier {
     /**
      * Leave a trace of a notification that could not even be queued.
      *
-     * Caught here rather than left to the event manager, which catches an \Exception but lets an
-     * \Error through - into the request that raised the event, after its act has been committed:
-     * the person would see an error page for something that was in fact recorded, and might do it
-     * again. Queuing is one insert; a failure there is not expected, and is not worth an act.
+     * Caught here rather than left to the caller, as the callbacks of the events catch theirs
+     * (\tool_vae\notification_observer): an erasure must not fail for a message, and the task that
+     * finds the recipients of an event ends rather than throws, as it did when the request found
+     * them. Queuing is one insert; a failure there is not expected, and is not worth an act.
      *
      * @param string $provider
      * @param \Throwable $e
@@ -1511,6 +1374,8 @@ class notifier {
         array $a,
         ?string $words = null
     ): bool {
+        global $PAGE;
+
         $strings = get_string_manager();
         $lang = !empty($recipient->lang) && $strings->translation_exists($recipient->lang, false) ? $recipient->lang : null;
 
@@ -1530,8 +1395,8 @@ class notifier {
         $message->subject = $subject;
         $message->fullmessage = $body . "\n\n" . $url->out(false);
         $message->fullmessageformat = FORMAT_PLAIN;
-        $message->fullmessagehtml = \html_writer::tag('p', s($body))
-            . \html_writer::tag('p', \html_writer::link($url, s($linkname)));
+        // Drawn by a template, with the words read above in the language of the recipient (lot 7, wave 4c).
+        $message->fullmessagehtml = $PAGE->get_renderer('tool_vae')->render(new message_body($body, $url, $linkname));
         $message->smallmessage = $subject;
         $message->notification = 1;
         $message->contexturl = $url->out(false);

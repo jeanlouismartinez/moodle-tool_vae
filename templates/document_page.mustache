@@ -1,0 +1,43 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/document_page
+
+    The one page document.php draws, between its header and its footer: the notification that the sub-system of
+    competencies is off. Otherwise document.php sends a file and draws no page.
+
+    The template holds no logic and no text of its own. It places one key of HTML made by the core (triple braces):
+    noticehtml, a notification ($output->notification()) worded by tool_vae\output\document_page.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * noticehtml - HTML: the notification that the sub-system of competencies is off
+
+    Example context (json):
+    {
+        "noticehtml": "<div class=\"alert alert-danger\">The competencies are not enabled on this site.</div>"
+    }
+}}
+{{{noticehtml}}}

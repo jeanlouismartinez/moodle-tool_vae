@@ -17,7 +17,7 @@
 namespace tool_vae;
 
 use tool_vae\local\ai_assistant;
-use tool_vae\local\ai_screens;
+use tool_vae\output\ai_page;
 
 /**
  * What the reformulation aid leaves in the core is left to Moodle when the account is deleted (T-70, decision of 27 October 2026).
@@ -48,7 +48,7 @@ use tool_vae\local\ai_screens;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\observer::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\ai_screens::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\ai_page::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\ai_assistant::class)]
 final class ai_erasure_left_to_moodle_test extends \advanced_testcase {
     /** @var string What a candidate sent to the aid: a work situation. */
@@ -219,7 +219,9 @@ final class ai_erasure_left_to_moodle_test extends \advanced_testcase {
     }
 
     /**
-     * Delete an account the way an administrator does.
+     * Delete an account the way an administrator does, then run the purge its observer queued, as cron would.
+     *
+     * Ticket 3 of review MMR-520: the observer only queues the purge of the dossier; only that task is run here.
      *
      * @param \stdClass $user
      */
@@ -228,6 +230,9 @@ final class ai_erasure_left_to_moodle_test extends \advanced_testcase {
 
         $this->setAdminUser();
         delete_user($DB->get_record('user', ['id' => $user->id], '*', MUST_EXIST));
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\purge_deleted_account::class);
+        ob_end_clean();
     }
 
     /**
@@ -284,7 +289,8 @@ final class ai_erasure_left_to_moodle_test extends \advanced_testcase {
         // The premise: the plugin's register knows the call, and the core holds the text the plugin sent, instruction included.
         $this->assertSame(1, $DB->count_records('tool_vae_aicall', ['userid' => $user->id]));
         $this->assertStringContainsString(self::SITUATION, $this->action_row($actionid)->prompt);
-        $this->assertStringContainsString('Reformule', $this->action_row($actionid)->prompt, 'The instruction travels with it.');
+        $prompt = $this->action_row($actionid)->prompt;
+        $this->assertStringContainsString('in clear French', $prompt, 'The instruction travels with it.');
         $this->assertSame(self::ANSWER, $this->action_row($actionid)->generatedcontent);
         // The core finds it through the context of the site, for as long as the user id is known: that is what the request uses.
         $contexts = \core_ai\privacy\provider::get_contexts_for_userid((int) $user->id)->get_contextids();
@@ -454,16 +460,17 @@ final class ai_erasure_left_to_moodle_test extends \advanced_testcase {
      * @return string HTML.
      */
     private function confirmation(): string {
+        global $PAGE;
         $this->setUser($this->getDataGenerator()->create_user());
         $params = ['source' => 'section', 'doctype' => 'faisabilite', 'section' => 'objectifs', 'slot' => 0];
 
-        return ai_screens::confirm(
+        return $PAGE->get_renderer('tool_vae')->render(ai_page::confirm(
             $params,
             'Mon texte.',
             'Fournisseur',
             new \moodle_url('/admin/tool/vae/section.php', ['section' => 'objectifs']),
             'Retour'
-        );
+        ));
     }
 
     /**
@@ -696,8 +703,9 @@ final class ai_erasure_left_to_moodle_test extends \advanced_testcase {
         array $pieces,
         array $forbidden
     ): void {
-        $string = [];
-        include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        \tool_vae\fixtures\lang_files::skip_unless_present($lang);
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
 
         $this->assertArrayHasKey($key, $string, "lang/$lang has no string $key.");
         foreach ($pieces as $piece) {

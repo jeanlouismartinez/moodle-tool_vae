@@ -23,7 +23,7 @@ use tool_vae\event\evidence_carried;
  *
  * THE CANDIDATE CARRIES, ON A CORRESPONDENCE AN ADMINISTRATOR DECIDED. A declaration is first person: the plugin
  * never writes one in someone's place. The administrator decides which competency of the new record corresponds to
- * which of the old (passage_manager); the candidate, on their own dossier, carries a declaration over on that
+ * which of the old (correspondence_manager); the candidate, on their own dossier, carries a declaration over on that
  * decision, after reading it and correcting it if they wish.
  *
  * A COPY, NEVER A MOVE. The new declaration is made by evidence_manager::declare_activity(), with its own anchor in

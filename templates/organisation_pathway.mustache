@@ -1,0 +1,73 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/organisation_pathway
+
+    The tables of the declared records of a pathway (a section each: its heading, its provenance, the note on bloc lines, its
+    table), then the section of the records only a plan names, then the note that says the plans cannot be read. Nothing when
+    there is neither. On logical lines: a comment carries each line break of the template, so that no space is drawn where
+    the old code wrote none.
+
+    Every text comes from the context, worded by tool_vae\output\organisation_pathway. The template holds no logic beyond its
+    sections. Every text is escaped (double braces). Keys placed as they are (triple braces): headinghtml, the heading of the
+    core; provenancehtml, drawn by tool_vae/provenance (or empty); tablehtml, drawn by tool_vae/table; courseshtml,
+    activitieshtml and planshtml, drawn by tool_vae/organisation_cell.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * records - array, each {headinghtml, provenancehtml, blocnote, tablehtml}: blocnote null or {label}
+    * planned - null, or {headinghtml, intro, items}: each item {code, name, courses, courseshtml, activities, activitieshtml,
+      plans, planshtml}, name null or {label}
+    * unreadable - null, or {label}: the note on plans that cannot be read
+
+    Example context (json):
+    {
+        "records": [
+            {
+                "headinghtml": "<h3>RNCP100 — Assistant de vie aux familles</h3>",
+                "provenancehtml": "<div class=\"small text-muted\">Source: France compétences.</div>",
+                "blocnote": {"label": "A bloc line adds up the declarations of its competencies."},
+                "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>RNCP100-C01</td></tr></tbody></table>"
+            }
+        ],
+        "planned": {
+            "headinghtml": "<h3>Records of your learning plans</h3>",
+            "intro": "Your learning plans name these records.",
+            "items": [
+                {"code": "RS200", "name": {"label": "Utiliser un lève-personne"}, "courses": "Courses", "courseshtml": "none",
+                    "activities": "Activities", "activitieshtml": "none", "plans": "Learning plans",
+                    "planshtml": "Plan AES (Active)"}
+            ]
+        },
+        "unreadable": {"label": "Your learning plans are not readable with your rights."}
+    }
+}}
+{{#records}}<section class="tool-vae-organisation-record mb-4">{{{headinghtml}}}{{{provenancehtml}}}{{!
+}}{{#blocnote}}<p class="small text-muted">{{label}}</p>{{/blocnote}}{{{tablehtml}}}</section>{{/records}}{{!
+}}{{#planned}}<section class="tool-vae-organisation-planned mb-4">{{{headinghtml}}}<p>{{intro}}</p><ul>{{#items}}{{!
+}}<li><strong>{{code}}</strong>{{#name}} — {{label}}{{/name}}<dl class="mb-2"><dt>{{courses}}</dt><dd>{{{courseshtml}}}</dd>{{!
+}}<dt>{{activities}}</dt><dd>{{{activitieshtml}}}</dd><dt>{{plans}}</dt><dd>{{{planshtml}}}</dd></dl></li>{{/items}}</ul>{{!
+}}</section>{{/planned}}{{!
+}}{{#unreadable}}<p class="small text-muted">{{label}}</p>{{/unreadable}}

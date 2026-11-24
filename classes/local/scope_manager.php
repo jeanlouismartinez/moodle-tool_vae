@@ -301,7 +301,7 @@ final class scope_manager {
         }
         $out = [];
         foreach ((new competency_gateway())->framework_tree((int) $source->frameworkid) as $competency) {
-            $rank = passage_manager::rank_of((string) $competency->idnumber, $fichecode);
+            $rank = correspondence_manager::rank_of((string) $competency->idnumber, $fichecode);
             if ($rank !== '') {
                 $out[] = $rank;
             }

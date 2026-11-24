@@ -62,9 +62,9 @@ final class pdf_renderer {
      *
      * @param array $manifest At least archive, exporte_le, produit_par, candidat and avertissement,
      *                        as manifeste.json writes them.
-     * @param array[] $preuves The claims, as preuves/*.json write them.
-     * @param array $referentiel As referentiel.json writes it.
-     * @param array[] $rubriques The text sections of the dossier de faisabilité, as faisabilite.json
+     * @param array[] $evidences The claims, as preuves/*.json write them.
+     * @param array $referential As referentiel.json writes it.
+     * @param array[] $sections The text sections of the dossier de faisabilité, as faisabilite.json
      *                           writes them; none when the candidate has written none.
      * @param array $validation The preparation of the validation dossier, as validation.json writes it (T-11);
      *                          empty when the candidate has written none.
@@ -78,9 +78,9 @@ final class pdf_renderer {
      */
     public static function render(
         array $manifest,
-        array $preuves,
-        array $referentiel,
-        array $rubriques = [],
+        array $evidences,
+        array $referential,
+        array $sections = [],
         array $validation = [],
         array $pieces = [],
         array $scope = [],
@@ -104,7 +104,7 @@ final class pdf_renderer {
         $pdf->setFont(self::FONT, '', 10);
         $pdf->AddPage();
         foreach (
-            self::chunks($manifest, $preuves, $referentiel, $rubriques, $validation, $pieces, $scope, $positioning) as $chunk
+            self::chunks($manifest, $evidences, $referential, $sections, $validation, $pieces, $scope, $positioning) as $chunk
         ) {
             if (!$chunk['together']) {
                 $pdf->writeHTML($chunk['html']);
@@ -166,9 +166,9 @@ final class pdf_renderer {
      * Public so that a test reads what the PDF says without parsing a PDF.
      *
      * @param array $manifest See render().
-     * @param array[] $preuves See render().
-     * @param array $referentiel See render().
-     * @param array[] $rubriques See render().
+     * @param array[] $evidences See render().
+     * @param array $referential See render().
+     * @param array[] $sections See render().
      * @param array $validation See render().
      * @param array[] $pieces See render().
      * @param array $scope See render().
@@ -177,15 +177,15 @@ final class pdf_renderer {
      */
     public static function html(
         array $manifest,
-        array $preuves,
-        array $referentiel,
-        array $rubriques = [],
+        array $evidences,
+        array $referential,
+        array $sections = [],
         array $validation = [],
         array $pieces = [],
         array $scope = [],
         array $positioning = []
     ): string {
-        $chunks = self::chunks($manifest, $preuves, $referentiel, $rubriques, $validation, $pieces, $scope, $positioning);
+        $chunks = self::chunks($manifest, $evidences, $referential, $sections, $validation, $pieces, $scope, $positioning);
 
         return implode('', array_column($chunks, 'html'));
     }
@@ -198,9 +198,9 @@ final class pdf_renderer {
      * of the document is free to flow.
      *
      * @param array $manifest See render().
-     * @param array[] $preuves See render().
-     * @param array $referentiel See render().
-     * @param array[] $rubriques See render().
+     * @param array[] $evidences See render().
+     * @param array $referential See render().
+     * @param array[] $sections See render().
      * @param array $validation See render().
      * @param array[] $pieces See render().
      * @param array $scope See render().
@@ -209,9 +209,9 @@ final class pdf_renderer {
      */
     private static function chunks(
         array $manifest,
-        array $preuves,
-        array $referentiel,
-        array $rubriques = [],
+        array $evidences,
+        array $referential,
+        array $sections = [],
         array $validation = [],
         array $pieces = [],
         array $scope = [],
@@ -220,8 +220,8 @@ final class pdf_renderer {
         global $CFG, $SITE;
 
         $producer = $manifest['produit_par'];
-        $head = \html_writer::tag('h1', s(get_string(self::title_string($manifest), 'tool_vae', $manifest['candidat']['nom'])));
-        $head .= self::rows([
+        $head = [pdf_blocks::block('h1', get_string(self::title_string($manifest), 'tool_vae', $manifest['candidat']['nom']))];
+        $head[] = pdf_blocks::table([
             get_string('exportpdfarchive', 'tool_vae') => s($manifest['archive']),
             get_string('exportpdfexportedon', 'tool_vae')
                 => s(display_date::format(self::time($manifest['exporte_le']), get_string('strftimedatetime', 'langconfig'))),
@@ -230,34 +230,32 @@ final class pdf_renderer {
             get_string('exportpdfproducedby', 'tool_vae')
                 => s($producer['composant'] . ' ' . $producer['version_composant']),
         ]);
-        $head .= \html_writer::tag('p', s($manifest['avertissement']));
+        $head[] = pdf_blocks::block('p', $manifest['avertissement']);
 
-        $chunks = [['html' => $head, 'together' => false]];
+        $chunks = [['html' => pdf_blocks::draw($head), 'together' => false]];
 
         // The sections of the dossier de faisabilité come before the declarations, the first one
         // with the heading of the whole, and each with the very text faisabilite.json carries.
-        foreach ($rubriques as $index => $rubrique) {
-            $html = $index === 0
-                ? \html_writer::tag('h2', s(get_string('exportpdffaisabilite', 'tool_vae')))
-                : '';
-            $label = faisabilite_catalog::label((string) $rubrique['code'], (int) $rubrique['emplacement']);
-            $html .= \html_writer::tag('h3', s($label));
-            $html .= self::narrative((string) $rubrique['texte'], 'texte');
-            $chunks[] = ['html' => $html, 'together' => true];
+        foreach ($sections as $index => $section) {
+            $blocks = $index === 0 ? [pdf_blocks::block('h2', get_string('exportpdffaisabilite', 'tool_vae'))] : [];
+            $label = feasibility_catalog::label((string) $section['code'], (int) $section['emplacement']);
+            $blocks[] = pdf_blocks::block('h3', $label);
+            $blocks[] = self::narrative((string) $section['texte'], 'texte');
+            $chunks[] = ['html' => pdf_blocks::draw($blocks), 'together' => true];
         }
 
-        $byid = array_column($preuves, null, 'id');
-        foreach ($referentiel['fiches'] as $fiche) {
+        $byid = array_column($evidences, null, 'id');
+        foreach ($referential['fiches'] as $fiche) {
             $pending = self::fiche($fiche);
 
             $competences = array_column($fiche['competences'], null, 'identifiant');
-            $ofthisfiche = array_values(array_filter($preuves, fn($preuve) => $preuve['fiche']['code'] === $fiche['code']));
+            $ofthisfiche = array_values(array_filter($evidences, fn($evidence) => $evidence['fiche']['code'] === $fiche['code']));
 
             // A record with blocs (T-33): the declarations by bloc, a heading for each, the bloc itself first. The
             // archive of a flat record has no `blocs` and is written as it always was.
             $blocs = array_column($fiche['blocs'] ?? [], null, 'rang');
-            $bloc = fn($preuve) => $competences[$preuve['competence']]['bloc']
-                ?? (isset($blocs[$preuve['fiche']['rang']]) ? $preuve['fiche']['rang'] : null);
+            $bloc = fn($evidence) => $competences[$evidence['competence']]['bloc']
+                ?? (isset($blocs[$evidence['fiche']['rang']]) ? $evidence['fiche']['rang'] : null);
             if ($blocs) {
                 // The bloc itself first in its group; the rest keep the order they had (usort is stable).
                 usort($ofthisfiche, function ($a, $b) use ($bloc) {
@@ -269,32 +267,32 @@ final class pdf_renderer {
                 });
             }
             $current = false;
-            foreach ($ofthisfiche as $preuve) {
-                $heading = '';
-                if ($blocs && $bloc($preuve) !== $current) {
-                    $current = $bloc($preuve);
+            foreach ($ofthisfiche as $evidence) {
+                $heading = [];
+                if ($blocs && $bloc($evidence) !== $current) {
+                    $current = $bloc($evidence);
                     // A rule above it: the title of a declaration under it is an h3 too, and without the rule the
                     // two read as one level (seen on the rendered PDF, 21 October 2026).
-                    $heading = \html_writer::empty_tag('hr') . \html_writer::tag('h3', s($current === null
+                    $heading = [pdf_blocks::block('hr', ''), pdf_blocks::block('h3', $current === null
                         ? get_string('exportpdfnobloc', 'tool_vae')
-                        : get_string('exportpdfbloc', 'tool_vae', $current . ' - ' . ($blocs[$current]['intitule'] ?? ''))));
+                        : get_string('exportpdfbloc', 'tool_vae', $current . ' - ' . ($blocs[$current]['intitule'] ?? '')))];
                 }
-                $from = $byid[$preuve['reportee_depuis'] ?? ''] ?? null;
+                $from = $byid[$evidence['reportee_depuis'] ?? ''] ?? null;
                 $chunks[] = [
-                    'html' => $pending . $heading . self::declaration(
-                        $preuve,
-                        $competences[$preuve['competence']] ?? null,
+                    'html' => pdf_blocks::draw(array_merge($pending, $heading, self::declaration(
+                        $evidence,
+                        $competences[$evidence['competence']] ?? null,
                         $from,
-                        $pieces[$preuve['id']] ?? []
-                    ),
+                        $pieces[$evidence['id']] ?? []
+                    ))),
                     'together' => true,
                 ];
-                $pending = '';
+                $pending = [];
             }
 
             // A record with no declaration: its heading alone.
-            if ($pending !== '') {
-                $chunks[] = ['html' => $pending, 'together' => false];
+            if ($pending) {
+                $chunks[] = ['html' => pdf_blocks::draw($pending), 'together' => false];
             }
         }
 
@@ -302,15 +300,17 @@ final class pdf_renderer {
         if (!empty($scope['competences'])) {
             $items = [];
             foreach ($scope['competences'] as $entry) {
-                $line = s($entry['fiche'] . '-' . $entry['rang']);
-                $line .= isset($entry['intitule']) ? ' - ' . s($entry['intitule']) : '';
-                $line .= isset($entry['note']) ? ' - ' . s($entry['note']) : '';
-                $items[] = \html_writer::tag('li', $line);
+                $line = $entry['fiche'] . '-' . $entry['rang'];
+                $line .= isset($entry['intitule']) ? ' - ' . $entry['intitule'] : '';
+                $line .= isset($entry['note']) ? ' - ' . $entry['note'] : '';
+                $items[] = pdf_blocks::plain_item($line);
             }
             $chunks[] = [
-                'html' => \html_writer::tag('h2', s(get_string('scopedossierheading', 'tool_vae')))
-                    . \html_writer::tag('p', \html_writer::tag('em', s($scope['avertissement'])))
-                    . \html_writer::tag('ul', implode('', $items)),
+                'html' => pdf_blocks::draw([
+                    pdf_blocks::block('h2', get_string('scopedossierheading', 'tool_vae')),
+                    pdf_blocks::block('note', $scope['avertissement']),
+                    pdf_blocks::bullets($items),
+                ]),
                 'together' => true,
             ];
         }
@@ -319,8 +319,10 @@ final class pdf_renderer {
         // marked, under the sentence that says it is not a validation.
         if (!empty($positioning['evaluations']) || !empty($positioning['certifications'])) {
             $chunks[] = [
-                'html' => \html_writer::tag('h2', s(get_string('positioningdossierheading', 'tool_vae')))
-                    . \html_writer::tag('p', \html_writer::tag('em', s($positioning['avertissement']))),
+                'html' => pdf_blocks::draw([
+                    pdf_blocks::block('h2', get_string('positioningdossierheading', 'tool_vae')),
+                    pdf_blocks::block('note', $positioning['avertissement']),
+                ]),
                 'together' => false,
             ];
             $kinds = [
@@ -336,16 +338,18 @@ final class pdf_renderer {
                     if (isset($line['valable_jusqu_au'])) {
                         $when .= ' - ' . get_string('positioninguntil', 'tool_vae', $line['valable_jusqu_au']);
                     }
-                    $html = \html_writer::tag('h4', s($title))
-                        . \html_writer::tag('p', s($status . $when . ' - ' . $line['ecrit_le'] . ' - ' . get_string(
+                    $blocks = [
+                        pdf_blocks::block('h4', $title),
+                        pdf_blocks::block('p', $status . $when . ' - ' . $line['ecrit_le'] . ' - ' . get_string(
                             $line['fait_foi'] ? 'positioningpdfstands' : 'positioningpdfearlier',
                             'tool_vae'
-                        )))
-                        . self::narrative($line['motif'], 'texte');
+                        )),
+                        self::narrative($line['motif'], 'texte'),
+                    ];
                     if (isset($line['motif_alerte'])) {
-                        $html .= self::narrative($line['motif_alerte'], 'texte');
+                        $blocks[] = self::narrative($line['motif_alerte'], 'texte');
                     }
-                    $chunks[] = ['html' => $html, 'together' => true];
+                    $chunks[] = ['html' => pdf_blocks::draw($blocks), 'together' => true];
                 }
             }
         }
@@ -353,19 +357,21 @@ final class pdf_renderer {
         // The preparation of the validation dossier (T-11): last, with the sentence that says what it is and that
         // nobody attests it. Each section under its record and its name, the text as the candidate wrote it.
         if (!empty($validation['rubriques'])) {
-            $head = \html_writer::tag('h2', s(get_string('validationtitle', 'tool_vae')))
-                . \html_writer::tag('p', \html_writer::tag('em', s($validation['avertissement'])));
-            $chunks[] = ['html' => $head, 'together' => false];
+            $head = [
+                pdf_blocks::block('h2', get_string('validationtitle', 'tool_vae')),
+                pdf_blocks::block('note', $validation['avertissement']),
+            ];
+            $chunks[] = ['html' => pdf_blocks::draw($head), 'together' => false];
             $current = null;
-            foreach ($validation['rubriques'] as $rubrique) {
-                $html = '';
-                if ($rubrique['fiche'] !== $current) {
-                    $current = $rubrique['fiche'];
-                    $html .= \html_writer::tag('h3', s($current));
+            foreach ($validation['rubriques'] as $section) {
+                $blocks = [];
+                if ($section['fiche'] !== $current) {
+                    $current = $section['fiche'];
+                    $blocks[] = pdf_blocks::block('h3', $current);
                 }
-                $html .= \html_writer::tag('h4', s(validation_catalog::label($rubrique['fiche'], $rubrique['code'])))
-                    . self::narrative($rubrique['texte'], 'texte');
-                $chunks[] = ['html' => $html, 'together' => true];
+                $blocks[] = pdf_blocks::block('h4', validation_catalog::label($section['fiche'], $section['code']));
+                $blocks[] = self::narrative($section['texte'], 'texte');
+                $chunks[] = ['html' => pdf_blocks::draw($blocks), 'together' => true];
             }
         }
 
@@ -388,18 +394,18 @@ final class pdf_renderer {
      * requires wherever its text is shown - the same line presenter prints.
      *
      * @param array $fiche One entry of referentiel.json's fiches.
-     * @return string HTML.
+     * @return array[] Blocks.
      */
-    private static function fiche(array $fiche): string {
+    private static function fiche(array $fiche): array {
         $title = $fiche['code'];
         if ($fiche['type'] !== null) {
             $title .= ' - ' . get_string($fiche['type'] === 'rs' ? 'typers' : 'typerncp', 'tool_vae');
         }
-        $out = \html_writer::tag('h2', s($title));
+        $out = [pdf_blocks::block('h2', $title)];
 
         // A record this site never imported has no source row, hence nothing to attribute.
         if ($fiche['licence'] !== null) {
-            $out .= \html_writer::tag('p', s($fiche['mise_a_jour_source'] === null
+            $out[] = pdf_blocks::block('p', $fiche['mise_a_jour_source'] === null
                 ? get_string('sourceprovenancepending', 'tool_vae', (object) [
                     'attribution' => $fiche['attribution'],
                     'licence' => $fiche['licence'],
@@ -411,14 +417,14 @@ final class pdf_renderer {
                         self::time($fiche['mise_a_jour_source']),
                         get_string('strftimedate', 'langconfig')
                     ),
-                ])));
+                ]));
         }
 
         // Where the certifier publishes its rule of validation (T-41): addresses in text, and the sentence that says the plugin
         // applies nothing. Nothing is quoted.
         if (!empty($fiche['regle_validation'])) {
-            $out .= \html_writer::tag('p', s(ref_manager::plain_line($fiche['regle_validation'])));
-            $out .= \html_writer::tag('p', \html_writer::tag('em', s(get_string('refsentence', 'tool_vae'))));
+            $out[] = pdf_blocks::block('p', ref_manager::plain_line($fiche['regle_validation']));
+            $out[] = pdf_blocks::block('note', get_string('refsentence', 'tool_vae'));
         }
 
         return $out;
@@ -427,64 +433,66 @@ final class pdf_renderer {
     /**
      * One claim, with its attestations.
      *
-     * @param array $preuve
+     * @param array $evidence
      * @param array|null $competence Its entry in referentiel.json, which carries the label.
      * @param array|null $from The claim this one was carried over from (T-30), when the archive holds it.
      * @param array[] $pieces The supporting pieces of this declaration (T-13), each an entry of pieces.json.
-     * @return string HTML.
+     * @return array[] Blocks.
      */
-    private static function declaration(array $preuve, ?array $competence, ?array $from = null, array $pieces = []): string {
+    private static function declaration(array $evidence, ?array $competence, ?array $from = null, array $pieces = []): array {
         $date = get_string('strftimedate', 'langconfig');
 
-        $title = $preuve['fiche']['rang'];
+        $title = $evidence['fiche']['rang'];
         if (($competence['intitule'] ?? null) !== null) {
             $title .= ' - ' . $competence['intitule'];
         }
-        $out = \html_writer::tag('h3', s($title));
+        $out = [pdf_blocks::block('h3', $title)];
 
         $rows = [
-            get_string('ficheupdated', 'tool_vae') => s(display_date::format(self::time($preuve['fiche']['mise_a_jour']), $date)),
-            get_string('exportpdfdeclaredon', 'tool_vae') => s(display_date::format(self::time($preuve['declaree_le']), $date)),
+            get_string('ficheupdated', 'tool_vae') => s(display_date::format(self::time($evidence['fiche']['mise_a_jour']), $date)),
+            get_string('exportpdfdeclaredon', 'tool_vae') => s(display_date::format(self::time($evidence['declaree_le']), $date)),
             get_string('period', 'tool_vae') => s(get_string('periodfromto', 'tool_vae', (object) [
-                'from' => display_date::format(self::time($preuve['periode']['debut']), $date),
-                'to' => display_date::format(self::time($preuve['periode']['fin']), $date),
+                'from' => display_date::format(self::time($evidence['periode']['debut']), $date),
+                'to' => display_date::format(self::time($evidence['periode']['fin']), $date),
             ])),
             get_string('settingtype', 'tool_vae')
-                => s(get_string('setting:' . $preuve['cadre']['type'], 'tool_vae')),
+                => s(get_string('setting:' . $evidence['cadre']['type'], 'tool_vae')),
         ];
-        if (isset($preuve['cadre']['precision'])) {
-            $rows[get_string('settingdetail', 'tool_vae')] = s($preuve['cadre']['precision']);
+        if (isset($evidence['cadre']['precision'])) {
+            $rows[get_string('settingdetail', 'tool_vae')] = s($evidence['cadre']['precision']);
         }
         // Carried over from a claim on the record this one replaces (T-30): where from and when, no more.
-        if ($from !== null && isset($preuve['reportee_le'])) {
+        if ($from !== null && isset($evidence['reportee_le'])) {
             $rows[get_string('exportpdfcarriedlabel', 'tool_vae')] = s(get_string('exportpdfcarried', 'tool_vae', (object) [
                 'record' => $from['fiche']['code'] . '-' . $from['fiche']['rang'],
-                'date' => display_date::format(self::time($preuve['reportee_le']), $date),
+                'date' => display_date::format(self::time($evidence['reportee_le']), $date),
             ]));
         }
-        $out .= self::rows($rows);
+        $out[] = pdf_blocks::table($rows);
 
-        $out .= \html_writer::tag('h4', s(get_string('situation', 'tool_vae')));
-        $out .= self::narrative($preuve['situation']['texte'], $preuve['situation']['format']);
+        $out[] = pdf_blocks::block('h4', get_string('situation', 'tool_vae'));
+        $out[] = self::narrative($evidence['situation']['texte'], $evidence['situation']['format']);
 
         // The supporting pieces (T-13, lot 3): listed, never incorporated, and no address: this is the copy the candidate
         // shows. The archive holds the rest.
         if ($pieces) {
-            $out .= \html_writer::tag('h4', s(get_string('exportpdfpieces', 'tool_vae')));
-            $out .= \html_writer::alist(array_map(fn($entry) => s(piece_overview::line($entry)), $pieces));
+            $out[] = pdf_blocks::block('h4', get_string('exportpdfpieces', 'tool_vae'));
+            $out[] = pdf_blocks::bullets(array_map(fn($entry) => pdf_blocks::plain_item(piece_overview::line($entry)), $pieces));
         }
 
-        $out .= \html_writer::tag('h4', s(get_string('exportpdfattestations', 'tool_vae')));
-        if (!$preuve['attestations']) {
-            return $out . \html_writer::tag('p', s(get_string('noattestationyet', 'tool_vae')));
+        $out[] = pdf_blocks::block('h4', get_string('exportpdfattestations', 'tool_vae'));
+        if (!$evidence['attestations']) {
+            $out[] = pdf_blocks::block('p', get_string('noattestationyet', 'tool_vae'));
+
+            return $out;
         }
 
         // The way out is said only when no attestation stands, and once, after the last one withdrawn (as the screen does).
-        $standing = in_array('en_vigueur', array_column($preuve['attestations'], 'statut'), true);
-        $last = array_key_last($preuve['attestations']);
+        $standing = in_array('en_vigueur', array_column($evidence['attestations'], 'statut'), true);
+        $last = array_key_last($evidence['attestations']);
 
         $items = [];
-        foreach ($preuve['attestations'] as $key => $attestation) {
+        foreach ($evidence['attestations'] as $key => $attestation) {
             if ($attestation['statut'] !== 'en_vigueur') {
                 $sentence = get_string('attestationwithdrawnon', 'tool_vae', (object) [
                     'date' => display_date::format(self::time($attestation['retiree_le']), $date),
@@ -493,18 +501,27 @@ final class pdf_renderer {
                 if (!$standing && $key === $last) {
                     $sentence .= ' ' . get_string('attestationwithdrawnagain', 'tool_vae');
                 }
-                $items[] = s($sentence);
+                $items[] = pdf_blocks::plain_item($sentence);
                 continue;
             }
 
-            $items[] = \html_writer::tag('strong', s($attestation['role']))
-                . \html_writer::empty_tag('br')
-                . nl2br(s($attestation['declaration']))
-                . \html_writer::empty_tag('br')
-                . s(get_string('attestedon', 'tool_vae', display_date::format(self::time($attestation['attestee_le']), $date)));
+            $items[] = [
+                'plain' => false,
+                'signed' => [
+                    'role' => $attestation['role'],
+                    'bodyhtml' => nl2br(s($attestation['declaration'])),
+                    'text' => get_string(
+                        'attestedon',
+                        'tool_vae',
+                        display_date::format(self::time($attestation['attestee_le']), $date)
+                    ),
+                ],
+            ];
         }
 
-        return $out . \html_writer::alist($items);
+        $out[] = pdf_blocks::bullets($items);
+
+        return $out;
     }
 
     /**
@@ -512,9 +529,9 @@ final class pdf_renderer {
      *
      * @param string $text
      * @param string $format 'markdown' or 'texte', as the claim file says.
-     * @return string HTML.
+     * @return array A block of HTML.
      */
-    private static function narrative(string $text, string $format): string {
+    private static function narrative(string $text, string $format): array {
         $html = format_text($text, $format === 'markdown' ? FORMAT_MARKDOWN : FORMAT_PLAIN, [
             'context' => \context_system::instance(),
             'para' => true,
@@ -523,22 +540,7 @@ final class pdf_renderer {
         $html = strip_tags($html, self::NARRATIVE_TAGS);
 
         // Every tag left is one of the list above; whatever it carried besides its name goes.
-        return preg_replace('/<([a-z][a-z0-9]*)\b[^>]*>/i', '<$1>', $html);
-    }
-
-    /**
-     * Label and value pairs, as a borderless table TCPDF lays out on two columns.
-     *
-     * @param string[] $rows Plain-text label => value already escaped.
-     * @return string HTML.
-     */
-    private static function rows(array $rows): string {
-        $out = '<table cellpadding="2">';
-        foreach ($rows as $label => $value) {
-            $out .= '<tr><td width="35%"><strong>' . s($label) . '</strong></td><td width="65%">' . $value . '</td></tr>';
-        }
-
-        return $out . '</table>';
+        return pdf_blocks::block('html', preg_replace('/<([a-z][a-z0-9]*)\b[^>]*>/i', '<$1>', $html));
     }
 
     /**

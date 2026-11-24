@@ -35,7 +35,6 @@ use tool_vae\local\access;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\hidden_frameworks;
 use tool_vae\local\note_manager;
-use tool_vae\local\note_screen;
 use tool_vae\local\selfpos_manager;
 use tool_vae\local\selfpos_regard;
 use tool_vae\local\selfpos_screen;
@@ -45,8 +44,8 @@ use tool_vae\local\selfpos_tree;
 require_login();
 
 $candidateid = optional_param('userid', (int) $USER->id, PARAM_INT);
-$fichecode = optional_param('fiche', '', PARAM_RAW_TRIMMED);
-$rank = optional_param('rank', null, PARAM_RAW_TRIMMED);
+$fichecode = optional_param('fiche', '', PARAM_ALPHANUMEXT);
+$rank = optional_param('rank', null, PARAM_ALPHANUM);
 
 $context = access::require_can_view($candidateid);
 $candidate = core_user::get_user($candidateid, '*', MUST_EXIST);
@@ -60,11 +59,12 @@ $PAGE->set_pagelayout('standard');
 $heading = $own ? get_string('selfposheading', 'tool_vae') : get_string('selfposreadheading', 'tool_vae', fullname($candidate));
 $PAGE->set_title($heading);
 $PAGE->set_heading(fullname($candidate));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 if (!competency_gateway::is_subsystem_enabled()) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading($heading);
-    echo $OUTPUT->notification(get_string('errorcompetenciesdisabled', 'tool_vae'), \core\output\notification::NOTIFY_ERROR);
+    echo $renderer->render(\tool_vae\output\selfposition_page::disabled());
     echo $OUTPUT->footer();
     die();
 }
@@ -85,7 +85,7 @@ if ($fichecode === '') {
     }
     echo $OUTPUT->header();
     echo $OUTPUT->heading($heading);
-    echo selfpos_screen::records($candidateid, $sources, $hidden);
+    echo $renderer->render(new \tool_vae\output\selfpos_records($candidateid, $sources, $hidden));
     echo $OUTPUT->footer();
     die();
 }
@@ -99,7 +99,7 @@ if (!$source || $source->fichecode !== $fichecode) {
 if ($frameworks->is_hidden($source)) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading($heading);
-    echo selfpos_screen::hidden($frameworks->message($source), selfpos_screen::kept_text());
+    echo $renderer->render(new \tool_vae\output\selfpos_hidden($frameworks->message($source), selfpos_screen::kept_text()));
     echo $OUTPUT->footer();
     die();
 }
@@ -110,18 +110,13 @@ $current = $manager->current($candidateid, $fichecode);
 if ($rank === null) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading($heading);
-    echo html_writer::tag('p', html_writer::tag('strong', s($fichecode)));
-    echo selfpos_screen::tree($candidateid, $fichecode, $tree, $current, $canwrite);
-    // The vaeiste goes back to their pathway; a reader goes back to the dossier they came from.
-    echo html_writer::tag('p', $own
-        ? html_writer::link(
-            new moodle_url('/admin/tool/vae/organisation.php', ['tab' => 'mine']),
-            get_string('selfposbackpathway', 'tool_vae')
-        )
-        : html_writer::link(
-            new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]),
-            get_string('selfposbackdossier', 'tool_vae')
-        ));
+    // The code of the record, the tree, then the way back: to the pathway for the vaeiste, to the dossier for a reader.
+    echo $renderer->render(\tool_vae\output\selfposition_page::tree(
+        $candidateid,
+        $fichecode,
+        $own,
+        new \tool_vae\output\selfpos_record_tree($candidateid, $fichecode, $tree, $current, $canwrite)
+    ));
     echo $OUTPUT->footer();
     die();
 }
@@ -205,25 +200,22 @@ if ($canannotate) {
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading($heading);
-if ($error !== null) {
-    echo $OUTPUT->notification(s($error), \core\output\notification::NOTIFY_ERROR);
-}
-if ($noteerror !== null) {
-    echo $OUTPUT->notification(s($noteerror), \core\output\notification::NOTIFY_ERROR);
-}
-echo selfpos_screen::node(
-    $candidateid,
-    $fichecode,
-    $node,
-    $manager->lines($candidateid, $fichecode, $rank),
-    selfpos_regard::for_node($candidateid, $fichecode, $node),
-    selfpos_successor::readings($candidateid, $fichecode, $tree)[$rank] ?? [],
-    $canwrite,
-    $form ? $form->render() : ''
-);
-// After the history of the node: the annotations, apart from the vaeiste's own lines. A node no screen can name holds none.
-if ($node->positionable) {
-    echo note_screen::block(
+// The errors of a send, the node, then, after the history of the node, the annotations, apart from the vaeiste's own lines.
+// A node no screen can name holds none.
+echo $renderer->render(\tool_vae\output\selfposition_page::node(
+    $error,
+    $noteerror,
+    new \tool_vae\output\selfpos_node(
+        $candidateid,
+        $fichecode,
+        $node,
+        $manager->lines($candidateid, $fichecode, $rank),
+        selfpos_regard::for_node($candidateid, $fichecode, $node),
+        selfpos_successor::readings($candidateid, $fichecode, $tree)[$rank] ?? [],
+        $canwrite,
+        $form ? $form->render() : ''
+    ),
+    $node->positionable ? new \tool_vae\output\notes_block(
         $candidateid,
         note_manager::TARGET_SELFPOS,
         $fichecode,
@@ -232,6 +224,6 @@ if ($node->positionable) {
         $notes->for_target($candidateid, note_manager::TARGET_SELFPOS, $fichecode, 0, $rank),
         $canannotate,
         $noteform ? $noteform->render() : ''
-    );
-}
+    ) : null
+));
 echo $OUTPUT->footer();

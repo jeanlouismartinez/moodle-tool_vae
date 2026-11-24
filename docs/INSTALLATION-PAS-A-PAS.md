@@ -1,6 +1,6 @@
 # Installer et mettre en service le plugin « VAE - cheminement » — pas à pas, pour débutants
 
-> Version du plugin décrite : **2.5.03 (Moodle 5.3), build 2026110405** (plugin **moodle-tool_vae**, plateforme lavae.org ; à ne pas confondre avec `tool_vae`, release 01.5.3, plateforme fildargent.net) (rédigé le 25 octobre 2026, mis à jour le 27 octobre 2026 puis le 5 novembre 2026). Ce guide suppose que **Moodle 5.3 est déjà
+> Version du plugin décrite : **2.5.03 (Moodle 5.3), build 2026112200** (composant `tool_vae`, dépôt `moodle-tool_vae`) (rédigé le 25 octobre 2026, mis à jour le 27 octobre 2026, le 5 novembre 2026, le 17 novembre 2026 puis le 22 novembre 2026 : noms des rôles tirés des chaînes de langue, sélecteur de fichiers de Moodle pour l'import, purge au premier passage du cron qui suit la suppression d'un compte, messages du script en ligne de commande). Ce guide suppose que **Moodle 5.3 est déjà
 > installé et que vous avez un compte administrateur**. Il ne vous demande aucune connaissance de programmation. Comptez **deux à
 > trois heures** pour tout faire une première fois, répétition générale comprise.
 >
@@ -9,6 +9,10 @@
 > Les adresses de pages (par exemple `/admin/roles/manage.php`) sont données pour gagner du temps : ajoutez-les à l'adresse de
 > votre site Moodle (par exemple `https://formation.mon-site.fr/admin/roles/manage.php`). Les intitulés de menus peuvent varier
 > légèrement selon la langue et la version ; les adresses, elles, ne varient pas.
+>
+> **Le paquet du plugin ne livre que l'anglais.** Les noms d'écrans et de rôles du plugin cités ici en français sont ceux des chaînes
+> françaises du dépôt GitHub (`lang/fr/tool_vae.php`) ; tant qu'aucune traduction française du plugin n'est installée sur le site, ses
+> écrans s'affichent en anglais, même sur un site en français (les menus de Moodle, eux, suivent la langue du site).
 
 > **Ce qui a été vérifié, et ce qui ne l'a pas été.** Le 25 octobre 2026, nous avons rejoué les parties 6, 7 et 12 sur l'instance
 > d'essai du plugin (Moodle 5.3, anglais) avec trois comptes jetables, supprimés ensuite : les trois rôles construits avec **les
@@ -27,6 +31,33 @@
 > plugin (des scénarios de test joués en local sur des exports inventés ont déroulé le dépôt du fichier zip). **Non vérifié :** le clic
 > « Aller chercher le dernier export » contre le vrai data.gouv.fr avec ce code ; l'export du 27 octobre 2026 passé par la page ;
 > l'hébergement réel (sortie du serveur vers Internet, limite d'envoi de fichiers, mémoire) ; la lecture de l'écran au clavier et au lecteur d'écran.
+>
+> **Mise à jour du 17 novembre 2026 (builds 2026111500 à 2026111606).** Ajoutés : le « Démarrage en dix étapes » ci-dessous ; la page
+> « Mise en route » (partie 5) ; les pages du plugin rangées dans une catégorie « VAE » de l'administration ; le lien « VAE » de la barre du
+> haut et le lien « Aide » de chaque onglet (parties 7 et 12) ; les sept groupes de la page de réglages (partie 9). Ces écrans sont essayés
+> par les tests automatiques du plugin, joués en local sur Moodle 5.3.0 et PostgreSQL le 17 novembre 2026 (PHPUnit, et Behat avec et sans
+> navigateur). Le lien « VAE » a été suivi par HTTP sur l'instance d'essai avec un compte de vaeiste et un compte de responsable, et le guide
+> du vaeiste lu par HTTP en français. **Non vérifié :** ces passages n'ont pas été rejoués à la main, de bout en bout, pour ce guide ; la
+> catégorie « VAE » vue par un administrateur ou une direction sur un vrai site ; le guide de la direction lu par HTTP ; MariaDB.
+
+---
+
+## Démarrage en dix étapes
+
+Le résumé du guide, pour qui veut savoir où il va. Les étapes suivent l'ordre de la page **Mise en route** du plugin, qui montre
+l'état de chacune sans rien modifier. Toutes les pages du plugin sont rangées sous **Administration du site > Compétences > VAE**
+(noté plus bas « Compétences → VAE → … »). Chaque ligne renvoie à la partie détaillée de ce guide.
+
+1. Faites une sauvegarde du site et vérifiez Moodle 5.3 et PHP 8.3 (partie 1).
+2. Installez le plugin, puis ouvrez **Compétences → VAE → Mise en route** pour suivre la suite (parties 2, 3 et 5).
+3. Activez les compétences de Moodle (partie 4.1).
+4. Vérifiez que le cron tourne (partie 4.2).
+5. Créez les trois rôles de base, au besoin depuis la page **Rôles VAE**, et vérifiez la grille « Acteurs et pouvoirs » (partie 6).
+6. Attribuez les rôles Vaeiste et Direction VAE, puis rattachez chaque responsable à ses vaeistes par une cohorte (parties 6.4, 6.5 et 7).
+7. Importez au moins une fiche de certification (partie 8).
+8. Relisez les réglages du plugin, sans rien ouvrir de ce qui est fermé (partie 9).
+9. Publiez le contrat d'usage et la politique de confidentialité ; configurez un antivirus seulement si vous ouvrez les pièces jointes (parties 10 et 11).
+10. Faites la répétition générale avec trois comptes de test, puis supprimez-les (partie 12).
 
 ---
 
@@ -113,7 +144,7 @@ le ZIP contient `tool_vae` ou `vae-main` au lieu de `vae`, Moodle refuse de l'in
 **Si vous devez le fabriquer vous-même** (à faire sur un ordinateur où le dépôt du plugin est récupéré et où Git est installé) :
 
 ```bash
-cd chemin/du/depot/moodle-tool_referentiel
+cd chemin/du/depot/moodle-tool_vae
 git checkout <branche-ou-commit-à-installer>
 git archive --format=zip --prefix=vae/ HEAD -o vae.zip
 ```
@@ -193,7 +224,8 @@ Le plugin s'appuie sur le sous-système « Compétences » de Moodle. **Sans lui
 ### 4.2 Vérifier que le cron tourne (obligatoire)
 
 Le cron fait fonctionner, en arrière-plan : l'envoi des messages en file d'attente (dont celui qui informe un vaeiste qu'une ligne
-de positionnement a été écrite sur son parcours, partie 10), les rappels aux responsables, la purge des archives (24 heures), la copie
+de positionnement a été écrite sur son parcours, partie 10), les rappels aux responsables, la purge des archives produites par la direction ou l'administrateur (24 heures ; celle que
+le vaeiste produit lui-même est gardée tant que son compte existe), la copie
 hebdomadaire, la mise à jour des rattachements par cohorte (au plus une heure). **Sans cron, ces fonctions ne se feront pas.**
 
 1. Ouvrez **Administration du site → Serveur → Tâches → Tâches planifiées** (`/admin/tool/task/scheduledtasks.php`).
@@ -212,14 +244,24 @@ pas : il faut demander à l'hébergeur (ou ajouter une ligne dans la planificati
 
 ## Partie 5 — Vérifier que le plugin est bien installé
 
-1. Ouvrez **Administration du site → Compétences → VAE - cheminement** (`/admin/tool/vae/index.php`).
-2. Vous devez voir le titre **VAE - cheminement**, un message bleu « **Aucune fiche de certification n'a encore été importée.** »,
+Depuis le build 2026111602, les pages du plugin sont rangées dans une catégorie **VAE**, sous **Compétences**, dans cet ordre :
+**Mise en route**, **VAE - cheminement**, **Rôles VAE**, **VAE : réglages**, **Organisation**, **Déclarations en attente
+d'attestation**, **Certifications à renouveler** et **Responsables autorisés à produire l'archive de la structure** (ces deux-là
+seulement pour qui détient les droits qu'elles demandent), **Fiches de certification remplacées**, **Référents des blocs**,
+**Règles de validation : adresses**. Chacun n'y voit que les pages que ses droits lui ouvrent.
+
+1. Ouvrez **Administration du site → Compétences → VAE → Mise en route** (`/admin/tool/vae/setup.php`). Cette page liste les
+   étapes de la mise en service, dans l'ordre de ce guide, avec leur état (« Fait », « À faire », « À vérifier par vous ») et la
+   partie du guide qui les explique. **Elle ne modifie rien.** Les rôles attribués, les cohortes rattachées et la publication du
+   contrat d'usage ne se constatent pas : ces étapes restent « À vérifier par vous ».
+2. Ouvrez **Administration du site → Compétences → VAE → VAE - cheminement** (`/admin/tool/vae/index.php`).
+   Vous devez voir le titre **VAE - cheminement**, un message bleu « **Aucune fiche de certification n'a encore été importée.** »,
    et deux boutons : **Importer des fiches depuis France compétences** (le premier, mis en avant) et **Importer un fichier CSV (cas particulier)**.
 
 **Résultat attendu :** cette page, sans erreur. Le message bleu est normal : on importera les fiches en partie 8.
 
-3. Ouvrez aussi **Administration du site → Compétences → VAE : réglages** (`/admin/settings.php?section=tool_vae_settings`).
-   Elle liste les réglages du plugin (partie 9). **N'y changez rien pour l'instant.**
+3. Ouvrez aussi **Administration du site → Compétences → VAE → VAE : réglages** (`/admin/settings.php?section=tool_vae_settings`).
+   Elle liste les réglages du plugin, en sept groupes (partie 9). **N'y changez rien pour l'instant.**
 
 *Si vous voyez à la place « Le sous-système de compétences est désactivé… »,* retournez en 4.1.
 
@@ -246,7 +288,7 @@ droit d'étudiant sur le site. Les deux autres rôles n'ont pas de modèle.
 **Règle d'or : ne donnez jamais le rôle « Responsable VAE » au niveau du site.** Un responsable doit ne voir que les vaeistes
 qu'il suit ; le plugin refuse d'ailleurs d'ouvrir un dossier à un responsable dont le rôle est attribué au niveau du site.
 
-**Gagner du temps : la page « Rôles VAE ».** Les rôles existent aussi en préréglages XML, dans `presets/roles/` du plugin : trois rôles de base (`role_vaeiste.xml`, `role_responsable.xml`, `role_direction.xml`) et deux rôles facultatifs (`role_responsable_evaluateur.xml` : le responsable, plus `tool/vae:evaluate`, au niveau utilisateur ; `role_direction_certificatrice.xml` : la direction, plus `tool/vae:certify`, au niveau du site, avec `tool/vae:viewany`). Pour qui peut gérer les rôles (`moodle/role:manage`), la page **Administration du site → Compétences → Rôles VAE** (`/admin/tool/vae/roles_install.php`) liste ces cinq rôles et dit lesquels existent déjà. Elle crée un rôle **seulement sur votre demande** : un écran de confirmation liste les droits qu'il recevra. Rien n'est créé en ouvrant la page, ni à l'installation du plugin ; un rôle qui existe déjà (même nom court) n'est jamais modifié ; l'événement de création est celui du cœur de Moodle. Le plugin refuse d'accorder, dans n'importe quel préréglage, les droits `import`, `importdossier`, `identityview`, `useai`, `withdrawany` et `linkcourse`, même si un fichier était modifié ; `evaluate` et `certify` ne sont dans aucun des trois rôles de base, seulement dans les deux facultatifs (à ne créer que si le site a décidé de laisser la structure écrire un positionnement, partie 10). **Le plugin n'attribue rien** : qui détient un rôle, et où (rôle de cohorte pour les responsables), se décide ensuite dans Moodle, comme décrit dans cette partie 6.
+**Gagner du temps : la page « Rôles VAE ».** Les rôles existent aussi en préréglages XML, dans `presets/roles/` du plugin : trois rôles de base (`role_vaeiste.xml`, `role_responsable.xml`, `role_direction.xml`) et deux rôles facultatifs (`role_responsable_evaluateur.xml` : le responsable, plus `tool/vae:evaluate`, au niveau utilisateur ; `role_direction_certificatrice.xml` : la direction, plus `tool/vae:certify`, au niveau du site, avec `tool/vae:viewany`). Pour qui peut gérer les rôles (`moodle/role:manage`), la page **Administration du site → Compétences → VAE → Rôles VAE** (`/admin/tool/vae/roles_install.php`) liste ces cinq rôles et dit lesquels existent déjà. Elle crée un rôle **seulement sur votre demande** : un écran de confirmation liste les droits qu'il recevra. Rien n'est créé en ouvrant la page, ni à l'installation du plugin ; un rôle qui existe déjà (même nom court) n'est jamais modifié ; l'événement de création est celui du cœur de Moodle. Le plugin refuse d'accorder, dans n'importe quel préréglage, les droits `import`, `importdossier`, `identityview`, `useai`, `withdrawany` et `linkcourse`, même si un fichier était modifié ; `evaluate` et `certify` ne sont dans aucun des trois rôles de base, seulement dans les deux facultatifs (à ne créer que si le site a décidé de laisser la structure écrire un positionnement, partie 10). **Le plugin n'attribue rien** : qui détient un rôle, et où (rôle de cohorte pour les responsables), se décide ensuite dans Moodle, comme décrit dans cette partie 6. **Noms des rôles** (depuis le 22 novembre 2026) : la page les prend dans les chaînes de langue du plugin, dans la langue de la personne qui crée le rôle ; en français « Vaeiste », « Responsable VAE », « Direction VAE », « Responsable VAE évaluateur », « Direction VAE certificatrice » (les noms de ce guide) ; en anglais « Vaeiste », « VAE manager », « VAE direction », « VAE evaluating manager », « VAE certifying direction ». Les noms courts ne changent pas, et un rôle déjà créé n'est jamais renommé.
 
 L'import à la main reste possible : à l'étape « Ajouter un nouveau rôle » de la définition des rôles, choisissez « Utiliser un préréglage », chargez le fichier de `presets/roles/`, puis vérifiez la liste des droits contre les tables ci-dessous avant de cliquer « Créer ce rôle ».
 
@@ -380,8 +422,16 @@ Moodle : les **cohortes** et la **gestion des rôles de cohorte**.
 *La synchronisation est faite par le cron, au plus tard une heure après un changement.* Un vaeiste ajouté plus tard à la cohorte
 est rattaché automatiquement.
 
-**Où le responsable retrouve ses vaeistes :** sur **son profil** (clic sur son nom en haut à droite, puis **Profil**), lien
-**Mes vaeistes**.
+**Où le responsable retrouve ses vaeistes :** depuis le build 2026111601, par le lien **VAE** de la barre du haut de chaque page
+(à côté de « Tableau de bord » et « Mes cours »), qui ouvre l'onglet **Vaeistes suivis** de la page Organisation. Ce lien n'est
+montré qu'à qui peut ouvrir un onglet de cette page : le vaeiste, le responsable qui suit au moins un vaeiste, la direction ; jamais
+en session « Se connecter en tant que ». Les liens du profil existent toujours (clic sur son nom en haut à droite, puis **Profil** :
+**Mes vaeistes**).
+
+**L'aide de chaque rôle :** depuis le build 2026111606, chaque onglet de la page Organisation porte, sous son titre, un lien
+**Aide** (« Aide : le guide du vaeiste », « … du responsable », « … de la direction ») vers un guide d'une page servi par le plugin
+(`/admin/tool/vae/guide.php`). Chacun n'ouvre que le guide de l'onglet qu'il peut ouvrir. Ces guides décrivent seulement ce qui est
+ouvert sur un site tel qu'il est installé ; ils ne remplacent pas ce guide d'installation.
 
 ---
 
@@ -422,7 +472,7 @@ tableau ont donné les mêmes blocs dans les exports du 19 et du 27 octobre 2026
 
 ### 8.2 Importer en un clic : le serveur va chercher l'export (voie B)
 
-1. Ouvrez **Administration du site → Compétences → VAE - cheminement** (`/admin/tool/vae/index.php`), puis le premier bouton, **Importer des fiches depuis
+1. Ouvrez **Administration du site → Compétences → VAE → VAE - cheminement** (`/admin/tool/vae/index.php`), puis le premier bouton, **Importer des fiches depuis
    France compétences** (`/admin/tool/vae/import_fiches.php`).
 2. Dans le champ **Numéros des fiches**, tapez ou collez les numéros : un par ligne, ou séparés par des virgules (par exemple `RNCP40692`). Vingt au plus à la fois.
 3. Dans la section **Aller chercher l'export sur data.gouv.fr**, cliquez **Aller chercher le dernier export**. La page prévient : « La lecture peut prendre une minute. Ne fermez pas la page. »
@@ -447,7 +497,10 @@ pour qu'il ouvre le https sortant vers ces deux adresses. Vous pouvez aussi pass
 2. Téléchargez le fichier zip **`export-fiches-csv-AAAA-MM-JJ.zip`** (environ 10 Mo), **sans le décompresser et sans le renommer** : la date de l'export est lue dans son
    nom (votre navigateur peut y ajouter « (1) », c'est toléré). Les autres fichiers de la page (`export-fiches-rncp-…`) ne conviennent pas.
 3. Sur l'écran **Importer des fiches depuis France compétences**, saisissez les numéros (champ **Numéros des fiches**), puis, dans la section **Ou déposer
-   le fichier zip**, choisissez le fichier dans le champ **Fichier zip de l'export** et cliquez **Lire le fichier déposé**.
+   le fichier zip**, cliquez **Choisir un fichier…** dans le champ **Fichier zip de l'export** : le sélecteur de fichiers de Moodle
+   s'ouvre ; choisissez **Déposer un fichier**, puis le fichier, puis **Déposer ce fichier** (ou glissez le fichier dans le champ) ; cliquez
+   ensuite **Lire le fichier déposé**. Un fichier trop gros ou qui n'est pas un `.zip` est refusé dans la fenêtre du sélecteur, par un message
+   du cœur de Moodle.
 4. Si le zip a été renommé et que son nom ne donne plus la date, cochez **Activer** à côté de **Date de l'export (seulement si le nom du fichier ne la
    donne plus)** et choisissez le jour de l'export.
 
@@ -499,25 +552,34 @@ fiche en vigueur : il change quand une fiche est remplacée ; pour une fiche en 
 
 ### 8.5 Voie de secours : préparer un fichier à la main (ligne de commande)
 
-*Cette voie demande une petite manipulation en ligne de commande sur un ordinateur où PHP est installé (le serveur Moodle convient). Elle sert pour une fiche préparée à la main,
-ou quand ni 8.2 ni 8.3 ne marchent sur votre site : le script se joue sur un poste, sans site. Si vous n'êtes pas à l'aise, demandez à votre informaticien : c'est l'affaire d'un quart d'heure.*
+*Cette voie demande une petite manipulation en ligne de commande **sur le serveur où Moodle est installé** (depuis le 19 novembre 2026, le script est un script en ligne de
+commande de Moodle : il lit la configuration du site et ne se joue plus sur un poste sans site). Elle sert pour une fiche préparée à la main, ou quand ni 8.2 ni 8.3 ne marchent
+sur votre site. Si vous n'êtes pas à l'aise, demandez à votre informaticien : c'est l'affaire d'un quart d'heure.*
 
 1. Téléchargez le fichier zip **`export-fiches-csv-AAAA-MM-JJ.zip`** (comme en 8.3). La date du nom est celle de l'export : **notez-la**.
-2. Décompressez-le dans un dossier de votre choix, **en dehors du dossier du plugin**, et repérez deux fichiers :
+2. Décompressez-le sur le serveur, dans un dossier de votre choix **en dehors du dossier du plugin** (par exemple `/tmp/export`), et repérez deux fichiers :
    - `export_fiches_CSV_Blocs_De_Compétences_AAAA_MM_JJ.csv` (les blocs)
    - `export_fiches_CSV_Standard_AAAA_MM_JJ.csv` (les intitulés)
-3. Dans un terminal, placez-vous dans le dossier du plugin sur votre ordinateur, puis, par exemple pour le DEAS :
+3. Dans un terminal du serveur, placez-vous à la racine de Moodle (le dossier qui contient `config.php`), puis, par exemple pour le DEAS, lancez la commande sous le
+   compte du serveur web (ici `www-data`) :
 
    ```bash
-   php scripts/convertir-fiche-rncp.php blocs.csv standard.csv RNCP40692 deas.csv
+   sudo -u www-data php public/admin/tool/vae/cli/convert_fiche.php --blocs=/tmp/export/blocs.csv \
+       --standard=/tmp/export/standard.csv --number=RNCP40692 --output=/tmp/export/deas.csv
    ```
 
-   *(Remplacez `blocs.csv` et `standard.csv` par les noms exacts des deux fichiers de l'étape 2, avec leur chemin.)*
+   *(Remplacez `blocs.csv` et `standard.csv` par les noms exacts des deux fichiers de l'étape 2, avec leur chemin complet : le script
+   refuse un chemin relatif, parce que Moodle change le dossier courant d'un script en ligne de commande. Sur un Moodle sans dossier `public/`
+   (version antérieure à la 5.1), le chemin est `admin/tool/vae/cli/convert_fiche.php`. `--help` affiche l'aide du script, dans la langue
+   du site.)*
 
    **Résultat attendu :** un fichier `deas.csv` est créé, et le terminal **affiche les valeurs à recopier** à l'étape suivante :
    code de la fiche, type, intitulé, source, licence, paternité (« France compétences »). **Gardez cet affichage sous les yeux.**
-   Si le script répond qu'une fiche est « refusée », c'est qu'elle n'a pas de bloc dans l'export : prenez le numéro de la fiche en vigueur.
-4. Ouvrez **Administration du site → Compétences → VAE - cheminement** (`/admin/tool/vae/index.php`), puis le second bouton, **Importer un fichier CSV (cas particulier)**
+   Les messages du script viennent des chaînes de langue du plugin, dans la langue du site (en anglais sur un site en anglais ; non essayé
+   sur un site en français) ; les noms des champs à recopier sont ceux de l'écran, dans la langue du site.
+   Si le script répond qu'une fiche est refusée (`Refused:` sur un site en anglais), c'est le plus souvent que la fiche n'a pas de bloc dans
+   l'export : prenez le numéro de la fiche en vigueur.
+4. Ouvrez **Administration du site → Compétences → VAE → VAE - cheminement** (`/admin/tool/vae/index.php`), puis le second bouton, **Importer un fichier CSV (cas particulier)**
    (`/admin/tool/vae/import.php`, dont le titre reste « Importer une fiche de certification »), et remplissez le formulaire avec les valeurs affichées par le script :
 
    | Champ | Quoi mettre |
@@ -541,28 +603,33 @@ Recommencez les étapes 3 à 5 pour chaque diplôme dont vous avez besoin.
 
 ## Partie 9 — Les réglages du plugin
 
-Page : **Administration du site → Compétences → VAE : réglages** (`/admin/settings.php?section=tool_vae_settings`).
-Voici ce que fait chaque réglage et la valeur que nous conseillons pour **démarrer**. N'oubliez pas **Enregistrer les
-modifications** en bas.
+Page : **Administration du site → Compétences → VAE → VAE : réglages** (`/admin/settings.php?section=tool_vae_settings`).
+Depuis le build 2026111602, ses 20 réglages sont rangés sous **sept titres**, dans cet ordre : **Attestations et rappels** ;
+**Dossiers de faisabilité et de validation** ; **Pièces justificatives** ; **Aide de l'IA** ; **Copies modifiables** ;
+**Positionnement** ; **Import des fiches**. Sous chaque titre, un texte dit en une phrase par réglage ce que ce réglage ouvre ou
+fixe pour le vaeiste ; chaque réglage garde sa propre description. Les noms techniques des réglages et leurs valeurs par défaut
+n'ont pas changé. Voici ce que fait chaque réglage et la valeur que nous conseillons pour **démarrer**, groupe par groupe. N'oubliez
+pas **Enregistrer les modifications** en bas.
 
-| Réglage | Conseillé pour démarrer | Ce qu'il fait |
-|---|---|---|
-| Les responsables retirent leurs propres attestations | décoché | Si coché, un responsable peut retirer une attestation qu'il a lui-même signée. Sinon l'administrateur la retire, ou une personne à qui il a attribué le droit « Retirer n'importe quelle attestation » (`tool/vae:withdrawany`) ; le signataire peut aussi la retirer quand on le lui a demandé. |
-| Écrire une copie hebdomadaire de chaque dossier | décoché | Si coché, une copie modifiable de chaque dossier modifié depuis sa dernière copie est écrite la nuit de dimanche à lundi (un dossier inchangé n'en reçoit pas). **À n'activer qu'après avoir fixé sa durée de conservation** (fiche de conformité). |
-| Format de la copie hebdomadaire | Word | Word (.docx) ou OpenDocument (.odt). |
-| Rappeler aux responsables après ce nombre de jours | `0` (désactivé), ou `14` | Un rappel, **une seule fois**, quand une déclaration attend une attestation. De 1 à 365. |
-| Ouvrir la préparation du dossier de validation aux vaeistes | **décoché** | Fermé : voir partie 13. |
-| Ouvrir le journal de bord aux vaeistes | **décoché** | Fermé : voir partie 13. |
-| Laisser les vaeistes dire qu'une compétence est hors de leur activité | **décoché** | Fermé : voir partie 13. |
-| Ouvrir l'aide à la reformulation aux vaeistes | **décoché** | Fermé : voir partie 13. |
-| Texte envoyé le plus long (caractères) | 3000 (défaut) | Limite de l'aide d'IA (500 à 6000). |
-| Propositions par vaeiste et par jour | 25 (défaut) | Plafond de l'aide d'IA (1 à 100). |
-| Montrer les adresses des règles de validation | **décoché** | Fermé : voir partie 13. |
-| Ouvrir les pièces justificatives aux vaeistes | **décoché** | Fermé : voir partie 13. |
-| Plus gros fichier (octets) | 5 Mo (défaut) | Taille maximale d'un fichier joint (30 Mo au plus). Le réglage du site « Taille maximale des fichiers déposés » (**Administration du site → Sécurité → Réglages de sécurité du site**) s'applique aussi quand il est plus bas : la taille annoncée sur la page est la plus petite des deux. |
-| Total de fichiers d'un vaeiste (octets) | défaut | Plafond par vaeiste. |
-| Accepter les fichiers sans antivirus | **décoché** | Sans antivirus configuré, les fichiers sont refusés tant que cette case est décochée. |
-| Barème des référentiels importés | Automatique (défaut) | Le barème de compétence donné au référentiel de chaque fiche importée depuis France compétences. En automatique, le plugin retrouve par son nom le barème par défaut du cœur ; si votre site l'a renommé ou ne l'a jamais créé, choisissez ici un barème de tout le site. |
+| Groupe | Réglage | Conseillé pour démarrer | Ce qu'il fait |
+|---|---|---|---|
+| Attestations et rappels | Les responsables retirent leurs propres attestations | décoché | Si coché, un responsable peut retirer une attestation qu'il a lui-même signée. Sinon l'administrateur la retire, ou une personne à qui il a attribué le droit « Retirer n'importe quelle attestation » (`tool/vae:withdrawany`) ; le signataire peut aussi la retirer quand on le lui a demandé. |
+| Attestations et rappels | Rappeler aux responsables après ce nombre de jours | `0` (désactivé), ou `14` | Un rappel, **une seule fois**, quand une déclaration attend une attestation. De 1 à 365. |
+| Dossiers de faisabilité et de validation | Ouvrir la préparation du dossier de validation aux vaeistes | **décoché** | Fermé : voir partie 13. |
+| Dossiers de faisabilité et de validation | Ouvrir le journal de bord aux vaeistes | **décoché** | Fermé : voir partie 13. |
+| Dossiers de faisabilité et de validation | Laisser les vaeistes dire qu'une compétence est hors de leur activité | **décoché** | Fermé : voir partie 13. |
+| Dossiers de faisabilité et de validation | Montrer les adresses des règles de validation | **décoché** | Fermé : voir partie 13. |
+| Pièces justificatives | Ouvrir les pièces justificatives aux vaeistes | **décoché** | Fermé : voir partie 13. |
+| Pièces justificatives | Plus gros fichier (octets) | 5 Mo (défaut) | Taille maximale d'un fichier joint (30 Mo au plus). Le réglage du site « Taille maximale des fichiers déposés » (**Administration du site → Sécurité → Réglages de sécurité du site**) s'applique aussi quand il est plus bas : la taille annoncée sur la page est la plus petite des deux. |
+| Pièces justificatives | Total de fichiers d'un vaeiste (octets) | défaut | Plafond par vaeiste. |
+| Pièces justificatives | Accepter les fichiers sans antivirus | **décoché** | Sans antivirus configuré, les fichiers sont refusés tant que cette case est décochée. |
+| Aide de l'IA | Ouvrir l'aide à la reformulation aux vaeistes | **décoché** | Fermé : voir partie 13. |
+| Aide de l'IA | Texte envoyé le plus long (caractères) | 3000 (défaut) | Limite de l'aide d'IA (500 à 6000). |
+| Aide de l'IA | Propositions par vaeiste et par jour | 25 (défaut) | Plafond de l'aide d'IA (1 à 100). |
+| Copies modifiables | Écrire une copie hebdomadaire de chaque dossier | décoché | Si coché, une copie modifiable de chaque dossier modifié depuis sa dernière copie est écrite la nuit de dimanche à lundi (un dossier inchangé n'en reçoit pas). **À n'activer qu'après avoir fixé sa durée de conservation** (fiche de conformité). |
+| Copies modifiables | Format de la copie hebdomadaire | Word | Word (.docx) ou OpenDocument (.odt). |
+| Positionnement | Auto-positionnement : palier 1 à palier 4 (quatre réglages) | vides (défaut) | Les quatre mots parmi lesquels le vaeiste choisit pour dire où il en est sur un élément de son référentiel. Laissé vide, un palier se lit « Je découvre », « Je pratique avec aide », « J'agis seul », « Je maîtrise et je transmets ». Des mots, jamais une note. |
+| Import des fiches | Barème des référentiels importés | Automatique (défaut) | Le barème de compétence donné au référentiel de chaque fiche importée depuis France compétences. En automatique, le plugin retrouve par son nom le barème par défaut du cœur ; si votre site l'a renommé ou ne l'a jamais créé, choisissez ici un barème de tout le site. |
 
 **Résultat attendu :** après enregistrement, la page se recharge avec vos valeurs.
 
@@ -605,7 +672,8 @@ est la structure, **jamais une validation**, que seul le jury externe donne. Le 
    l'export. Il en va de même pour le nom des référents de bloc.
 2. **L'information du vaeiste** : le contrat dit qu'à chaque ligne de positionnement écrite, le vaeiste en est averti par un message. Le plugin
    envoie ce message (voir 10.2) ; la clause et le message vont ensemble.
-3. **La durée de conservation** : celle du dossier. Une ligne reste jusqu'à la suppression du compte du vaeiste et s'efface avec lui ; le plugin
+3. **La durée de conservation** : celle du dossier. Une ligne reste jusqu'à la suppression du compte du vaeiste et s'efface avec son dossier,
+   au premier passage du cron qui suit la suppression du compte (le plugin met alors en file une tâche, que le cron joue) ; le plugin
    ne la purge pas de lui-même et elle ne se modifie pas (ajout seul). Le DPO du site peut en demander l'effacement.
 4. **La voie de contestation** : le vaeiste qui conteste une ligne s'adresse au **DPO du site**. Il n'existe **aucun écran** pour cela dans le
    plugin. Une rectification passe par une **nouvelle ligne écrite par la structure** (la précédente reste) ; la limitation et l'opposition
@@ -683,11 +751,13 @@ Notez les mots de passe. **Supprimez ces trois comptes à la fin de la répétit
 Ouvrez une **fenêtre de navigation privée**, connectez-vous en `essai.vaeiste`.
 
 1. Acceptez la politique si elle s'affiche (partie 10).
-2. Cliquez votre nom en haut à droite, puis **Profil**. Dans la zone « Divers », cliquez **Dossier d'acquis de l'expérience**.
+2. Cliquez le lien **VAE** de la barre du haut. Il ouvre l'onglet **Mon parcours**.
 
-   **Résultat attendu :** la page du dossier, avec le message « Aucune activité n'a encore été déclarée. » et des boutons
-   (**Déclarer une activité**, **Dossier de faisabilité**…). Le bouton **Exporter le dossier** n'apparaît pas encore : il
-   n'apparaît qu'**après une première déclaration**.
+   **Résultat attendu :** l'onglet « Mon parcours », avec, en tête, l'encadré **Ce que vous pouvez faire maintenant** qui propose
+   **Déclarer une activité**, et sous le titre le lien **Aide : le guide du vaeiste**. *(Le chemin d'avant existe toujours : nom en
+   haut à droite, puis **Profil**, zone « Divers », lien **Dossier d'acquis de l'expérience**, qui ouvre la page du dossier avec le
+   message « Aucune activité n'a encore été déclarée. ».)* Le bouton **Exporter le dossier** du dossier n'apparaît qu'**après une
+   première déclaration**.
 3. Cliquez **Déclarer une activité**. Le formulaire demande : la **compétence visée** (une liste tirée de la fiche importée), les
    dates **Activité exercée du** et **jusqu'au**, le **cadre d'intervention** (EHPAD, SSIAD, SAAD…), une **précision sur le cadre**
    et la **situation de travail**. Remplissez-les avec des données **fictives**, puis cliquez **Enregistrer cette déclaration**.
@@ -713,7 +783,8 @@ Dans une autre fenêtre privée, connectez-vous en `essai.responsable`.
    Le message vient de l'expéditeur « ne pas répondre » du site, avec pour objet « Une déclaration attend votre attestation » (le nom du
    vaeiste n'est pas dans l'objet). Il se termine par la phrase « Ce message est automatique. Pour attester la déclaration ou poser une
    question, ouvrez le dossier avec le lien ci-dessous. », puis par le lien « Ouvrir le dossier » : c'est ce lien qu'on suit, pas une réponse.
-2. Profil → **Mes vaeistes** → Camille Essai.
+2. Lien **VAE** de la barre du haut (il ouvre l'onglet **Vaeistes suivis**) → Camille Essai. *(Le chemin d'avant existe
+   toujours : Profil → **Mes vaeistes** → Camille Essai.)*
 3. Dans le dossier de Camille, sous la déclaration, cliquez le bouton d'attestation. Remplissez **Votre fonction et votre
    établissement** et **Énoncé de votre attestation**, cochez **Lecture** (vous confirmez avoir lu le récit), puis cliquez
    **Attester cette déclaration**.
@@ -722,7 +793,9 @@ Dans une autre fenêtre privée, connectez-vous en `essai.responsable`.
 
 ### 12.4 Le parcours de la direction
 
-Connectez-vous en `essai.direction`. Ouvrez `/admin/tool/vae/pending.php` (**Déclarations en attente d'attestation**).
+Connectez-vous en `essai.direction`. Le lien **VAE** de la barre du haut ouvre l'onglet **Organisation**, dont le lien **Aide : le
+guide de la direction** mène au guide de ce rôle ; ce guide donne un lien direct vers la page des déclarations en attente. Ouvrez
+cette page : `/admin/tool/vae/pending.php` (**Déclarations en attente d'attestation**, aussi sous **Compétences → VAE**).
 
 **Résultat attendu :** la liste affiche les déclarations non attestées de tout le site (vide si tout est attesté).
 
@@ -738,8 +811,9 @@ données personnelles de Moodle, qui se lit mais ne se réimporte pas), et qu'un
 déjà numéroté autrement les compétences que l'archive nomme, et que le compte du vaeiste n'y ait pas déjà d'identifiant (il le reçoit dès sa première
 déclaration, son premier export, sa première copie ou sa première sauvegarde) ; sinon l'import est refusé en entier. Ce texte s'adresse au vaeiste (« votre
 dossier », « vos déclarations ») quand il exporte son propre dossier ; quand la direction ou l'administrateur exporte le dossier d'un autre, il parle du vaeiste
-à la troisième personne. **Le PDF doit s'ouvrir et se lire.** (L'archive est supprimée du serveur
-au bout de 24 heures.)
+à la troisième personne. **Le PDF doit s'ouvrir et se lire.** (L'archive que le vaeiste produit
+lui-même reste téléchargeable ici, par lui seul, tant que son compte existe ; un nouvel export la remplace. Celle que la direction
+ou l'administrateur produit pour le dossier d'un autre est supprimée du serveur au bout de 24 heures.)
 
 Si, sur un vrai site, un avertissement s'affiche après l'export (« une ligne dont le format n'est pas celui attendu »), l'archive a bien été produite
 et son PDF se remet au jury : l'avertissement dit seulement qu'elle ne pourra pas être réimportée telle quelle. La ligne vient d'une déclaration déjà enregistrée
@@ -762,10 +836,10 @@ le réglage dans `/admin/settings.php?section=tool_vae_settings` et enregistrez.
 
 | Fonction (réglage) | Ne l'ouvrir que si… |
 |---|---|
-| **Préparation du dossier de validation** (`validationopen`) | un accompagnateur VAE en exercice a relu ses intitulés et ses aides (fiche `docs/RELECTURE-PREPARATION-VALIDATION.md`) |
+| **Préparation du dossier de validation** (`validationopen`) | un accompagnateur VAE en exercice a relu ses intitulés et ses aides, sa consigne d'anonymisation, la phrase d'étiquetage en tête de chaque écran et l'ordre des rubriques (la fiche de relecture qui pose ces questions est gardée dans le dépôt de travail du porteur) |
 | **Journal de bord** (`reflectionopen`) | la préparation du dossier de validation est relue **et** la durée de conservation d'un tel texte est écrite |
 | **Pièces justificatives** (`piecesopen`) | l'amendement 4 du document de dérogation `DER-referentiel-001` est validé, la durée de conservation est écrite, **un antivirus est configuré** (partie 11), et la question d'une analyse d'impact pour d'éventuelles pièces de soins est tranchée |
-| **Règles de validation : adresses** (`refopen`) | un accompagnateur VAE a relu la phrase qui encadre les adresses, et vous avez saisi les vraies adresses (**Compétences → Règles de validation : adresses**, `/admin/tool/vae/refs.php`) |
+| **Règles de validation : adresses** (`refopen`) | un accompagnateur VAE a relu la phrase qui encadre les adresses, et vous avez saisi les vraies adresses (**Compétences → VAE → Règles de validation : adresses**, `/admin/tool/vae/refs.php`) |
 | **« Hors de mon activité »** (`scopeopen`) | un accompagnateur VAE a relu le libellé et la phrase qui l'encadre |
 | **Aide à la reformulation par IA** (`aiopen`) | voir ci-dessous |
 
@@ -779,7 +853,9 @@ Cette fonction envoie un texte du vaeiste à un fournisseur d'intelligence artif
 3. Un **contrat avec le fournisseur d'IA** existe (ou le modèle est installé sur votre propre serveur).
 4. **Un seul fournisseur d'IA est actif** (*Administration du site → Plugins → IA → Fournisseurs d'IA*). Avec deux, le plugin
    n'envoie rien, par précaution.
-5. Les textes (instruction, politique d'IA du site, consigne du fournisseur) ont été relus (`docs/RELECTURE-AIDE-REFORMULATION.md`).
+5. Les textes (instruction, politique d'IA du site, écran de confirmation montré au vaeiste à chaque envoi, consigne du fournisseur)
+   ont été relus par un accompagnateur VAE, sur le fond métier et sur la confidentialité (la fiche de relecture de ces textes est gardée
+   par le porteur, hors de ce dépôt).
 6. Vous avez donné le droit **`tool/vae:useai`** au rôle « Vaeiste » (6.1).
 7. Vous savez **qui approuve les demandes de suppression de données** (**Administration du site → Utilisateurs → Protection des données et
    politiques → Demandes de données**) ; le réglage de Moodle qui crée une telle demande à chaque suppression de compte (« Créer
@@ -809,17 +885,17 @@ chaque envoi.**
 | « Le sous-système de compétences est désactivé… » | Les compétences ne sont pas activées | Partie 4.1 |
 | Le ZIP est refusé à l'installation | Le dossier racine n'est pas `vae`, ou l'installation par ZIP est verrouillée | Vérifier la partie 2 ; sinon méthode B |
 | Moodle refuse le plugin pour sa version | Moodle n'est pas en 5.3 (ou est en 5.4 ou plus) | Passer Moodle en 5.3 (le paquet 4.5 n'est plus maintenu : `docs/BRANCHES.md`) ; en 5.4 ou plus, le plugin n'est pas déclaré compatible |
-| Un vaeiste ne voit pas « Dossier d'acquis de l'expérience » sur son profil | Il n'a pas le rôle « Vaeiste » **au niveau du site**, ou ce rôle n'a pas `viewown` | Parties 6.1 et 6.4 |
+| Un vaeiste ne voit ni le lien « VAE » de la barre du haut, ni « Dossier d'acquis de l'expérience » sur son profil | Il n'a pas le rôle « Vaeiste » **au niveau du site**, ou ce rôle n'a pas `viewown` | Parties 6.1 et 6.4 |
 | Un vaeiste voit le dossier mais pas « Déclarer une activité » | Droit `tool/vae:declare` absent | Partie 6.1 |
 | Un vaeiste ne peut pas exporter | Droit `tool/vae:export` absent (avec `viewown`) | Partie 6.1 |
 | Aucune fiche à choisir pour déclarer | Aucune fiche importée | Partie 8 |
-| « Aller chercher le dernier export » échoue : « Le serveur de ce site n'a pas pu joindre data.gouv.fr… » (ou « n'a pas répondu à temps », ou un message sur le certificat) | L'hébergement ne laisse pas le serveur aller sur Internet, un pare-feu ou un proxy l'en empêche, ou data.gouv.fr ne répond pas | Donner à l'hébergeur la ligne « À donner à votre hébergeur » du message, pour qu'il ouvre le https sortant vers `www.data.gouv.fr` et `static.data.gouv.fr` ; ou déposer le fichier zip vous-même (partie 8.3), qui ne demande aucune sortie du serveur. Tous les messages : guide d'usage V2, 4.11 |
+| « Aller chercher le dernier export » échoue : « Le serveur de ce site n'a pas pu joindre data.gouv.fr… » (ou « n'a pas répondu à temps », ou un message sur le certificat) | L'hébergement ne laisse pas le serveur aller sur Internet, un pare-feu ou un proxy l'en empêche, ou data.gouv.fr ne répond pas | Donner à l'hébergeur la ligne « À donner à votre hébergeur » du message, pour qu'il ouvre le https sortant vers `www.data.gouv.fr` et `static.data.gouv.fr` ; ou déposer le fichier zip vous-même (partie 8.3), qui ne demande aucune sortie du serveur. La liste de tous les messages est dans les guides d'usage du porteur, publiés hors de ce dépôt |
 | Le dépôt du fichier zip échoue : « Le fichier n'est pas arrivé en entier… » | La limite d'envoi de fichiers du site est inférieure à l'export (environ 10 Mo) | Utiliser « Aller chercher le dernier export » (partie 8.2), ou demander à l'hébergeur de relever la limite d'envoi |
 | L'aperçu refuse une fiche : « Ce numéro n'est pas dans l'export… » ou « Cette fiche n'a aucun bloc de compétences… » | Faute de frappe, fiche publiée après l'export, fiche qui n'est plus en vigueur, fiche du répertoire spécifique (RS), ou fiche en vigueur sans bloc dans l'export | Vérifier le numéro sur la fiche de France compétences ; chercher le numéro de la fiche en vigueur (partie 8.4) ; les autres fiches s'importent |
 | Le vaeiste lit « La fiche … est cachée : on ne peut pas y déclarer d'activité pour le moment » | Le référentiel de la fiche est réglé sur « Visible : Non » dans Moodle | Le remettre sur « Visible : Oui » quand la fiche est prête (partie 8.4) |
 | Une fiche est listée sur « VAE - cheminement » sans aucune compétence, avec un avertissement | Son référentiel a été supprimé dans Moodle, ou le premier import a échoué | La réimporter ; ou, si elle a été importée par erreur, « Retirer cette ligne » (partie 8.4 : le bouton manque si un vaeiste a laissé une trace sur la fiche, si Moodle détient un référentiel portant ce code, ou sans le droit d'importer) |
 | L'export ou la sauvegarde affiche un avertissement sur une ligne dont le format n'est pas celui attendu | Une déclaration a été enregistrée avec un rang de compétence hors format (par une version antérieure du plugin, ou directement dans la base de données) | L'archive ou la sauvegarde est produite quand même mais ne se réimportera pas telle quelle ; cela ne se corrige pas depuis Moodle, et l'avertissement revient tant que la déclaration existe : partie 12.5 et `docs/FAQ.md` |
-| Un responsable ne voit pas « Mes vaeistes » | Il n'est rattaché à aucune cohorte, ou la synchronisation n'a pas eu lieu | Partie 7.2 ; attendre le cron ; vérifier 4.2 |
+| Un responsable ne voit ni le lien « VAE » de la barre du haut, ni « Mes vaeistes » | Il n'est rattaché à aucune cohorte, ou la synchronisation n'a pas eu lieu | Partie 7.2 ; attendre le cron ; vérifier 4.2 |
 | Un responsable ne peut pas attester | Il n'a pas `viewassigned` **et** `attest`, ou son rôle est attribué au niveau du site | Partie 6.2 ; refaire par cohorte (7.2) |
 | Les pièces jointes sont refusées | Aucun antivirus configuré | Partie 11 |
 | Pas de rappel, pas de copie hebdomadaire | Le cron ne tourne pas | Partie 4.2 |
@@ -856,6 +932,12 @@ celui attendu (un rang de compétence écrit en minuscules, par exemple) n'empê
 pas telle quelle : la notice `LISEZMOI.txt` qu'elle contient le dit. Elle ne se réimportera pas non plus si, depuis la réinstallation du plugin, un dossier est déjà
 sorti du site sur les mêmes compétences, ou si le compte du vaeiste a déjà reçu un nouvel identifiant (dès sa première déclaration, son premier export, sa première
 copie ou sa première sauvegarde) : l'import est alors refusé en entier, avec un message qui dit pourquoi.
+
+**Les rôles créés par la page « Rôles VAE » restent après la désinstallation**, avec leurs affectations, mais **vidés de leurs droits**
+`tool/vae:*` (Moodle retire les droits des capacités qui disparaissent avec le plugin), et une réinstallation ne les remplit pas : la page
+« Rôles VAE » ne modifie jamais un rôle qui existe déjà. Pour les rétablir : supprimez-les (**Administration du site → Utilisateurs →
+Permissions → Définition des rôles**), puis, le plugin réinstallé, recréez-les depuis la page « Rôles VAE » et réaffectez-les ; ou rendez-leur
+leurs droits à la main.
 
 ### Ce que vous devez faire régulièrement
 

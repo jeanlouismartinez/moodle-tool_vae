@@ -29,9 +29,9 @@ require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use tool_vae\form\ref_form;
-use tool_vae\local\display_date;
 use tool_vae\local\ref_manager;
 use tool_vae\local\supersession;
+use tool_vae\output\refs_page;
 
 admin_externalpage_setup('toolvae_refs');
 
@@ -81,60 +81,13 @@ if ($data = $form->get_data()) {
     }
 }
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('refheading', 'tool_vae'));
-echo html_writer::tag('p', get_string('refintro', 'tool_vae'));
 
-if (empty(get_config('tool_vae', 'refopen'))) {
-    echo $OUTPUT->notification(get_string('refclosed', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-}
-if ($error !== null) {
-    echo $OUTPUT->notification(s($error), \core\output\notification::NOTIFY_ERROR);
-}
-
-if (!$rows) {
-    echo $OUTPUT->notification(get_string('supersessionnone', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-} else {
-    $refs = ref_manager::for_fiches(array_keys($rows));
-    $table = new html_table();
-    $table->head = [
-        get_string('supersessioncolfiche', 'tool_vae'),
-        get_string('reftitle', 'tool_vae'),
-        get_string('refurl', 'tool_vae'),
-        get_string('refchecked', 'tool_vae'),
-        '',
-    ];
-    foreach ($rows as $row) {
-        $name = s($row->fichecode) . ' — ' . format_string($row->label);
-        if (empty($refs[$row->fichecode])) {
-            $table->data[] = [$name, get_string('refnone', 'tool_vae'), '', '', ''];
-            continue;
-        }
-        foreach ($refs[$row->fichecode] as $ref) {
-            $table->data[] = [
-                $name,
-                s($ref->title),
-                // The address in full, as text: nothing hides where a click goes. Not a link here, the administrator
-                // checks it where it is shown to the candidates.
-                s($ref->url),
-                $ref->checkedat === null ? get_string('refnotchecked', 'tool_vae') : s(display_date::format(
-                    $ref->checkedat,
-                    get_string('strftimedate', 'langconfig'),
-                    'UTC'
-                )),
-                $OUTPUT->single_button(
-                    new moodle_url($self, ['remove' => $ref->id]),
-                    get_string('refremove', 'tool_vae'),
-                    'post'
-                ),
-            ];
-            $name = '';
-        }
-    }
-    echo html_writer::table($table);
-
-    echo $OUTPUT->heading(get_string('refaddheading', 'tool_vae'), 3);
-    $form->display();
-}
+$open = !empty(get_config('tool_vae', 'refopen'));
+$refs = $rows ? ref_manager::for_fiches(array_keys($rows)) : [];
+echo $renderer->render(new refs_page($rows, $refs, $open, $error, $form, $self));
 
 echo $OUTPUT->footer();

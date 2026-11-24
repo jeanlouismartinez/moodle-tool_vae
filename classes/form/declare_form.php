@@ -20,6 +20,7 @@ defined('MOODLE_INTERNAL') || die();
 
 use tool_vae\local\evidence_manager;
 use tool_vae\local\outline;
+use tool_vae\output\form_note;
 
 // THE PARENT CLASS IS NOT AUTOLOADED. `moodleform` lives in lib/formslib.php, which Moodle's
 // class loader knows nothing about: a page that instantiates this form without having loaded
@@ -56,7 +57,7 @@ require_once($CFG->libdir . '/formslib.php');
  */
 class declare_form extends \moodleform {
     /** @var int How many years back the period selectors reach. */
-    const PERIOD_SPAN_YEARS = 50;
+    public const PERIOD_SPAN_YEARS = 50;
 
     /**
      * Build the form.
@@ -273,11 +274,9 @@ class declare_form extends \moodleform {
      * @return string
      */
     private static function full_reminder(): string {
-        return \html_writer::div(
-            get_string('anonymisereminder', 'tool_vae'),
-            'alert alert-info tool-vae-anonymise',
-            ['id' => self::FULL_REMINDER_ID]
-        );
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(form_note::reminder(self::FULL_REMINDER_ID));
     }
 
     /**
@@ -290,10 +289,8 @@ class declare_form extends \moodleform {
      * @return string
      */
     private static function reminder(string $field): string {
-        return \html_writer::div(
-            get_string('anonymiseshort', 'tool_vae'),
-            'alert alert-info tool-vae-anonymise tool-vae-anonymise-short',
-            ['id' => self::reminder_id($field)]
-        );
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(form_note::short_reminder(self::reminder_id($field)));
     }
 }

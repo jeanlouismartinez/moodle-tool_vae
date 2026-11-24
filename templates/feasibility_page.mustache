@@ -1,0 +1,56 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/feasibility_page
+
+    The page "Dossier de faisabilité", below its heading: what the page is for, the table of the sections and where each
+    stands, the button to the deposits, and the way back to the dossier.
+
+    Every text comes from the context, already worded by tool_vae\output\feasibility_page. The template holds no logic.
+    Every text and address is escaped (double braces), except two keys of HTML (triple braces): tablehtml, a table drawn by
+    the template tool_vae/table (its texts and links are escaped by the template tool_vae/cell_content); buttonhtml, the
+    button to the deposits made by the core ($output->single_button()).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, what the page is for
+    * tablehtml - HTML: the table of the sections
+    * buttonhtml - HTML: the button to the deposits
+    * back - {url, label}: the way back to the dossier
+
+    Example context (json):
+    {
+        "intro": "This page helps you write your dossier de faisabilité, section by section.",
+        "tablehtml": "<table class=\"generaltable tool-vae-faisabilite\"><tbody><tr><td>Objectives</td></tr></tbody></table>",
+        "buttonhtml": "<div class=\"singlebutton\"><button type=\"submit\" class=\"btn btn-secondary\">Deposits</button></div>",
+        "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=7", "label": "Back to the dossier"}
+    }
+}}
+<p>{{intro}}</p>
+{{{tablehtml}}}
+{{{buttonhtml}}}
+{{#back}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/back}}

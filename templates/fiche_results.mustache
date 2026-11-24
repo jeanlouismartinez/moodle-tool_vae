@@ -1,0 +1,50 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/fiche_results
+
+    The result of an import of records: one item per record, then, when one was imported, the way to say that one replaces
+    another.
+
+    Every text comes from the context, worded by tool_vae\output\fiche_results. The template holds no logic. Two keys are
+    HTML (triple braces): texthtml, a sentence of the language file that holds what the import said of a record (already
+    safe) and the number of the record, escaped by tool_vae\output\fiche_results; nexthtml, a sentence of the language file
+    whose link is drawn by the template tool_vae/cell_content.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * items - array of objects {texthtml}: one sentence per record
+    * nexthtml - false, or HTML: the way to say that one record replaces another
+
+    Example context (json):
+    {
+        "items": [{"texthtml": "RNCP99001: imported. 4 competencies added."}],
+        "nexthtml": "Does one replace another? <a href=\"https://example.com/supersession.php\">Replacements</a>"
+    }
+}}
+<ul class="tool-vae-fcimport-results">{{#items}}<li>{{{texthtml}}}</li>{{/items}}</ul>
+{{#nexthtml}}
+<p>{{{nexthtml}}}</p>
+{{/nexthtml}}

@@ -35,6 +35,7 @@ require_once(__DIR__ . '/../../../config.php');
 use tool_vae\local\access;
 use tool_vae\local\candidate_overview;
 use tool_vae\local\competency_gateway;
+use tool_vae\output\candidates_page;
 
 require_login();
 
@@ -44,89 +45,31 @@ $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('mycandidates', 'tool_vae'));
 $PAGE->set_heading(get_string('mycandidates', 'tool_vae'));
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('mycandidates', 'tool_vae'));
 
-if (!competency_gateway::is_subsystem_enabled()) {
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
-    echo $OUTPUT->footer();
-    die();
+$enabled = competency_gateway::is_subsystem_enabled();
+$candidateids = $enabled ? access::followed_candidates() : [];
+if (!$enabled) {
+    $screen = candidates_page::disabled();
+} else if (!$candidateids) {
+    $screen = candidates_page::nobody();
+} else {
+    // The blocs this reader is referent of (T-23): they may narrow the counts to the declarations on one of them. The
+    // choice is checked against the reader's own list, so a value from the address bar names nothing they are not referent
+    // of. Narrowing changes what is counted, never who is listed nor what the reader may read.
+    $narrowing = candidate_overview::narrowing((int) $USER->id, optional_param('bloc', '', PARAM_TEXT));
+
+    // A declaration awaits when no attestation currently stands: never signed, or every signature withdrawn.
+    $counts = candidate_overview::counts($candidateids, $narrowing->fichecode, $narrowing->ranks);
+
+    $users = $DB->get_records_list('user', 'id', $candidateids, 'lastname ASC, firstname ASC', '*');
+
+    // The link to the same candidates in the organisation is drawn only here: in the empty states it would lead to a refusal.
+    $screen = candidates_page::followed($users, $counts, $narrowing, $PAGE->url);
 }
-
-$candidateids = access::followed_candidates();
-
-if (!$candidateids) {
-    echo $OUTPUT->notification(
-        get_string('nocandidates', 'tool_vae'),
-        \core\output\notification::NOTIFY_INFO
-    );
-    echo $OUTPUT->footer();
-    die();
-}
-
-// The blocs this reader is referent of (T-23): they may narrow the counts to the declarations on one of them. The choice is
-// checked against the reader's own list, so a value from the address bar names nothing they are not referent of. Narrowing
-// changes what is counted, never who is listed nor what the reader may read.
-$narrowing = candidate_overview::narrowing((int) $USER->id, optional_param('bloc', '', PARAM_RAW));
-$choices = $narrowing->choices;
-$chosen = $narrowing->chosen;
-$fichecode = $narrowing->fichecode;
-$ranks = $narrowing->ranks;
-
-if ($choices) {
-    $options = [get_string('candidatesfilterall', 'tool_vae')];
-    foreach ($choices as $key => $referent) {
-        $options[$key] = $referent->fichecode . ' — ' . ($referent->ficherang === ''
-            ? get_string('referentwhole', 'tool_vae')
-            : get_string('referentblocrank', 'tool_vae', $referent->ficherang));
-    }
-    $form = html_writer::tag('label', s(get_string('candidatesfilter', 'tool_vae')), ['for' => 'candidatesbloc'])
-        // The select does not escape its labels, and a rank is whatever the competency tree holds.
-        . ' ' . html_writer::select(array_map('s', $options), 'bloc', $chosen, false, ['id' => 'candidatesbloc'])
-        . ' ' . html_writer::empty_tag('input', [
-            'type' => 'submit', 'class' => 'btn btn-secondary', 'value' => get_string('candidatesfilterapply', 'tool_vae'),
-        ]);
-    echo html_writer::tag('form', $form, ['method' => 'get', 'action' => $PAGE->url->out_omit_querystring()]);
-    if ($chosen !== '') {
-        echo html_writer::tag('p', s(get_string('candidatesfiltered', 'tool_vae', $options[$chosen])));
-    }
-}
-
-// A declaration awaits when no attestation currently stands: never signed, or every signature withdrawn.
-$counts = candidate_overview::counts($candidateids, $fichecode, $ranks);
-
-$users = $DB->get_records_list('user', 'id', $candidateids, 'lastname ASC, firstname ASC', '*');
-
-$table = new html_table();
-$table->head = [
-    get_string('candidate', 'tool_vae'),
-    get_string('candidatedeclarations', 'tool_vae'),
-    get_string('candidatepending', 'tool_vae'),
-];
-$table->attributes['class'] = 'generaltable tool-vae-candidates';
-
-foreach ($users as $user) {
-    $count = $counts[$user->id] ?? null;
-    $table->data[] = [
-        html_writer::link(
-            new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $user->id]),
-            fullname($user)
-        ),
-        (int) ($count->declarations ?? 0),
-        (int) ($count->pending ?? 0),
-    ];
-}
-
-echo html_writer::table($table);
-
-// The same candidates with their records and learning plans: a link, not an action on a dossier. Not drawn in the empty
-// state above, where it would lead to a refusal.
-echo html_writer::tag('p', html_writer::link(
-    new moodle_url('/admin/tool/vae/organisation.php', ['tab' => 'followed']),
-    get_string('orgfollowedlink', 'tool_vae')
-));
+echo $renderer->render($screen);
 
 echo $OUTPUT->footer();

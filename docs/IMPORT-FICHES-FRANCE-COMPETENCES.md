@@ -29,7 +29,9 @@ La page exige aussi que les compétences soient activées et que l'administrateu
      `www.data.gouv.fr` et `static.data.gouv.fr` en https.
    - **Voie A, « Lire le fichier déposé »** : l'administrateur a téléchargé lui-même le fichier zip `export-fiches-csv-AAAA-MM-JJ.zip`
      (environ 9,7 Mo) sur la page du jeu de données, **sans le décompresser ni le renommer**, et le dépose dans le champ « Fichier zip de
-     l'export ». Utile quand l'hébergement ne laisse pas le serveur aller sur Internet. La limite d'envoi de fichiers du site est annoncée
+     l'export », qui est, depuis le 19 novembre 2026, le **sélecteur de fichiers de Moodle** (bouton « Choisir un fichier… », puis
+     « Déposer un fichier », ou glisser le fichier dans le champ ; seuls les fichiers `.zip` sont acceptés, et un fichier trop gros est
+     refusé dans la fenêtre du sélecteur). Utile quand l'hébergement ne laisse pas le serveur aller sur Internet. La limite d'envoi de fichiers du site est annoncée
      au-dessus du champ quand elle est inférieure à environ 12 Mo : l'export approche 10 Mo, et il grossit ; une limite voisine fait préférer la
      voie B.
 3. L'écran dit que la lecture peut prendre une minute. **Entrée dans un champ ne lance aucune requête** : le premier bouton du
@@ -160,7 +162,7 @@ C'est **la seule requête que le plugin fait de lui-même**, et elle ne part que
 - **Le fichier zip entier, fichiers de partenaires compris, transite par le serveur le temps de la requête**, sans être lu ni gardé : il est
   écrit dans le dossier de requête de Moodle et effacé. Il n'est jamais copié dans le dépôt ni dans la distribution du plugin.
 - **Jamais planifié** : rien dans `db/tasks.php` ni dans `classes/task/` ne l'appelle. C'est la mesure compensatoire MC-30 (« une seule porte
-  sortante »), contrôlée par `scripts/sortie-reseau.sh` (`make sortie`) et par un test miroir (`tests/fiche_no_background_test.php`).
+  sortante »), contrôlée par `scripts/check-network-door.sh` (`make network-door`, dans le dépôt GitHub) et par un test miroir (`tests/fiche_no_background_test.php`).
 - **Une trace à chaque requête**, aboutie ou refusée (événement `export_fetched` : ressource, titre, taille, empreinte SHA-256, résultat), et une
   par fiche écrite (événement `record_imported` : code, voie, date de l'export, empreinte SHA-256 du fichier zip, compteurs). Ni libellé, ni
   texte d'exception, ni donnée de vaeiste, et pas d'autre nom de fichier que le titre de l'export.
@@ -210,19 +212,22 @@ Deux constats sur l'état d'une fiche, mesurés sur ces deux exports :
 
 ## 3. La voie de secours : la ligne de commande
 
-**Quand l'employer** : sur un poste qui a PHP mais pas de site (la page n'y est pas), pour **préparer un fichier que l'on veut relire avant
-de l'importer** par l'écran CSV ; ou quand la page ne peut pas lire l'export (hébergement trop juste en mémoire ou en délai, format qui a
+**Quand l'employer** : pour **préparer un fichier que l'on veut relire avant de l'importer** par l'écran CSV ; ou quand la page ne peut pas lire l'export (hébergement trop juste en mémoire ou en délai, format qui a
 changé : l'écran le dit et demande de le signaler au responsable du plugin). Ce n'est plus le chemin ordinaire : il demande d'extraire des
 fichiers et de retaper neuf champs. Le convertisseur est **le même** que celui de la page (`fiche_converter`) : mêmes règles, mêmes refus.
+**Il demande un Moodle installé** : depuis le 19 novembre 2026, le script est un script en ligne de commande de Moodle (`cli/convert_fiche.php`),
+qui se lance sur le serveur du site ; il ne se joue plus sur un poste sans site.
 
-1. Télécharger le fichier zip (§ 2) et en **extraire les deux fichiers** utiles dans un dossier **hors du dépôt**.
+1. Télécharger le fichier zip (§ 2) et en **extraire les deux fichiers** utiles sur le serveur, dans un dossier **hors du dossier du plugin**.
 2. Convertir une fiche :
 
    ```bash
-   php scripts/convertir-fiche-rncp.php blocs.csv standard.csv RNCP40692 deas.csv
+   sudo -u www-data php public/admin/tool/vae/cli/convert_fiche.php --blocs=/tmp/export/blocs.csv \
+       --standard=/tmp/export/standard.csv --number=RNCP40692 --output=/tmp/export/deas.csv
    ```
 
-   Le script écrit `deas.csv` (colonnes `rang`, `intitule`, `description`, lisibles par l'écran CSV) et **affiche les valeurs à saisir** :
+   (depuis la racine de Moodle, sous le compte du serveur web ; **chemins absolus** : Moodle change le dossier courant d'un script en ligne
+   de commande, et le script refuse un chemin relatif ; `--help` affiche l'aide, en anglais). Le script écrit `deas.csv` (colonnes `rang`, `intitule`, `description`, lisibles par l'écran CSV) et **affiche les valeurs à saisir** :
    code de la fiche, type, intitulé, source, licence, paternité (« France compétences », avec accent depuis la 0.47.0) et la date de
    l'export.
 3. Ouvrir l'écran **« Importer un fichier CSV (cas particulier) »** (droit `tool/vae:import`) et y saisir les **neuf champs** : le
@@ -336,8 +341,9 @@ Légifrance. Le champ `PREREQUIS_VALIDATION_CERTIFICATION` (AFGSU 2) n'est pas r
   si l'API change, la voie B échoue avec un refus nommé et la voie A reste.
 - **L'export du 27 octobre n'est pas passé par la page.** Les scénarios Behat de l'écran (voie A, refus, export plus ancien, droit) sont
   verts en local, mais sur des fichiers zip inventés de la même forme que les exports réels ; ils ne cliquent jamais la voie B (pas de réseau).
-  Les mesures du § 2 et du § 4 ont été prises en lisant les fichiers zip hors de la page. Le protocole de preuve à la main est dans
-  `docs/BANC-ESSAI.md`.
+  Les mesures du § 2 et du § 4 ont été prises en lisant les fichiers zip hors de la page. Un protocole de preuve à la main (voie A
+  avec le fichier zip du 19 octobre 2026, voie B seulement avec l'accord du porteur, ce qu'on note) a été écrit le 27 octobre 2026, non joué
+  à cette date ; il est gardé par le porteur, hors de ce dépôt.
 - **L'hébergement réel du porteur** : sortie réseau, limite d'envoi de fichiers, mémoire, délai maximal d'exécution, proxy. La croissance
   de la mémoire pour lire l'export réel du 19 octobre (les deux fichiers de 6 Mo chacun sont tenus en mémoire) a été mesurée à environ
   19 Mo, en ligne de commande sans site, pas dans une requête web.

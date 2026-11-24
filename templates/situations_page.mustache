@@ -1,0 +1,104 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/situations_page
+
+    The page of the work situations of the vaeiste, under its title, in one of four states: the competencies switched off;
+    the records (each leading to its list, a hidden one said why) and the way back; the inverse view of a node (its
+    situations, its declarations, the way back to the list); the situations of a record (the notices, the button "new
+    situation", the list, the annotations of the deleted situations, the panel, the way back). Each situation of a list is
+    its title leading to it, then its facts.
+
+    Every text comes from the context, already worded by tool_vae\output\situations_page. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * noticehtml - the notification of the core
+    * disclaimerhtml - the sentences of every screen, drawn by the template tool_vae/situation_disclaimer
+    * messagehtml - the message of a hidden record, its title escaped by hidden_frameworks::message() (s())
+    * factshtml - the facts of a situation, drawn by the template tool_vae/situation_facts
+    * declhtml - a declaration, drawn by the template tool_vae/declaration
+    * newhtml - the button "new situation", drawn by the renderer of the core ('' for none)
+    * orphanshtml - the annotations of the deleted situations, drawn by the template tool_vae/notes_orphans ('' for none)
+    * panelhtml - the panel of the record, drawn by the template tool_vae/whereami_tree ('' for none)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * disabled - object or null: noticehtml
+    * records - object or null: disclaimerhtml; none (object: text) or null; list (object: choose, items, an array of
+      {url, code, hidden (object: messagehtml) or null}) or null; back (url, text, consenturl, consent)
+    * inverse - object or null: code, disclaimerhtml, heading, none (object: text) or null, items (array of {slot, url,
+      title, factshtml}), declheading, nodeclaration (object: text) or null, declarations (array of {declhtml}), back (url, text)
+    * record - object or null: code, disclaimerhtml, hidden (object: messagehtml) or null, closed (object: text) or null,
+      newhtml, none (object: text) or null, items (array of {slot, url, title, factshtml}), orphanshtml, panelhtml, back
+      (url, text, consenturl, consent)
+
+    Example context (json):
+    {
+        "disabled": {"noticehtml": "<div class=\"alert alert-danger\">The competencies are switched off.</div>"},
+        "records": {
+            "disclaimerhtml": "<p class=\"small\">Nothing here is attested.</p>",
+            "none": null,
+            "list": {"choose": "Choose a record.", "items": [
+                {"url": "https://example.com/admin/tool/vae/situations.php?userid=7&fiche=RNCP100", "code": "RNCP100",
+                    "hidden": {"messagehtml": "The record is hidden."} }
+            ]},
+            "back": {"url": "https://example.com/admin/tool/vae/organisation.php?tab=mine", "text": "Back to my pathway",
+                "consenturl": "https://example.com/admin/tool/vae/consent.php?userid=7", "consent": "Annotations"}
+        },
+        "inverse": {
+            "code": "RNCP100", "disclaimerhtml": "<p class=\"small\">Nothing here is attested.</p>",
+            "heading": "Situations on C01 - Care", "none": null,
+            "items": [{"slot": "1", "url": "https://example.com/admin/tool/vae/situation.php?userid=7&fiche=RNCP100&slot=1",
+                "title": "Morning", "factshtml": "<div class=\"small\">Setting</div>"}],
+            "declheading": "Declarations", "nodeclaration": {"text": "No declaration."}, "declarations": [],
+            "back": {"url": "https://example.com/admin/tool/vae/situations.php?userid=7&fiche=RNCP100", "text": "Back"}
+        },
+        "record": {
+            "code": "RNCP100", "disclaimerhtml": "<p class=\"small\">Nothing here is attested.</p>",
+            "hidden": null, "closed": {"text": "The preparation is closed."}, "newhtml": "",
+            "none": {"text": "No situation yet."}, "items": [], "orphanshtml": "", "panelhtml": "",
+            "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=7", "text": "Back to the dossier",
+                "consenturl": "https://example.com/admin/tool/vae/consent.php?userid=7", "consent": "Annotations"}
+        }
+    }
+}}
+{{#disabled}}{{{noticehtml}}}{{/disabled}}{{!
+}}{{#records}}{{{disclaimerhtml}}}{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{!
+}}{{#list}}<p>{{choose}}</p><ul>{{#items}}<li><a href="{{url}}">{{code}}</a>{{!
+}}{{#hidden}}<div class="alert alert-info mt-1">{{{messagehtml}}}</div>{{/hidden}}</li>{{/items}}</ul>{{/list}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a> <a href="{{consenturl}}">{{consent}}</a></p>{{/back}}{{/records}}{{!
+}}{{#inverse}}<p><strong>{{code}}</strong></p>{{{disclaimerhtml}}}<h3 class="h4">{{heading}}</h3>{{!
+}}{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{^none}}<ul class="list-unstyled tool-vae-situations">{{!
+}}{{#items}}<li class="mb-3 tool-vae-situation-item" data-slot="{{slot}}"><strong><a href="{{url}}">{{title}}</a></strong>{{!
+}}{{{factshtml}}}</li>{{/items}}</ul>{{/none}}<h3 class="h5">{{declheading}}</h3>{{!
+}}{{#nodeclaration}}<p class="text-muted">{{text}}</p>{{/nodeclaration}}{{!
+}}{{#declarations}}<div class="border-start ps-3 mb-3 tool-vae-inverse-decl">{{{declhtml}}}</div>{{/declarations}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}{{/inverse}}{{!
+}}{{#record}}<p><strong>{{code}}</strong></p>{{{disclaimerhtml}}}{{!
+}}{{#hidden}}<div class="alert alert-info">{{{messagehtml}}}</div>{{/hidden}}{{!
+}}{{#closed}}<div class="alert alert-info">{{text}}</div>{{/closed}}{{{newhtml}}}{{!
+}}{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{^none}}<ul class="list-unstyled tool-vae-situations">{{!
+}}{{#items}}<li class="mb-3 tool-vae-situation-item" data-slot="{{slot}}"><strong><a href="{{url}}">{{title}}</a></strong>{{!
+}}{{{factshtml}}}</li>{{/items}}</ul>{{/none}}{{{orphanshtml}}}{{{panelhtml}}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a> <a href="{{consenturl}}">{{consent}}</a></p>{{/back}}{{/record}}

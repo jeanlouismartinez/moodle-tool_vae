@@ -1,0 +1,99 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/selfpos_node
+
+    One node of the self-positioning: the two sentences of every screen, the level name, the record and the label of the
+    node, the reason it cannot be positioned on or the form, the word of the structure (or that it wrote nothing), the count
+    of the declarations, the lines of the record before, the history of the node (the line that stands, then the earlier
+    ones), and the way back to the tree. The parts touch: the template holds on one logical line, each break carried by a
+    comment.
+
+    Every text comes from the context, already worded by tool_vae\output\selfpos_node. The template holds no logic. Every
+    value is escaped (double braces) except three keys:
+    * disclaimerhtml - the two sentences, drawn by the template tool_vae/selfpos_disclaimer
+    * formhtml - the form of the node, drawn by the core (moodleform::render()), or empty
+    * justificationhtml - the justification of a line, drawn by format_text() with the format the vaeiste chose
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * disclaimerhtml - string, HTML of a template
+    * levelname, fichecode, label - string, the level name, the record and the label of the node
+    * notpositionable - object or null: text, why the node cannot be positioned on
+    * formhtml - string, HTML of the core, or empty
+    * regardheading - string, the heading of the word of the structure
+    * regardnone - object or null: text, that the structure wrote nothing
+    * regardline - object or null: text, the word of the structure
+    * declarations - object or null: text, the count of the declarations
+    * successor - array of {text}: what the record this one replaces positioned
+    * historyheading - string, the heading of the history
+    * history - object: none (object: text, or null), lines (array of {heading, levellabel, when, justification}); heading is an
+      object (text) or null, justification an object (justificationhtml) or null
+    * backurl, back - string, the way back to the tree of the record
+
+    Example context (json):
+    {
+        "disclaimerhtml": "<p class=\"text-muted small tool-vae-selfpos-disclaimer\">This is not a validation.</p>",
+        "levelname": "Competency",
+        "fichecode": "RNCP400",
+        "label": "Help with daily care",
+        "notpositionable": null,
+        "formhtml": "",
+        "regardheading": "The word of the structure",
+        "regardnone": null,
+        "regardline": {"text": "The structure wrote: in the course of proof, 4 November 2026"},
+        "declarations": {"text": "1 declaration(s), including 0 attested, 0 supporting piece(s)"},
+        "successor": [{"text": "On the earlier record RNCP90 (C11): I practise with help, 4 November 2025"}],
+        "historyheading": "History",
+        "history": {
+            "none": null,
+            "lines": [
+                {
+                    "heading": {"text": "Line that stands"}, "levellabel": "I act on my own",
+                    "when": "Wednesday, 4 November 2026, 10:12 AM", "justification": {"justificationhtml": "Three weeks."}
+                },
+                {
+                    "heading": {"text": "Earlier lines"}, "levellabel": "I practise with help",
+                    "when": "Tuesday, 3 November 2026, 9:00 AM", "justification": null
+                }
+            ]
+        },
+        "backurl": "https://example.com/admin/tool/vae/selfposition.php?userid=7&fiche=RNCP400",
+        "back": "Back to the record"
+    }
+}}
+<section class="tool-vae-selfpos">{{{disclaimerhtml}}}{{!
+}}<p><span class="small text-muted me-2">{{levelname}}</span><strong>{{fichecode}}</strong> - {{label}}</p>{{!
+}}{{#notpositionable}}<p class="text-muted">{{text}}</p>{{/notpositionable}}{{{formhtml}}}{{!
+}}<h3 class="h5">{{regardheading}}</h3>{{!
+}}{{#regardnone}}<p class="text-muted">{{text}}</p>{{/regardnone}}{{#regardline}}<p>{{text}}</p>{{/regardline}}{{!
+}}{{#declarations}}<p class="small">{{text}}</p>{{/declarations}}{{!
+}}{{#successor}}<p class="small text-muted">{{text}}</p>{{/successor}}{{!
+}}<h3 class="h5">{{historyheading}}</h3>{{!
+}}{{#history}}{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{!
+}}{{^none}}<div class="tool-vae-history">{{#lines}}{{#heading}}<h4 class="h6">{{text}}</h4>{{/heading}}{{!
+}}<div class="ms-3 mb-2"><div class="small"><strong>{{levellabel}}</strong> {{when}}</div>{{!
+}}{{#justification}}<div>{{{justificationhtml}}}</div>{{/justification}}</div>{{/lines}}</div>{{/none}}{{/history}}{{!
+}}<p><a href="{{backurl}}">{{back}}</a></p></section>

@@ -280,19 +280,19 @@ final class deposit_manager {
     public static function sections(\stdClass $deposit, bool $withfields): array {
         $data = json_decode((string) $deposit->content, true);
         $out = [];
-        foreach ($data['rubriques'] ?? [] as $rubrique) {
-            $code = (string) $rubrique['code'];
-            $kind = faisabilite_catalog::kind($code);
-            if ($kind === null || ($kind === faisabilite_catalog::KIND_FIELDS && !$withfields)) {
+        foreach ($data['rubriques'] ?? [] as $section) {
+            $code = (string) $section['code'];
+            $kind = feasibility_catalog::kind($code);
+            if ($kind === null || ($kind === feasibility_catalog::KIND_FIELDS && !$withfields)) {
                 continue;
             }
             $out[] = [
                 'code' => $code,
-                'slot' => (int) $rubrique['emplacement'],
+                'slot' => (int) $section['emplacement'],
                 'kind' => $kind,
-                'version' => (int) $rubrique['version'],
-                'saved' => (int) strtotime((string) $rubrique['enregistree_le']),
-                'content' => (string) $rubrique['contenu'],
+                'version' => (int) $section['version'],
+                'saved' => (int) strtotime((string) $section['enregistree_le']),
+                'content' => (string) $section['contenu'],
             ];
         }
 
@@ -305,7 +305,7 @@ final class deposit_manager {
      * @param \stdClass $deposit A row of tool_vae_deposit.
      * @return array[] Each as in validation.json: fiche, code, bloc, partie, version, enregistree_le, texte.
      */
-    public static function validation_rubriques(\stdClass $deposit): array {
+    public static function validation_sections(\stdClass $deposit): array {
         if ($deposit->doctype !== draft_manager::DOCTYPE_VALIDATION) {
             return [];
         }
@@ -370,17 +370,17 @@ final class deposit_manager {
      * @throws \moodle_exception errordepositempty, errordepositengagement
      */
     private static function snapshot(int $candidateid, bool $confirmed = false): string {
-        $saved = faisabilite_overview::saved_versions($candidateid);
+        $saved = feasibility_overview::saved_versions($candidateid);
 
-        $rubriques = [];
-        foreach (faisabilite_catalog::sections() as $code => $definition) {
-            if ($definition['kind'] === faisabilite_catalog::KIND_ACCOUNT || empty($saved[$code])) {
+        $sections = [];
+        foreach (feasibility_catalog::sections() as $code => $definition) {
+            if ($definition['kind'] === feasibility_catalog::KIND_ACCOUNT || empty($saved[$code])) {
                 continue;
             }
             $places = $saved[$code];
             ksort($places);
             foreach ($places as $slot => $version) {
-                $rubriques[] = [
+                $sections[] = [
                     'code' => (string) $code,
                     'emplacement' => (int) $slot,
                     'version' => $version['number'],
@@ -389,14 +389,14 @@ final class deposit_manager {
                 ];
             }
         }
-        if (!$rubriques) {
+        if (!$sections) {
             throw new \moodle_exception('errordepositempty', 'tool_vae');
         }
         if ($confirmed && empty($saved['engagement'][0])) {
             throw new \moodle_exception('errordepositengagement', 'tool_vae');
         }
 
-        $document = ['rubriques' => $rubriques];
+        $document = ['rubriques' => $sections];
         if ($confirmed) {
             // The date is the deposit's own: nothing else is written, so nothing can disagree with it.
             $document['engagement_confirme'] = true;

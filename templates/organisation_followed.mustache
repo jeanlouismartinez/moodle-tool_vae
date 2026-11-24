@@ -1,0 +1,64 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/organisation_followed
+
+    The tab of the candidates the reader follows: the box that says there is nobody, or the form that narrows the counts to a
+    bloc (with its sentence once a bloc is chosen) and the table of the candidates. The form is written here, on one logical
+    line: a comment carries each line break of the template, so that no space is drawn where the old code wrote none.
+
+    Every text comes from the context, worded by tool_vae\output\organisation_followed. The template holds no logic beyond its
+    sections. Every text, label and address is escaped (double braces). Two keys are HTML, placed as they are (triple braces):
+    nonehtml, the box drawn by tool_vae/organisation_notice, and tablehtml, the table drawn by tool_vae/table.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * nonehtml - string, HTML: the box that says there is nobody to follow, or empty
+    * filter - null, or {action, label, options, apply, filtered}: the form, each option {value, label, selected}, filtered
+      null or {label}, the sentence that says the counts are narrowed
+    * tablehtml - string, HTML: the table of the candidates, or empty
+
+    Example context (json):
+    {
+        "nonehtml": "",
+        "filter": {
+            "action": "https://example.com/admin/tool/vae/organisation.php",
+            "label": "Count the declarations on",
+            "options": [
+                {"value": "0", "label": "All the records", "selected": false},
+                {"value": "RNCP100|BC01", "label": "RNCP100 — bloc BC01", "selected": true}
+            ],
+            "apply": "Show the counts",
+            "filtered": {"label": "The counts are limited to the declarations on RNCP100 — bloc BC01."}
+        },
+        "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>Camille Durand</td></tr></tbody></table>"
+    }
+}}
+{{{nonehtml}}}{{#filter}}<form method="get" action="{{action}}"><label for="candidatesbloc">{{label}}</label> {{!
+}}<select id="candidatesbloc" class="select form-select menubloc" name="bloc">{{#options}}{{!
+}}<option{{#selected}} selected="selected"{{/selected}} value="{{value}}">{{label}}</option>{{/options}}</select>{{!
+}}<input type="hidden" name="tab" value="followed" /> {{!
+}}<input type="submit" class="btn btn-secondary" value="{{apply}}" /></form>{{!
+}}{{#filtered}}<p>{{label}}</p>{{/filtered}}{{/filter}}{{{tablehtml}}}

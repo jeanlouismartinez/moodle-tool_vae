@@ -51,7 +51,7 @@ final class referent_manager {
         if (!$source) {
             throw new \moodle_exception('errorsupersessionunknown', 'tool_vae');
         }
-        if ($ficherang !== '' && !in_array($ficherang, self::blocs($source), true)) {
+        if ($ficherang !== '' && !in_array($ficherang, self::bloc_ranks($source), true)) {
             throw new \moodle_exception('errorreferentbloc', 'tool_vae');
         }
         if (!$DB->record_exists('user', ['id' => $userid, 'deleted' => 0, 'suspended' => 0])) {
@@ -221,12 +221,12 @@ final class referent_manager {
         }
         $out = [];
         foreach ($tree as $competency) {
-            $rank = passage_manager::rank_of($competency->idnumber, $fichecode);
+            $rank = correspondence_manager::rank_of($competency->idnumber, $fichecode);
             if (!self::is_rank($rank)) {
                 continue;
             }
             if ($competency->parentid > 0 && isset($tree[$competency->parentid])) {
-                $parentrank = passage_manager::rank_of($tree[$competency->parentid]->idnumber, $fichecode);
+                $parentrank = correspondence_manager::rank_of($tree[$competency->parentid]->idnumber, $fichecode);
                 $out[$rank] = self::is_rank($parentrank) ? $parentrank : '';
             } else {
                 $out[$rank] = isset($parents[$competency->id]) ? $rank : '';
@@ -279,7 +279,7 @@ final class referent_manager {
      * @param \stdClass $source A row of tool_vae_source.
      * @return string[]
      */
-    public static function blocs(\stdClass $source): array {
+    public static function bloc_ranks(\stdClass $source): array {
         $tree = (new competency_gateway())->framework_tree((int) $source->frameworkid);
         $parents = [];
         foreach ($tree as $competency) {
@@ -290,7 +290,7 @@ final class referent_manager {
         $out = [];
         foreach (array_keys($parents) as $id) {
             if (isset($tree[$id])) {
-                $rank = passage_manager::rank_of($tree[$id]->idnumber, $source->fichecode);
+                $rank = correspondence_manager::rank_of($tree[$id]->idnumber, $source->fichecode);
                 if (self::is_rank($rank)) {
                     $out[] = $rank;
                 }
@@ -320,7 +320,7 @@ final class referent_manager {
             $name = s($row->fichecode) . ' — ' . format_string($row->label, true, ['context' => \context_system::instance()]);
             $options[$row->fichecode] = $name . ' — ' . get_string('referentwhole', 'tool_vae');
             $parts[$row->fichecode] = [$row->fichecode, ''];
-            foreach ($source ? self::blocs($source) : [] as $rank) {
+            foreach ($source ? self::bloc_ranks($source) : [] as $rank) {
                 $key = $row->fichecode . '|' . $rank;
                 $options[$key] = $name . ' — ' . get_string('referentblocrank', 'tool_vae', s($rank));
                 $parts[$key] = [$row->fichecode, $rank];

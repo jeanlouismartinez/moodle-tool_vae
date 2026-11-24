@@ -36,17 +36,17 @@ C'est la voie d'un site resté en Moodle 4.5 : aucun correctif n'est promis pour
 4. Lancer la mise à jour (page d'administration ou `php admin/cli/upgrade.php`).
 
 Les dossiers, les attestations, les identifiants et les sauvegardes traversent la mise à jour tels
-quels. La tâche `migration` de l'intégration continue le prouve à chaque poussée sur `MOODLE_503`,
-sur PostgreSQL seulement (sur MariaDB, ce passage n'est pas prouvé) :
-elle installe un vrai Moodle 4.5 avec le paquet 4.5, y crée des dossiers, passe en 5.3 avec le
-paquet 5.3, lance la mise à jour, puis vérifie que les fichiers `preuves/*.json` sont identiques à
-l'octet à ceux de l'export pris sous 4.5, que l'archive exportée sous 4.5 se réimporte sur le compte
+quels. La tâche `migration` de l'intégration continue l'a prouvé à chaque poussée sur `MOODLE_503`,
+sur PostgreSQL seulement (sur MariaDB, ce passage n'a pas été prouvé), jusqu'au 17 novembre 2026 :
+elle installait un vrai Moodle 4.5 avec le paquet 4.5, y créait des dossiers, passait en 5.3 avec le
+paquet 5.3, lançait la mise à jour, puis vérifiait que les fichiers `preuves/*.json` étaient identiques
+à l'octet à ceux de l'export pris sous 4.5, que l'archive exportée sous 4.5 se réimportait sur le compte
 d'origine en étant reconnue par le registre comme délivrée par la plateforme, et que la sauvegarde
-prise sous 4.5 se réimporte sur un compte neuf après effacement du premier — étrangère alors, ses
-lignes du registre étant parties avec le compte effacé (`scripts/migration/`). Cette tâche installe
-encore la pointe de la branche `MOODLE_405` (`.forgejo/workflows/moodle-ci.yml`, étape « Paquet 4.5 »,
-`ref: MOODLE_405`) : elle prouve que ce paquet s'installe et se met à jour, pas qu'il est exempt de
-défauts.
+prise sous 4.5 se réimportait sur un compte neuf après effacement du premier — étrangère alors, ses
+lignes du registre étant parties avec le compte effacé. Elle installait la pointe de la branche
+`MOODLE_405` : elle prouvait que ce paquet s'installe et se met à jour, pas qu'il est exempt de
+défauts. Le porteur l'a retirée de l'intégration continue le 17 novembre 2026 (cette migration ne
+sera pas utilisée) ; ses scripts ont été supprimés du dépôt le 19 novembre 2026.
 
 ## Règles pour garder ce passage sans erreur
 
@@ -61,7 +61,7 @@ et à encadrer toute reprise éventuelle de la branche `MOODLE_405`.
   basse étape dont un site 4.5 a encore besoin est donc **2026101403**, et **tout numéro 4.5 doit
   rester inférieur à 2026101403**. La 4.5 a de la place jusqu'à 2026101402. Un numéro 4.5 au-dessus
   de 2026101311 saute l'étape d'origine, et c'est la copie qui crée les champs : la CI de migration
-  le contrôle (`scripts/migration/verify.php`, étape 1 bis).
+  le contrôlait tant qu'elle existait (voir plus haut).
 - **Le numéro courant de la 5.3 est toujours supérieur à celui de la 4.5**, pour que la mise à jour
   ait lieu du tout. Une version 4.5 ne sort donc pas sans une version 5.3 plus haute.
 - **Quand les numéros 4.5 manquent**, on recopie l'étape propre à la 5.3 sous un numéro plus haut,

@@ -1,0 +1,62 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/compare_page
+
+    The page "Comparer deux versions", below its heading: the section, the way to its history, the sentence that says which
+    two versions and how much moved, a notification when a version is compared to itself, and the block of the comparison,
+    which keeps white space as written (drawn whole by its own template).
+
+    Every text comes from the context, already worded by tool_vae\output\compare_page. The template holds no logic. Every
+    text and address is escaped (double braces), except two keys of HTML (triple braces): samehtml, a notification made by
+    the core ($output->notification()); diffhtml, the block of the comparison drawn by the template tool_vae/compare_diff
+    ($output->render()), which escapes every text of the two versions and marks what was added and removed.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * section - string, the section compared
+    * history - {url, label}: the way to the history of the section
+    * summary - string, which two versions, and how much moved
+    * samehtml - false, or HTML: the notification that a version is compared to itself
+    * diffhtml - string, HTML: the block of the comparison
+
+    Example context (json):
+    {
+        "section": "Section: Objectives of the approach",
+        "history": {"url": "https://example.com/admin/tool/vae/history.php?draftid=5", "label": "History and comparison"},
+        "summary": "Version 1 compared to version 3: 2 words added, 1 removed.",
+        "samehtml": false,
+        "diffhtml": "<div class=\"tool-vae-diff border rounded p-3\">Je <del class=\"tool-vae-del\">prépare</del></div>"
+    }
+}}
+<p>{{section}}</p>
+{{#history}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/history}}
+<p>{{summary}}</p>
+{{#samehtml}}
+{{{samehtml}}}
+{{/samehtml}}
+{{{diffhtml}}}

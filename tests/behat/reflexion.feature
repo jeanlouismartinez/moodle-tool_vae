@@ -41,3 +41,11 @@ Feature: A candidate keeps a private reflective journal
     When I press "Continue"
     Then I should see "The entry was deleted with all its versions."
     And I should see "No entry yet."
+
+  # Lot 7, wave 4b: the button of the dossier that leads to the journal, which the tool of equivalence does not serve (the
+  # journal is closed on its instance and nobody there has one).
+  Scenario: The dossier of the candidate leads to the journal
+    Given I log in as "candidat"
+    When I am on the "candidat" "tool_vae > Dossier" page
+    And I press "My reflective journal"
+    Then I should see "This journal is yours alone"

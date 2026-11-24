@@ -29,10 +29,9 @@
 require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\draft_manager;
-use tool_vae\local\faisabilite_fields;
 use tool_vae\local\situation_manager;
 use tool_vae\local\situation_screen;
-use tool_vae\local\text_diff;
+use tool_vae\output\history_page;
 
 require_login();
 
@@ -103,135 +102,26 @@ $PAGE->set_heading(fullname(core_user::get_user($candidateid)));
 
 $versions = $manager->versions($draftid);
 
-echo $OUTPUT->header();
-echo $OUTPUT->heading($heading);
-echo html_writer::tag('p', s($line));
+// The name of the author of each version, read here: an account that is gone reads as such.
+$authors = [];
+foreach ($versions as $number => $version) {
+    $user = $version->authorid !== null ? core_user::get_user((int) $version->authorid) : false;
+    $authors[$number] = $user ? fullname($user) : get_string('historyauthorerased', 'tool_vae');
+}
 
 // The screen of a work situation is its own (lot 1b), not section.php: the way back leads there, for the vaeiste and for a
 // reader alike.
+$back = null;
 if ($issituation) {
-    echo html_writer::tag('p', html_writer::link(
-        situation_screen::url($candidateid, (string) $draft->fichecode, (int) $draft->slot),
-        get_string('situationbacktosituation', 'tool_vae')
-    ));
+    $back = situation_screen::url($candidateid, (string) $draft->fichecode, (int) $draft->slot);
 } else if ($canwrite) {
-    $edit = new moodle_url('/admin/tool/vae/section.php', [
+    $back = new moodle_url('/admin/tool/vae/section.php', [
         'doctype' => $draft->doctype, 'section' => $draft->section, 'slot' => (int) $draft->slot,
     ] + ($draft->doctype === draft_manager::DOCTYPE_VALIDATION ? ['fiche' => $draft->fichecode] : []));
-    echo html_writer::tag('p', html_writer::link($edit, get_string('historyback', 'tool_vae')));
 }
 
-if (!$versions) {
-    echo $OUTPUT->notification(get_string('historyempty', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-    echo $OUTPUT->footer();
-    die();
-}
-
-$numbers = array_keys($versions);
-$latest = max($numbers);
-
-// The comparison form: two versions, one request, nothing written.
-echo html_writer::start_tag('form', [
-    'method' => 'get',
-    'action' => (new moodle_url('/admin/tool/vae/compare.php'))->out(false),
-]);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'draftid', 'value' => $draftid]);
-
-$table = new html_table();
-$table->attributes['class'] = 'generaltable';
-$table->head = [
-    get_string('historyfrom', 'tool_vae'),
-    get_string('historyto', 'tool_vae'),
-    get_string('historyversion', 'tool_vae'),
-    get_string('historydate', 'tool_vae'),
-    get_string('historyauthor', 'tool_vae'),
-    get_string('historynote', 'tool_vae'),
-    get_string('historysize', 'tool_vae'),
-    get_string('historychanges', 'tool_vae'),
-    '',
-];
-
-$sorted = $versions;
-krsort($sorted);
-foreach ($sorted as $number => $version) {
-    $previous = $versions[$number - 1] ?? null;
-    $changes = '';
-    if ($previous !== null) {
-        $counts = text_diff::counts(text_diff::diff(
-            faisabilite_fields::readable((string) $draft->section, (string) $previous->content),
-            faisabilite_fields::readable((string) $draft->section, (string) $version->content)
-        ));
-        $changes = get_string('diffsummary', 'tool_vae', (object) $counts);
-    }
-
-    $author = '';
-    if ($version->authorid !== null && $user = core_user::get_user((int) $version->authorid)) {
-        $author = fullname($user);
-    } else {
-        $author = get_string('historyauthorerased', 'tool_vae');
-    }
-
-    $label = get_string('historyversion', 'tool_vae') . ' ' . $number;
-    $restore = '';
-    if ($canwrite && $number !== $latest) {
-        $restore = html_writer::tag('button', get_string('historyrestore', 'tool_vae'), [
-            'type' => 'submit',
-            'form' => 'tool-vae-restore-' . $number,
-            'class' => 'btn btn-secondary btn-sm',
-        ]);
-    }
-
-    $note = s((string) $version->note);
-    if ($version->restoredfrom !== null) {
-        $note = trim(s(get_string('historyrestoredfrom', 'tool_vae', (int) $version->restoredfrom)) . ' ' . $note);
-    }
-
-    $table->data[] = [
-        html_writer::empty_tag('input', [
-            'type' => 'radio', 'name' => 'from', 'value' => $number,
-            'aria-label' => get_string('historyfrom', 'tool_vae') . ': ' . $label,
-            'checked' => $number === ($latest - 1 > 0 ? $latest - 1 : $latest) ? 'checked' : null,
-        ]),
-        html_writer::empty_tag('input', [
-            'type' => 'radio', 'name' => 'to', 'value' => $number,
-            'aria-label' => get_string('historyto', 'tool_vae') . ': ' . $label,
-            'checked' => $number === $latest ? 'checked' : null,
-        ]),
-        html_writer::link(
-            new moodle_url('/admin/tool/vae/compare.php', ['draftid' => $draftid, 'from' => $number, 'to' => $number]),
-            $label
-        ),
-        userdate((int) $version->timecreated),
-        s($author),
-        $note,
-        \core_text::strlen(faisabilite_fields::readable((string) $draft->section, (string) $version->content)),
-        s($changes),
-        $restore,
-    ];
-}
-echo html_writer::table($table);
-echo html_writer::tag('button', get_string('historycompare', 'tool_vae'), [
-    'type' => 'submit', 'class' => 'btn btn-primary',
-]);
-echo html_writer::end_tag('form');
-
-// One small form per restoration, outside the comparison form: a form cannot hold another.
-if ($canwrite) {
-    foreach ($numbers as $number) {
-        if ($number === $latest) {
-            continue;
-        }
-        echo html_writer::start_tag('form', [
-            'method' => 'post', 'action' => $url->out(false), 'id' => 'tool-vae-restore-' . $number,
-        ]);
-        echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-        echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'action', 'value' => 'restore']);
-        echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'number', 'value' => $number]);
-        echo html_writer::empty_tag('input', [
-            'type' => 'hidden', 'name' => 'workingat', 'value' => (int) ($draft->workingat ?? 0),
-        ]);
-        echo html_writer::end_tag('form');
-    }
-}
-
+echo $OUTPUT->header();
+$renderer = $PAGE->get_renderer('tool_vae');
+echo $OUTPUT->heading($heading);
+echo $renderer->render(new history_page($line, $back, $issituation, $draft, $versions, $authors, $canwrite, $url));
 echo $OUTPUT->footer();

@@ -31,6 +31,7 @@ require_once($CFG->libdir . '/adminlib.php');
 use tool_vae\form\referent_form;
 use tool_vae\local\referent_manager;
 use tool_vae\local\supersession;
+use tool_vae\output\referents_page;
 
 admin_externalpage_setup('toolvae_referents');
 
@@ -67,56 +68,21 @@ if ($data = $form->get_data()) {
     }
 }
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('referentheading', 'tool_vae'));
-echo html_writer::tag('p', get_string('referentintro', 'tool_vae'));
-if ($error !== null) {
-    echo $OUTPUT->notification(s($error), \core\output\notification::NOTIFY_ERROR);
-}
 
-if (!$rows) {
-    echo $OUTPUT->notification(get_string('supersessionnone', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-} else {
+$referents = [];
+$users = [];
+if ($rows) {
     $referents = referent_manager::for_fiches(array_keys($rows));
     $userids = [];
     foreach ($referents as $list) {
         $userids = array_merge($userids, array_column($list, 'userid'));
     }
     $users = $userids ? $DB->get_records_list('user', 'id', array_unique($userids)) : [];
-    $table = new html_table();
-    $table->head = [
-        get_string('supersessioncolfiche', 'tool_vae'),
-        get_string('referentbloc', 'tool_vae'),
-        get_string('referentuser', 'tool_vae'),
-        '',
-    ];
-    foreach ($rows as $row) {
-        $name = s($row->fichecode) . ' — ' . format_string($row->label);
-        if (empty($referents[$row->fichecode])) {
-            $table->data[] = [$name, '', get_string('referentnone', 'tool_vae'), ''];
-            continue;
-        }
-        foreach ($referents[$row->fichecode] as $referent) {
-            $person = $users[$referent->userid] ?? null;
-            $table->data[] = [
-                $name,
-                $referent->ficherang === ''
-                    ? get_string('referentwhole', 'tool_vae')
-                    : get_string('referentblocrank', 'tool_vae', s($referent->ficherang)),
-                $person ? s(fullname($person)) . ' (' . s($person->username) . ')' : '',
-                $OUTPUT->single_button(
-                    new moodle_url($self, ['remove' => $referent->id]),
-                    get_string('referentremove', 'tool_vae'),
-                    'post'
-                ),
-            ];
-            $name = '';
-        }
-    }
-    echo html_writer::table($table);
-
-    echo $OUTPUT->heading(get_string('referentaddheading', 'tool_vae'), 3);
-    $form->display();
 }
+echo $renderer->render(new referents_page($rows, $referents, $users, $error, $form, $self));
 
 echo $OUTPUT->footer();

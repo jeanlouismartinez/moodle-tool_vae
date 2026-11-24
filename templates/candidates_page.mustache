@@ -1,0 +1,78 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/candidates_page
+
+    The page "Mes vaeistes", below its heading: a notification, or the choice of a bloc for a referent of blocs, the table of
+    the followed vaeistes and the link to the same vaeistes with their records and learning plans.
+
+    Every text comes from the context, already worded by tool_vae\output\candidates_page. The template holds no logic: the
+    states exclude one another before. Every text and address is escaped (double braces), except two keys of HTML (triple
+    braces): noticehtml, a notification of the core ($output->notification()); tablehtml, the table drawn by the template
+    tool_vae/table. The lines of the form are joined by comments, so that no space is drawn where the core wrote none.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * noticehtml - false, or HTML: the notification drawn instead of the list
+    * filter - false, or {action, label, options, apply}: the choice of a bloc; each option {value, label, selected}
+    * filtered - false, or a string: the sentence that says the counts are narrowed to a bloc
+    * tablehtml - false, or HTML: the table of the followed vaeistes
+    * followed - false, or {url, label}: the link to the followed vaeistes in the organisation
+
+    Example context (json):
+    {
+        "noticehtml": false,
+        "filter": {
+            "action": "https://example.com/admin/tool/vae/candidates.php",
+            "label": "Narrow the counts to",
+            "options": [
+                {"value": "0", "label": "Every bloc", "selected": false},
+                {"value": "DEMOBLOCS|BC01", "label": "DEMOBLOCS — bloc BC01", "selected": true}
+            ],
+            "apply": "Apply"
+        },
+        "filtered": "The counts are narrowed to DEMOBLOCS — bloc BC01.",
+        "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>Camille Durand</td></tr></tbody></table>",
+        "followed": {"url": "https://example.com/admin/tool/vae/organisation.php?tab=followed", "label": "Followed candidates"}
+    }
+}}
+{{#noticehtml}}
+{{{noticehtml}}}
+{{/noticehtml}}
+{{#filter}}
+<form method="get" action="{{action}}"><label for="candidatesbloc">{{label}}</label> {{!
+}}<select id="candidatesbloc" class="select form-select menubloc" name="bloc">{{#options}}{{!
+}}<option value="{{value}}"{{#selected}} selected="selected"{{/selected}}>{{label}}</option>{{/options}}{{!
+}}</select> <input type="submit" class="btn btn-secondary" value="{{apply}}"></form>
+{{/filter}}
+{{#filtered}}
+<p>{{filtered}}</p>
+{{/filtered}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}
+{{#followed}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/followed}}

@@ -1,0 +1,66 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/note_lines
+
+    The lines of annotations of one target: the sentence that no annotation validates, then either the sentence that there
+    is none, or each line - a withdrawn one in grey with its signature, a standing one with its signature, its text and,
+    for its author, the button to withdraw it.
+
+    Every text comes from the context, already worded by tool_vae\output\note_lines. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * texthtml - the annotation, through format_text() (plain or Markdown, cleaned, no filter)
+    * buttonhtml - the button to withdraw it, drawn by the renderer of the core ('' for none)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * notvalidation - string, the sentence that no annotation validates
+    * none - object or null: text, the sentence that there is no annotation
+    * notes - array: class (the classes of the line), withdrawn (object: words, signature) or null, standing (object:
+      signature, texthtml, buttonhtml) or null
+
+    Example context (json):
+    {
+        "notvalidation": "An annotation validates nothing.",
+        "none": null,
+        "notes": [
+            {
+                "class": "tool-vae-note border-start ps-2 ms-3 mb-2",
+                "withdrawn": null,
+                "standing": {"signature": "By Nadia Benali, 21/11/2026", "texthtml": "<p>Well told.</p>", "buttonhtml": ""}
+            },
+            {
+                "class": "tool-vae-note border-start ps-2 ms-3 mb-2 text-muted",
+                "withdrawn": {"words": "Annotation withdrawn.", "signature": "By Nadia Benali, 20/11/2026"},
+                "standing": null
+            }
+        ]
+    }
+}}
+<p class="small text-muted">{{notvalidation}}</p>{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{!
+}}{{#notes}}<div class="{{class}}">{{!
+}}{{#withdrawn}}<div class="small text-muted">{{words}} {{signature}}</div>{{/withdrawn}}{{!
+}}{{#standing}}<div class="small">{{signature}}</div><div>{{{texthtml}}}</div>{{{buttonhtml}}}{{/standing}}{{!
+}}</div>{{/notes}}

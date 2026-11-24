@@ -44,7 +44,12 @@ final class role_installer {
     public const SENSITIVE = ['tool/vae:evaluate', 'tool/vae:certify', 'tool/vae:issuestructure'];
 
     /**
-     * The presets of the folder, read from the files.
+     * The presets of the folder, read from the files; their names and descriptions from the language strings.
+     *
+     * THE NAME AND THE DESCRIPTION ARE THE LANGUAGE STRINGS rolename_<shortname> and roledesc_<shortname>, in the language
+     * of the person who reads or creates: a French site gets the names it always had (Direction VAE...), an English one the
+     * English names. The <name> and <description> of a file are English, for a file imported by hand outside the plugin;
+     * the plugin itself never reads them. A role, once created, keeps the name it was given: nothing here renames it.
      *
      * @return \stdClass[] Keyed by shortname: shortname, name, description, archetype, levels, rights, optional.
      */
@@ -58,10 +63,11 @@ final class role_installer {
             if (!is_array($info) || empty($info['shortname'])) {
                 continue;
             }
-            $found[(string) $info['shortname']] = (object) [
-                'shortname' => (string) $info['shortname'],
-                'name' => (string) $info['name'],
-                'description' => (string) $info['description'],
+            $shortname = (string) $info['shortname'];
+            $found[$shortname] = (object) [
+                'shortname' => $shortname,
+                'name' => get_string('rolename_' . $shortname, 'tool_vae'),
+                'description' => get_string('roledesc_' . $shortname, 'tool_vae'),
                 'archetype' => (string) $info['archetype'],
                 'levels' => array_map('intval', array_keys($info['contextlevels'])),
                 'rights' => array_keys(array_filter($info['permissions'], fn($permission) => (int) $permission === CAP_ALLOW)),

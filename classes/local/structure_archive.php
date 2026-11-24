@@ -149,7 +149,7 @@ final class structure_archive {
      * @throws \moodle_exception errorstructuredenied, or errorstructureempty when no positioning was ever written.
      */
     public static function issue(int $candidateid): \stored_file {
-        global $CFG, $DB, $SITE, $USER;
+        global $CFG, $DB, $USER;
 
         if (!self::can_issue($candidateid)) {
             throw new \moodle_exception('errorstructuredenied', 'tool_vae');
@@ -162,7 +162,7 @@ final class structure_archive {
 
         $archiveid = identity_map::generate_ulid();
         $now = time();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
+        $person = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
 
         // The archive is read in the country of the candidate, as the archive of the dossier is: their language, their
         // timezone, given back when the files are written.
@@ -182,7 +182,7 @@ final class structure_archive {
                     'composant' => 'tool_vae',
                     'version_composant' => \core_plugin_manager::instance()->get_plugin_info('tool_vae')->release,
                 ],
-                'candidat' => ['identifiant' => $personne, 'nom' => fullname($candidate)],
+                'candidat' => ['identifiant' => $person, 'nom' => fullname($candidate)],
                 'avertissement' => $notice,
             ];
             $files = [
@@ -227,7 +227,7 @@ final class structure_archive {
         $DB->insert_record(exporter::REGISTER, (object) [
             'archiveuuid' => $archiveid,
             'sha256' => $sha256,
-            'candidateuuid' => $personne,
+            'candidateuuid' => $person,
             'userid' => (int) $USER->id,
             'timecreated' => $now,
         ]);

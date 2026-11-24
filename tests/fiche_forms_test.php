@@ -73,16 +73,19 @@ final class fiche_forms_test extends \advanced_testcase {
         $html = self::first_form_html();
 
         $this->assertStringContainsString('method="post"', $html);
-        $this->assertStringContainsString('enctype="multipart/form-data"', $html);
+        $this->assertStringNotContainsString('multipart/form-data', $html, 'The file goes to the draft area, not with the form.');
         $this->assertStringContainsString('name="sesskey"', $html);
         $this->assertStringContainsString('name="numbers"', $html);
         $this->assertStringContainsString('name="fetchbutton"', $html);
         $this->assertStringContainsString('name="zipbutton"', $html);
         $this->assertStringContainsString(get_string('fcimportfetchbutton', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('fcimportzipbutton', 'tool_vae'), $html);
-        // The upload is a plain field with a real label, tied to it.
-        $this->assertMatchesRegularExpression('/<input[^>]+type="file"[^>]+name="exportzip"/', $html);
-        $this->assertMatchesRegularExpression('/<label[^>]+for="id_exportzip"/', $html);
+        // The upload is the file picker of the core, which sends the number of a draft area: no plain field is left.
+        $this->assertMatchesRegularExpression('/<input type="hidden" name="exportzip" id="id_exportzip" value="\d+"'
+            . ' class="filepickerhidden"\/>/', $html);
+        $this->assertStringContainsString('data-fieldtype="filepicker"', $html);
+        $this->assertStringNotContainsString('type="file"', $html);
+        $this->assertStringContainsString(get_string('fcimportzipfile', 'tool_vae'), $html, 'Its label.');
         $this->assertStringContainsString('name="cancel"', $html);
     }
 

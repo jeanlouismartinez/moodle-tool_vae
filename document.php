@@ -35,6 +35,7 @@ use tool_vae\local\competency_gateway;
 use tool_vae\local\document_writer;
 use tool_vae\local\dossier_document;
 use tool_vae\local\draft_manager;
+use tool_vae\output\document_page;
 
 require_login();
 
@@ -44,6 +45,9 @@ $format = required_param('format', PARAM_ALPHA);
 
 // THE RIGHT IS CHECKED BEFORE THE ACCOUNT IS LOOKED UP, for the reason dossier.php gives.
 $context = access::require_can_export($candidateid);
+// The page builds a file and logs it: never on a link followed from elsewhere. The key is asked after the right, so that
+// a person without the right is told only that, and before anything is read, built or logged.
+require_sesskey();
 if (!in_array($format, dossier_document::FORMATS, true)) {
     throw new moodle_exception('invalidparameter', 'debug');
 }
@@ -55,11 +59,9 @@ if (!competency_gateway::is_subsystem_enabled()) {
     $PAGE->set_context($context);
     $PAGE->set_pagelayout('standard');
     $PAGE->set_title(get_string('documentdownload', 'tool_vae'));
+    $renderer = $PAGE->get_renderer('tool_vae');
     echo $OUTPUT->header();
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(new document_page());
     echo $OUTPUT->footer();
     die();
 }

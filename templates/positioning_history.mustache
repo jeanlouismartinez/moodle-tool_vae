@@ -1,0 +1,52 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/positioning_history
+
+    The history of a rank: a sentence when there is no line; otherwise the heading of the line that stands and that line,
+    then the heading of the earlier lines and each of them, the latest first.
+
+    Every text comes from the context, already worded by tool_vae\output\positioning_history. The template holds no logic.
+    Every value is escaped (double braces) except one key:
+    * linehtml - a line, drawn by the template tool_vae/positioning_line
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * none - object or null: text, the sentence said when there is no line
+    * lines - array of {heading, linehtml}: heading is an object (text) before the first and the second line, null otherwise
+
+    Example context (json):
+    {
+        "none": null,
+        "lines": [
+            {"heading": {"text": "Line that stands"}, "linehtml": "<div class=\"ms-3 mb-2\">Second statement.</div>"},
+            {"heading": {"text": "Earlier lines"}, "linehtml": "<div class=\"ms-3 mb-2\">First statement.</div>"},
+            {"heading": null, "linehtml": "<div class=\"ms-3 mb-2\">A first draft.</div>"}
+        ]
+    }
+}}
+{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{!
+}}{{^none}}<div class="tool-vae-history">{{#lines}}{{#heading}}<h4 class="h5">{{text}}</h4>{{/heading}}{{!
+}}{{{linehtml}}}{{/lines}}</div>{{/none}}

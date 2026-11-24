@@ -26,7 +26,7 @@
  * that gets forgotten.
  *
  * The declaration is drawn with the warning of its anchor when the platform no longer says what
- * the declaration says (attest_screen): the dossier shows it, and so must the screen where a
+ * the declaration says (tool_vae\output\attest_declaration): the dossier shows it, and so must the screen where a
  * manager decides to sign - which a favourite or an open tab reaches without passing by the dossier.
  *
  * @package    tool_vae
@@ -37,10 +37,9 @@
 require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\form\attest_form;
-use tool_vae\local\attest_screen;
 use tool_vae\local\attestation_manager;
 use tool_vae\local\piece_manager;
-use tool_vae\local\presenter;
+use tool_vae\output\attest_page;
 
 require_login();
 
@@ -112,58 +111,40 @@ if (!$standing && ($data = $form->get_data())) {
     );
 }
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('attestheading', 'tool_vae'));
 
-echo attest_screen::declaration($evidence, $context);
-
-if ($pieces) {
-    echo $OUTPUT->heading(get_string('attestpiecesheading', 'tool_vae'), 3);
-    echo html_writer::tag('p', s(get_string('attestpiecesintro', 'tool_vae')));
-    echo presenter::pieces($pieces, $context, $standing ?: null);
-}
-
 if ($standing) {
     // Already signed. Say so and show it: rendering the form here would invite a submission
-    // attestation_manager refuses anyway. The withdrawal button is drawn for whoever may withdraw
-    // this attestation - see attestation_manager::require_can_withdraw().
-    echo $OUTPUT->notification(
-        get_string('errorattestexists', 'tool_vae'),
-        \core\output\notification::NOTIFY_INFO
-    );
-    // The whole history, not just the signature standing: a manager arriving here has to
-    // see that an earlier one was withdrawn. That sentence is what the dossier is left with.
-    echo presenter::attestations(attestation_manager::attestations($evidenceid));
+    // attestation_manager refuses anyway. The whole history is shown, not just the signature standing: a manager
+    // arriving here has to see that an earlier one was withdrawn. The withdrawal button is drawn for whoever may
+    // withdraw this attestation - see attestation_manager::require_can_withdraw().
+    $recourse = null;
     if (attestation_manager::may_withdraw($standing)) {
-        echo $OUTPUT->single_button(
-            new moodle_url('/admin/tool/vae/withdraw.php', ['attestationid' => $standing->id]),
-            get_string('withdraw', 'tool_vae'),
-            'get'
-        );
+        $recourse = attest_page::RECOURSE_WITHDRAW;
     } else if (attestation_manager::may_request_withdrawal($standing, $candidateid)) {
         // The same recourse as the dossier offers: a manager who may not withdraw asks the signatory to.
-        echo $OUTPUT->single_button(
-            new moodle_url('/admin/tool/vae/withdrawrequest.php', [
-                'attestationid' => $standing->id,
-                'action' => 'request',
-                'sesskey' => sesskey(),
-            ]),
-            get_string('requestwithdrawal', 'tool_vae'),
-            'post'
-        );
+        $recourse = attest_page::RECOURSE_REQUEST;
     } else if (
         $standing->attestantid !== null && (int) $standing->attestantid !== (int) $USER->id
             && !attestation_manager::signatory_reachable($standing)
     ) {
         // As on the dossier: the signatory is gone (deleted, or suspended), nobody can answer a request, and the reader is
         // sent to the one person who can still withdraw.
-        echo $OUTPUT->notification(
-            get_string('requestwithdrawalnosignatory', 'tool_vae'),
-            \core\output\notification::NOTIFY_INFO
-        );
+        $recourse = attest_page::RECOURSE_GONE;
     }
+    echo $renderer->render(attest_page::signed(
+        $evidence,
+        $context,
+        $pieces,
+        $standing,
+        attestation_manager::attestations($evidenceid),
+        $recourse
+    ));
 } else {
-    $form->display();
+    echo $renderer->render(attest_page::unsigned($evidence, $context, $pieces, $form));
 }
 
 echo $OUTPUT->footer();

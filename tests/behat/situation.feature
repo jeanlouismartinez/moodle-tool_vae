@@ -161,3 +161,101 @@ Feature: The vaeiste writes their work situations, tags them on the record, and 
     Then the "candidat RNCP400-1" "Situation" page should be refused with "Sorry, but you do not currently have permissions to do that"
     And the "candidat RNCP400" "Situations" page should be refused with "Sorry, but you do not currently have permissions to do that"
     And the "candidat" "Consent" page should be refused with "Sorry, but you do not currently have permissions to do that"
+
+  # Lot 7 (MMR-520, wave 4a): the states of situations.php and situation.php that the tool of equivalence does not serve -
+  # the competencies switched off, a record hidden, the preparation closed with the text given back, adding a piece closed,
+  # an annotation refused - are drawn by classes of output now; only a request for the pages proves what the pages give them.
+  Scenario: With the competencies switched off, the work situations say so and nothing else
+    Given the following config values are set as admin:
+      | enabled | 0 | core_competency |
+    And I log in as "candidat"
+    When I am on the "candidat" "tool_vae > Situations" page
+    Then I should see "My work situations"
+    And I should see "The competency subsystem is switched off on this site."
+    And I should not see "Choose a certification record"
+    And I should not see "Back to my pathway"
+
+  Scenario: A hidden record is said on the list of the records and on its situations, which stay readable and closed to writing
+    Given the following "tool_vae > situations" exist:
+      | candidate | fichecode | title       | text                   | tags |
+      | candidat  | RNCP400   | Night round | I led the night round. | C11  |
+    And the framework of the record "RNCP400" is hidden
+    And I log in as "candidat"
+    When I am on the "candidat" "tool_vae > Situations" page
+    Then I should see "The record Aide-soignant (RNCP400) is hidden" in the ".alert-info" "css_element"
+    And I should see "RNCP400" in the "#region-main li" "css_element"
+    When I am on the "candidat RNCP400" "tool_vae > Situations" page
+    Then I should see "The record Aide-soignant (RNCP400) is hidden" in the ".alert-info" "css_element"
+    And I should see "Night round" in the ".tool-vae-situations" "css_element"
+    And I should not see "New situation"
+    When I am on the "candidat RNCP400-1" "tool_vae > Situation" page
+    Then I should see "The record Aide-soignant (RNCP400) is hidden" in the ".alert-info" "css_element"
+    And I should see "I led the night round." in the ".tool-vae-situation-text" "css_element"
+    And I should not see "Save a version of the text"
+
+  Scenario: The preparation closed under the vaeiste gives back the text typed, and attaching a piece closed is said
+    Given the following "tool_vae > situations" exist:
+      | candidate | fichecode | title       | text                   | tags |
+      | candidat  | RNCP400   | Night round | I led the night round. | C11  |
+    And I log in as "candidat"
+    And I am on the "candidat RNCP400-1" "tool_vae > Situation" page
+    And I set the field "id_content" to "Typed while the preparation closed."
+    And the following config values are set as admin:
+      | validationopen | 0 | tool_vae |
+    When I press "Save a version of the text"
+    Then I should see "The preparation of the validation dossier is not open on this site yet." in the ".alert-danger" "css_element"
+    And I should see "Your text was not recorded"
+    And I should see "Typed while the preparation closed." in the "textarea[readonly]" "css_element"
+    When I am on the "candidat RNCP400-1" "tool_vae > Situation" page
+    Then I should see "The preparation of the validation dossier is not open on this site yet." in the ".alert-info" "css_element"
+    And "textarea[readonly]" "css_element" should not exist
+    And I should see "I led the night round." in the ".tool-vae-situation-text" "css_element"
+    And I should not see "Attaching new pieces is closed."
+    When I am on the "candidat RNCP400" "tool_vae > Situations" page
+    Then I should see "The preparation of the validation dossier is not open on this site yet." in the ".alert-info" "css_element"
+    And I should not see "New situation"
+    And the following config values are set as admin:
+      | piecesopen | 0 | tool_vae |
+    When I am on the "candidat RNCP400-1" "tool_vae > Situation" page
+    Then I should see "Attaching new pieces is closed."
+    And I should not see "Attach the link"
+
+  Scenario: The same annotation twice is refused, and said under the text
+    Given the following "tool_vae > situations" exist:
+      | candidate | fichecode | title       | text                   | tags |
+      | candidat  | RNCP400   | Night round | I led the night round. | C11  |
+    And the following "tool_vae > consents" exist:
+      | candidate | manager     | state |
+      | candidat  | responsable | given |
+    And I log in as "responsable"
+    And I am on the "candidat RNCP400-1" "tool_vae > Situation" page
+    And I set the field "Your annotation" to "Say what you checked first."
+    And I press "Save the annotation"
+    When I set the field "Your annotation" to "Say what you checked first."
+    And I press "Save the annotation"
+    Then I should see "This annotation is the same as your latest annotation on the same item."
+    And I should see "Say what you checked first." in the ".tool-vae-note" "css_element"
+
+  # Lot Q3, then review MMR-520. The file of a piece reaches situation.php through the file picker of the core (a draft area
+  # of the vaeiste, which needs JavaScript here); the page reads it there and empties the area.
+  @javascript @_file_upload
+  Scenario: The vaeiste attaches a file to a situation and reads that it was received
+    Given I log in as "candidat"
+    And I am on the "candidat RNCP400" "tool_vae > Situations" page
+    And I press "New situation"
+    And I set the following fields to these values:
+      | id_title   | Night round with a sheet on paper |
+      | id_setting | Night service                     |
+    And I set the field "tool-vae-whereami-tag-C11" to "1"
+    And I press "Save the title, the period, the setting and the tags"
+    And I set the field "id_content" to "I filled the round sheet on paper that night."
+    And I press "Save a version of the text"
+    When I set the following fields to these values:
+      | id_filenature | Professional writing |
+      | id_filetitle  | Round sheet on paper |
+      | id_filepart   | The first page       |
+    And I upload "admin/tool/vae/tests/fixtures/piece-sample.pdf" file to "File" filemanager
+    And I press "Attach the file"
+    Then I should see "The file was attached."
+    And I should see "Round sheet on paper" in the "#region-main" "css_element"
+    And I should see "The first page" in the "#region-main" "css_element"

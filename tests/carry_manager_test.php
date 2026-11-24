@@ -22,7 +22,7 @@ use tool_vae\fixtures\failing_gateway;
 use tool_vae\local\carry_manager;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\evidence_manager;
-use tool_vae\local\passage_manager;
+use tool_vae\local\correspondence_manager;
 use tool_vae\local\purge;
 use tool_vae\local\supersession;
 use tool_vae\privacy\provider;
@@ -144,7 +144,7 @@ final class carry_manager_test extends \advanced_testcase {
      */
     private function decide(string $fromrank = 'C01', string $torank = 'C01', string $note = 'Meme champ.'): void {
         $this->setAdminUser();
-        (new passage_manager())->decide(
+        (new correspondence_manager())->decide(
             (int) $this->old[$fromrank]->get('id'),
             (int) $this->new[$torank]->get('id'),
             $note
@@ -248,7 +248,7 @@ final class carry_manager_test extends \advanced_testcase {
         $this->assertEqualsWithDelta(time(), (int) $row->carriedat, 5);
 
         $this->setAdminUser();
-        (new passage_manager())->undo((int) $this->old['C01']->get('id'));
+        (new correspondence_manager())->undo((int) $this->old['C01']->get('id'));
         $stored = $DB->get_record('tool_vae_carry', ['id' => $row->id], '*', MUST_EXIST);
         $this->assertSame((int) get_admin()->id, (int) $stored->decidedby);
         $this->assertSame('Meme champ.', $stored->note);

@@ -33,10 +33,10 @@ use tool_vae\notifier;
  * plugin, and nothing else.
  *
  * WHAT IT SAYS ON THE WAY OUT. A declaration destroyed because its core record was deleted takes the signatures of third
- * parties with it, and nothing else in the request tells them. by_userevidence() reads who signed BEFORE the rows go -
- * afterwards nobody could say - and, once the purge has stood, hands each purged declaration to the notifier, which queues
- * one message per signatory. It is here and not in the observer so that the scheduled task that catches up with a purge that
- * did not finish says it too: both reach this method.
+ * parties with it, and nothing else tells them. by_userevidence() reads who signed BEFORE the rows go - afterwards nobody
+ * could say - and, once the purge has stood, hands each purged declaration to the notifier, which queues one message per
+ * signatory. It is here and not in the follow-up of the deletion so that the scheduled task that catches up with it says it
+ * too: both reach this method.
  *
  * AND WHAT IT SAYS WHEN IT WITHDRAWS A SIGNATURE. dossier() strips at once the attestations that an archive attributes to the
  * deleted account by its ULID. The candidates whose declarations lost one are handed to the notifier right after the strip is
@@ -80,9 +80,9 @@ class purge {
     /**
      * Remove every claim whose core record no longer exists (T-78).
      *
-     * The observers purge a claim when the core deletes its record, and an observer cannot make a
-     * failure loud: the event manager turns what it throws into a debugging() call. When a purge
-     * fails, or the process dies between the core's deletion and ours, the narrative stays behind,
+     * The follow-up task an observer queues purges a claim when the core deletes its record (see
+     * deletion_followup). When that task never runs - queued before it existed, lost, or given up
+     * after too many failures - or the core deleted by a route raising no event, the narrative stays behind,
      * anchored to a record that is gone and invisible in every interface. The scheduled task
      * calls this to catch up, one core record at a time, each in its own transaction. Run twice,
      * it removes nothing the second time.
@@ -227,13 +227,13 @@ class purge {
         ]));
 
         // Read before the map entry goes: the backups are found by this ULID (lot 8 bis).
-        $personne = $DB->get_field('tool_vae_identity', 'uuid', ['itemtype' => 'user', 'itemid' => $candidateid]);
+        $person = $DB->get_field('tool_vae_identity', 'uuid', ['itemtype' => 'user', 'itemid' => $candidateid]);
 
         // The identity map entry is INSIDE the transaction, with the rows it names. Deleted
         // after it, an interruption in between leaves a dossier destroyed and a ULID still
         // pointing at its owner - the one trace the purge exists to remove.
         $signedfor = [];
-        $removed = self::in_transaction(function () use ($records, $candidateid, $personne, &$signedfor) {
+        $removed = self::in_transaction(function () use ($records, $candidateid, $person, &$signedfor) {
             global $DB;
 
             self::remove($records);
@@ -271,7 +271,7 @@ class purge {
             // What this person signed in the dossiers of OTHER vaeistes, by their account or by their ULID, the register and
             // the identity map entry: forget_person(), the one writing of that rule, shared with the catch-up of the
             // scheduled task (orphan_sections()).
-            $signedfor = self::forget_person($candidateid, $personne);
+            $signedfor = self::forget_person($candidateid, $person);
 
             return $records;
         });
@@ -292,10 +292,10 @@ class purge {
 
         // And the lasting backups, in whoever's private files they sit: an erasure that left
         // them would leave the whole dossier.
-        if ($personne !== false) {
-            backup::discard($personne);
+        if ($person !== false) {
+            backup::discard($person);
             // The dated copies in the candidate's own files (T-83): the same erasure.
-            document_copies::discard($personne);
+            document_copies::discard($person);
         }
 
         // The other dossiers this person signed lose the signature in their archives too, as
@@ -314,7 +314,7 @@ class purge {
      * Take a person's name off everything they signed in the dossiers of OTHER vaeistes, and the two rows that lead to them.
      *
      * THE ONE WRITING OF THIS RULE (T15, point E): dossier() applies it when the account is deleted or erased,
-     * orphan_sections() when the account was deleted without the observer running (a purge that failed). In order:
+     * orphan_sections() when the account was deleted without its follow-up task running. In order:
      * - by the account (lot 1b): the annotations stay, text intact, without a signature (authorid null) - as a positioning of
      *   the structure does - and the lines of consent given to this person go: a consent given to nobody has no meaning;
      * - by the ULID of their identity map entry, when they have one: a signature carried in from an archive names its
@@ -332,13 +332,13 @@ class purge {
      * and redoes the archives of every vaeiste returned: their backups carry this person's opaque identifier.
      *
      * @param int $userid The account.
-     * @param string|false $personne The ULID of their identity map entry, read by the caller BEFORE anything goes; false
+     * @param string|false $person The ULID of their identity map entry, read by the caller BEFORE anything goes; false
      *        when they have none.
      * @return int[][] Candidate id => the declarations (rows of tool_vae_evidence) that lose a signature that stood, which
      *         may be none: every vaeiste whose dossier named this person, by an annotation, a line of consent or a
      *         signature, read BEFORE the lines lose the name.
      */
-    private static function forget_person(int $userid, $personne): array {
+    private static function forget_person(int $userid, $person): array {
         global $DB;
 
         $named = array_merge(
@@ -352,9 +352,9 @@ class purge {
         $DB->set_field('tool_vae_note', 'authorid', null, ['authorid' => $userid]);
         $DB->delete_records('tool_vae_consent', ['managerid' => $userid]);
 
-        if ($personne !== false) {
-            $signedfor = self::strip_signatory($personne) + $signedfor;
-            $DB->delete_records(exporter::REGISTER, ['candidateuuid' => $personne]);
+        if ($person !== false) {
+            $signedfor = self::strip_signatory($person) + $signedfor;
+            $DB->delete_records(exporter::REGISTER, ['candidateuuid' => $person]);
         }
         $DB->delete_records('tool_vae_identity', ['itemtype' => 'user', 'itemid' => $userid]);
 
@@ -363,7 +363,7 @@ class purge {
 
     /**
      * Forget every account that is gone - deleted, or no longer there - that a dossier still names (lot 1b): the catch-up of
-     * forget_person() for the scheduled task, when the observer of the deletion did not run. An account is found by what it
+     * forget_person() for the scheduled task, when the follow-up of the deletion did not run. An account is found by what it
      * signed under its id (annotations, lines of consent) or by its identity map entry, which is what a restored line's ULID
      * leads to. The caller holds the transaction, tells and redoes as dossier() does. Run twice, it finds nothing the second
      * time: the rows it is found by are the ones it takes away.
@@ -381,8 +381,8 @@ class purge {
         );
         $forgotten = [];
         foreach (array_unique(array_map('intval', $accounts)) as $userid) {
-            $personne = $DB->get_field('tool_vae_identity', 'uuid', ['itemtype' => 'user', 'itemid' => $userid]);
-            $forgotten[] = [$userid, self::forget_person($userid, $personne)];
+            $person = $DB->get_field('tool_vae_identity', 'uuid', ['itemtype' => 'user', 'itemid' => $userid]);
+            $forgotten[] = [$userid, self::forget_person($userid, $person)];
         }
 
         return $forgotten;
@@ -434,11 +434,11 @@ class purge {
      * which empties the column they are found by: they are what the caller needs to tell each
      * candidate (see notifier::attestations_erased()).
      *
-     * @param string $personne The person's ULID.
+     * @param string $person The person's ULID.
      * @return int[][] The candidates whose dossier held such a signature, each with the declarations (rows of
      *         tool_vae_evidence) that lose a signature that stood: candidate id => evidence ids, which may be none.
      */
-    private static function strip_signatory(string $personne): array {
+    private static function strip_signatory(string $person): array {
         global $DB;
 
         $rows = $DB->get_records_sql(
@@ -447,7 +447,7 @@ class purge {
                JOIN {tool_vae_evidence} e ON e.id = a.evidenceid
               WHERE a.attestantuuid = :personne
            ORDER BY a.id",
-            ['personne' => $personne]
+            ['personne' => $person]
         );
 
         // The positionings restored from an archive that name this person by their ULID (T-90, lot 3), and the annotations
@@ -459,12 +459,12 @@ class purge {
                 $positioning,
                 'DISTINCT candidateid',
                 'authoruuid = :personne',
-                ['personne' => $personne]
+                ['personne' => $person]
             );
             foreach ($named as $candidate) {
                 $stripped[(int) $candidate] ??= [];
             }
-            $DB->set_field_select($positioning, 'authoruuid', null, 'authoruuid = :personne', ['personne' => $personne]);
+            $DB->set_field_select($positioning, 'authoruuid', null, 'authoruuid = :personne', ['personne' => $person]);
         }
         // The lines of consent restored from an archive that name this person by their ULID (lot 1b) go: a consent given to
         // nobody has no meaning, and a restored line never opened the annotation anyway (D-1b-L).
@@ -472,12 +472,12 @@ class purge {
             'tool_vae_consent',
             'DISTINCT candidateid',
             'manageruuid = :personne',
-            ['personne' => $personne]
+            ['personne' => $person]
         );
         foreach ($named as $candidate) {
             $stripped[(int) $candidate] ??= [];
         }
-        $DB->delete_records('tool_vae_consent', ['manageruuid' => $personne]);
+        $DB->delete_records('tool_vae_consent', ['manageruuid' => $person]);
         if (!$rows) {
             return $stripped;
         }
@@ -489,7 +489,7 @@ class purge {
             }
         }
 
-        self::anonymise_signatures('attestantuuid = :personne', ['personne' => $personne]);
+        self::anonymise_signatures('attestantuuid = :personne', ['personne' => $person]);
 
         return $stripped;
     }
@@ -502,10 +502,11 @@ class purge {
      * annotations written about the vaeiste and their lines of consent. The drafts of the situations go with the other
      * drafts of the vaeiste (dossier()). The caller holds the transaction.
      *
-     * THE FILES, ON THE PATH OF AN ACCOUNT DELETED: the core destroys the user context, and every file in it, before the
-     * observer runs, so there is no context left for the file API here (IGNORE_MISSING) and nothing left to delete. What a
-     * purge that stopped between two statements leaves behind, on any path, is taken by spiece_manager::sweep_orphans() in
-     * the scheduled task, which reads the files area itself.
+     * THE FILES, ON THE PATH OF AN ACCOUNT DELETED: the core keeps the user context but empties it before the follow-up task
+     * runs (delete_user() calls context::delete_content(), which deletes every file of the context), so the file API finds
+     * nothing left to delete here; IGNORE_MISSING covers a context that is gone all the same. What a purge that stopped
+     * between two statements leaves behind, on any path, is taken by spiece_manager::sweep_orphans() in the scheduled task,
+     * which reads the files area itself.
      *
      * @param int $candidateid
      */
@@ -697,13 +698,14 @@ class purge {
     /**
      * Run one purge inside a transaction of its own.
      *
-     * WHAT THIS TRANSACTION IS WORTH, EXACTLY. On the two paths that reach this class through
-     * an observer, the core holds no transaction of its own - verified in the source: neither
-     * delete_user_evidence() nor delete_user() opens one - so this is the outermost level and
-     * a failure really does undo the half-finished purge. Called from inside someone else's
-     * transaction it is a nested level, and rolling back here dooms THEIR transaction too.
-     * That is the intended behaviour rather than an accident: a purge that cannot finish must
-     * not let the deletion that caused it stand.
+     * WHAT THIS TRANSACTION IS WORTH, EXACTLY. On the paths that follow a deletion decided in
+     * the core, this class is reached from an ad hoc task run by cron, which holds no transaction
+     * - so this is the outermost level and a failure really does undo the half-finished purge,
+     * then throws out of the task, which the task manager runs again. The deletion itself stood
+     * long before: neither delete_user_evidence() nor delete_user() opens a transaction (verified
+     * in the source). Called from inside someone else's transaction it is a nested level, and
+     * rolling back here dooms THEIR transaction too, which is intended: a purge that cannot finish
+     * must not let the act that called it stand.
      *
      * @param callable $work
      * @return \stdClass[]

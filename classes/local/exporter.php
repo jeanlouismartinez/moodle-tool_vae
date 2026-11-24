@@ -157,7 +157,7 @@ final class exporter {
      * Each entry holds: `file`, the path in the archive; `declaration`, the declaration as `code-rank` as it is written
      * there (empty for a file that is not tied to one declaration); `fiche` and `rang`, its two parts (empty likewise);
      * `field`, the JSON pointer of the faulty value; `value`, that value shortened and as text (null when the field is
-     * missing); `error`, the line of schema_validator.
+     * missing); `error`, the sentence of schema_validator, in the language of the page.
      *
      * @return array[]
      */
@@ -201,22 +201,6 @@ final class exporter {
         }
 
         return $lines;
-    }
-
-    /**
-     * The warnings as the HTML of a screen: the sentence that opens the notice, then one item per line.
-     *
-     * THE ONE PLACE WHERE THE LINES GO INTO HTML, for the export page and the backup page alike. A value is whatever an
-     * administrator typed in the screen of the competencies, so the opening sentence and every line are escaped here, and the
-     * pages do nothing of the kind themselves: what they would escape on their own account, nothing would test, since the pages
-     * are not run by the unit tests. The lines are those of describe_warnings(): plain text, in the language of the page.
-     *
-     * @param array[] $warnings As warnings() returns them.
-     * @param string $lead The sentence that opens the notice (exportwarning, backupdossierwarning).
-     * @return string
-     */
-    public static function warnings_html(array $warnings, string $lead): string {
-        return \html_writer::tag('p', s($lead)) . \html_writer::alist(array_map('s', self::describe_warnings($warnings)));
     }
 
     /**
@@ -589,12 +573,12 @@ final class exporter {
     ): array {
         global $CFG;
 
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $person = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
 
         $files = [];
         $entries = [];
         $claimed = [];
-        $preuves = [];
+        $evidences = [];
         // The record and the rank of each declaration as the row holds them, by the file that carries it: what a warning names.
         $labels = [];
         foreach ($claims as $claim) {
@@ -603,9 +587,9 @@ final class exporter {
 
             $path = 'preuves/' . $claim->uuid . '.json';
             $labels[$path] = [(string) $claim->fichecode, (string) $claim->ficherang];
-            $preuve = $this->preuve($claim, $personne, $competencyid);
-            $preuves[] = $preuve;
-            $files[$path] = self::encode($preuve);
+            $evidence = $this->evidence($claim, $person, $competencyid);
+            $evidences[] = $evidence;
+            $files[$path] = self::encode($evidence);
 
             $divergence = anchor::divergence($claim, $this->gateway);
             $entries[] = [
@@ -614,8 +598,8 @@ final class exporter {
             ];
         }
 
-        $referentiel = $this->referentiel($claimed);
-        $files['referentiel.json'] = self::encode($referentiel);
+        $referential = $this->referential($claimed);
+        $files['referentiel.json'] = self::encode($referential);
 
         $schemas = ['preuve.schema.json', 'commun/identifiant.schema.json'];
         // The saved sections of the dossier de faisabilite, for whoever may read them: a reader who sees the dossier and not
@@ -746,18 +730,18 @@ final class exporter {
                 'composant' => 'tool_vae',
                 'version_composant' => \core_plugin_manager::instance()->get_plugin_info('tool_vae')->release,
             ],
-            'candidat' => ['identifiant' => $personne, 'nom' => fullname($candidate)],
+            'candidat' => ['identifiant' => $person, 'nom' => fullname($candidate)],
             'avertissement' => $notice,
         ];
 
         // Drawn from the very arrays the JSON files above encode, before the digests are taken:
         // the printed copy cannot say anything the archive does not, and the manifest vouches for it.
-        $rubriques = $faisabilite['rubriques'] ?? [];
+        $sections = $faisabilite['rubriques'] ?? [];
         $files[pdf_renderer::PATH] = pdf_renderer::render(
             $head,
-            $preuves,
-            $referentiel,
-            $rubriques,
+            $evidences,
+            $referential,
+            $sections,
             $validation ?? [],
             piece_overview::by_declaration($pieces),
             $scope ?? [],
@@ -799,17 +783,17 @@ final class exporter {
      * @return array|null The document of faisabilite.schema.json, or null when nothing is written.
      */
     private static function faisabilite(int $candidateid): ?array {
-        $saved = faisabilite_overview::saved_versions($candidateid);
+        $saved = feasibility_overview::saved_versions($candidateid);
 
-        $rubriques = [];
-        foreach (faisabilite_catalog::sections() as $code => $definition) {
-            if ($definition['kind'] !== faisabilite_catalog::KIND_TEXT || empty($saved[$code])) {
+        $sections = [];
+        foreach (feasibility_catalog::sections() as $code => $definition) {
+            if ($definition['kind'] !== feasibility_catalog::KIND_TEXT || empty($saved[$code])) {
                 continue;
             }
             $places = $saved[$code];
             ksort($places);
             foreach ($places as $slot => $version) {
-                $rubriques[] = [
+                $sections[] = [
                     'code' => (string) $code,
                     'emplacement' => (int) $slot,
                     'version' => $version['number'],
@@ -819,7 +803,7 @@ final class exporter {
             }
         }
 
-        return $rubriques ? ['rubriques' => $rubriques] : null;
+        return $sections ? ['rubriques' => $sections] : null;
     }
 
     /**
@@ -841,16 +825,16 @@ final class exporter {
             throw new \moodle_exception('errorexportempty', 'tool_vae');
         }
 
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
+        $person = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
         $claimed = [];
-        $preuves = [];
+        $evidences = [];
         foreach ($claims as $claim) {
             $competencyid = $this->competency_of($claim);
             $claimed[$competencyid] = $claim;
-            $preuves[] = $this->preuve($claim, $personne, $competencyid);
+            $evidences[] = $this->evidence($claim, $person, $competencyid);
         }
 
-        return ['preuves' => $preuves, 'referentiel' => $this->referentiel($claimed)];
+        return ['preuves' => $evidences, 'referentiel' => $this->referential($claimed)];
     }
 
     /**
@@ -977,16 +961,16 @@ final class exporter {
      * One claim, in the shape of preuve.schema.json.
      *
      * @param \stdClass $claim
-     * @param string $personne The candidate's ULID.
+     * @param string $person The candidate's ULID.
      * @param int $competencyid
      * @return array
      */
-    private function preuve(\stdClass $claim, string $personne, int $competencyid): array {
+    private function evidence(\stdClass $claim, string $person, int $competencyid): array {
         global $DB;
 
         $competence = identity_map::uuid_for(identity_map::TYPE_COMPETENCY, $competencyid);
-        $correspondances = [
-            self::correspondence($personne, 'personne', (int) $claim->candidateid),
+        $correspondences = [
+            self::correspondence($person, 'personne', (int) $claim->candidateid),
             self::correspondence($competence, 'competence', $competencyid),
         ];
 
@@ -1007,7 +991,7 @@ final class exporter {
             // signatory by the ULID the archive gave, and no account of this site.
             if ($row->attestantid !== null) {
                 $attestant = identity_map::uuid_for(identity_map::TYPE_USER, (int) $row->attestantid);
-                $correspondances[] = self::correspondence($attestant, 'personne', (int) $row->attestantid);
+                $correspondences[] = self::correspondence($attestant, 'personne', (int) $row->attestantid);
             } else if (!empty($row->attestantuuid)) {
                 $attestant = $row->attestantuuid;
             } else {
@@ -1024,9 +1008,9 @@ final class exporter {
             ];
         }
 
-        $cadre = ['type' => $claim->settingtype];
+        $setting = ['type' => $claim->settingtype];
         if ($claim->settingdetail !== null && trim($claim->settingdetail) !== '') {
-            $cadre['precision'] = $claim->settingdetail;
+            $setting['precision'] = $claim->settingdetail;
         }
 
         // A claim carried over from another one (T-30, lot 3): which, and when. Never who decided the
@@ -1044,7 +1028,7 @@ final class exporter {
 
         return $filiation + [
             'id' => $claim->uuid,
-            'personne' => $personne,
+            'personne' => $person,
             'competence' => $competence,
             'fiche' => [
                 'code' => $claim->fichecode,
@@ -1055,7 +1039,7 @@ final class exporter {
                 'debut' => self::iso((int) $claim->periodstart),
                 'fin' => self::iso((int) $claim->periodend),
             ],
-            'cadre' => $cadre,
+            'cadre' => $setting,
             'situation' => [
                 'texte' => $claim->situation,
                 // Moodle declares FORMAT_MARKDOWN as the string '4'; the column returns a string too.
@@ -1063,7 +1047,7 @@ final class exporter {
             ],
             'declaree_le' => self::iso((int) $claim->timecreated),
             'attestations' => $attestations,
-            'correspondances' => array_values(array_unique($correspondances, SORT_REGULAR)),
+            'correspondances' => array_values(array_unique($correspondences, SORT_REGULAR)),
         ];
     }
 
@@ -1076,7 +1060,7 @@ final class exporter {
      * @param \stdClass[] $claimed One claim per competency, keyed by competency id.
      * @return array
      */
-    private function referentiel(array $claimed): array {
+    private function referential(array $claimed): array {
         global $DB;
 
         $fiches = [];
@@ -1133,7 +1117,7 @@ final class exporter {
                 }
             }
             if ($parent) {
-                $rank = passage_manager::rank_of((string) $parent->idnumber, $code);
+                $rank = correspondence_manager::rank_of((string) $parent->idnumber, $code);
                 if ($rank !== '') {
                     $entry['bloc'] = $rank;
                     $blocs[$code][$rank] = ['rang' => $rank, 'intitule' => $parent->label];
@@ -1251,18 +1235,18 @@ final class exporter {
             }
 
             $document = json_decode($content, false, 512, JSON_THROW_ON_ERROR);
-            foreach ($validator->validate($document, $schema) as $error) {
-                // Each line starts with the JSON pointer of the value, up to the first space (schema_validator::validate()).
-                $pointer = (string) strstr($error . ' ', ' ', true);
-                [$fiche, $rang] = $labels[$path] ?? ['', ''];
+            foreach ($validator->errors($document, $schema) as $error) {
+                // The JSON pointer of the value is given apart from the sentence (schema_validator::errors()).
+                $pointer = $error['pointer'];
+                [$fiche, $rank] = $labels[$path] ?? ['', ''];
                 $warnings[] = [
                     'file' => $path,
-                    'declaration' => isset($labels[$path]) ? self::shorten($fiche) . '-' . self::shorten($rang) : '',
+                    'declaration' => isset($labels[$path]) ? self::shorten($fiche) . '-' . self::shorten($rank) : '',
                     'fiche' => self::shorten($fiche),
-                    'rang' => self::shorten($rang),
+                    'rang' => self::shorten($rank),
                     'field' => $pointer,
                     'value' => self::value_at($document, $pointer),
-                    'error' => $error,
+                    'error' => schema_validator::message($error),
                 ];
             }
         }

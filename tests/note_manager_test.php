@@ -41,6 +41,9 @@ use tool_vae\local\validation_catalog;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(note_manager::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(note_screen::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\notes_block::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\notes_orphans::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\note_lines::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(note_form::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\event\note_recorded::class)]
 final class note_manager_test extends \advanced_testcase {
@@ -200,7 +203,7 @@ final class note_manager_test extends \advanced_testcase {
      * @return string
      */
     private function block(\stdClass $situation): string {
-        return note_screen::block(
+        return self::draw(new \tool_vae\output\notes_block(
             (int) $this->vaeiste->id,
             note_manager::TARGET_SITUATION,
             'RNCP100',
@@ -208,7 +211,19 @@ final class note_manager_test extends \advanced_testcase {
             '',
             $this->read($situation),
             false
-        );
+        ));
+    }
+
+    /**
+     * A piece drawn by the renderer of the plugin (the block of the annotations was note_screen::block(), lot 7 wave 4a).
+     *
+     * @param \core\output\renderable $piece
+     * @return string
+     */
+    private static function draw(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
     }
 
     /**
@@ -245,7 +260,8 @@ final class note_manager_test extends \advanced_testcase {
         $PAGE = new \moodle_page();
         ob_start();
         try {
-            include(__DIR__ . '/../' . $script);
+            require_once(__DIR__ . '/fixtures/plugin_pages.php');
+            \tool_vae\fixtures\plugin_pages::run($script);
         } finally {
             $out = ob_get_clean();
             $_GET = [];
@@ -704,10 +720,28 @@ final class note_manager_test extends \advanced_testcase {
 
         // Empty, the block says so; the form is drawn for whoever may write only.
         $form = '<form id="x"></form>';
-        $empty = note_screen::block($id, note_manager::TARGET_SELFPOS, 'RNCP100', 0, 'C02', [], true, $form);
+        $empty = self::draw(new \tool_vae\output\notes_block(
+            $id,
+            note_manager::TARGET_SELFPOS,
+            'RNCP100',
+            0,
+            'C02',
+            [],
+            true,
+            $form
+        ));
         $this->assertStringContainsString(s(get_string('notesnone', 'tool_vae')), $empty);
         $this->assertStringContainsString($form, $empty);
-        $reading = note_screen::block($id, note_manager::TARGET_SELFPOS, 'RNCP100', 0, 'C02', [], false, $form);
+        $reading = self::draw(new \tool_vae\output\notes_block(
+            $id,
+            note_manager::TARGET_SELFPOS,
+            'RNCP100',
+            0,
+            'C02',
+            [],
+            false,
+            $form
+        ));
         $this->assertStringNotContainsString($form, $reading);
 
         // On the page, the vaeiste's text comes first, and the annotations after it, in their own section.
@@ -859,6 +893,53 @@ final class note_manager_test extends \advanced_testcase {
         $this->assertSame(2, $DB->count_records(note_manager::TABLE, ['state' => 'withdrawn']));
     }
 
+    /**
+     * The form of the button "withdraw" that a page draws: its address and its hidden fields.
+     *
+     * @param string $html The page.
+     * @return string The form that carries the action "withdrawnote", '' when the page has none.
+     */
+    private static function withdraw_form(string $html): string {
+        foreach (explode('<form', $html) as $form) {
+            $form = explode('</form>', $form)[0];
+            if (str_contains($form, 'value="withdrawnote"')) {
+                return $form;
+            }
+        }
+
+        return '';
+    }
+
+    public function test_the_page_of_a_node_gives_the_block_its_own_target_and_a_node_nobody_names_holds_no_block(): void {
+        $id = (int) $this->vaeiste->id;
+        $this->consent($this->manager);
+        $this->setUser($this->manager);
+        $node = ['userid' => $id, 'fiche' => 'RNCP100', 'rank' => 'C02'];
+        $form = ['_qf__tool_vae_form_note_form' => 1, 'notetext' => 'Sur le noeud.', 'markdown' => 0, 'submitbutton' => 'x'];
+        $this->send('selfposition.php', $node, $form + ['sesskey' => sesskey()]);
+
+        // The button "withdraw" of the author sends to the page of THIS node of the VAEISTE: the page gives the block the
+        // vaeiste, the target "node" and the rank (lot 7, wave 4a: the arguments of the page, played as the site plays it).
+        $withdraw = self::withdraw_form($this->page('selfposition.php', $node));
+        $this->assertNotSame('', $withdraw, 'Premise: the author has the button.');
+        $this->assertStringContainsString('/admin/tool/vae/selfposition.php"', $withdraw, 'To the page of a node.');
+        $this->assertMatchesRegularExpression('~name="userid" value="' . $id . '"~', $withdraw, 'Of the vaeiste.');
+        $this->assertNotSame($id, (int) $this->manager->id, 'Premise: the reader is another person.');
+        $this->assertMatchesRegularExpression('~name="fiche" value="RNCP100"~', $withdraw);
+        $this->assertMatchesRegularExpression('~name="rank" value="C02"~', $withdraw, 'Of this node.');
+
+        // A node nobody can name (no rank of its own: ten characters, a rank holds eight at most) is read at its address,
+        // typed, and holds no block of annotations at all.
+        $this->setAdminUser();
+        $gateway = new \tool_vae\local\competency_gateway();
+        $gateway->create_competency((int) $gateway->find_framework('RNCP100'), 'TROPLONG12', 'Un code trop long');
+        $this->setUser($this->manager);
+        $html = $this->page('selfposition.php', ['userid' => $id, 'fiche' => 'RNCP100', 'rank' => 'TROPLONG12']);
+        $this->assertStringContainsString(s(get_string('selfposexplainnotpositionable', 'tool_vae')), $html, 'Premise: the node.');
+        $this->assertStringNotContainsString('tool-vae-notes', $html, 'No block of annotations.');
+        $this->assertStringNotContainsString(s(get_string('notesheading', 'tool_vae')), $html);
+    }
+
     public function test_the_author_withdraws_an_annotation_of_a_deleted_situation_from_the_list(): void {
         global $DB;
 
@@ -874,7 +955,13 @@ final class note_manager_test extends \advanced_testcase {
         $this->setUser($this->manager);
         $held = $this->annotate($new, 'Sur la nouvelle.');
 
-        $this->assertStringContainsString('withdrawnote', $this->page('situations.php', $list), 'The author has the button.');
+        $html = $this->page('situations.php', $list);
+        $this->assertStringContainsString('withdrawnote', $html, 'The author has the button.');
+        // The button sends to the list of the VAEISTE, whoever reads (lot 7, wave 4a: the argument of the page).
+        $withdraw = self::withdraw_form($html);
+        $this->assertStringContainsString('/admin/tool/vae/situations.php"', $withdraw, 'To the list.');
+        $this->assertMatchesRegularExpression('~name="userid" value="' . $id . '"~', $withdraw, 'Of the vaeiste.');
+        $this->assertNotSame($id, (int) $this->manager->id, 'Premise: the reader is another person.');
         $this->setUser($this->vaeiste);
         $this->assertStringNotContainsString('withdrawnote', $this->page('situations.php', $list), 'Not the vaeiste.');
         $this->send('situations.php', $list, ['action' => 'withdrawnote', 'note' => (int) $orphan->id, 'sesskey' => sesskey()]);

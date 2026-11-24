@@ -1,0 +1,66 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/attestations
+
+    The attestation history of a claim: one sentence when there is none, or the list, one line per attestation (one end
+    of line after the opening of the list and after each item, as the writer of the core put them): withdrawn, the
+    sentence that says so; signed, the role in bold, the statement line by line, the day it was signed, and the day it
+    was carried in from an archive.
+
+    Every text comes from the context, already worded by tool_vae\output\attestations. The template holds no logic.
+    Every value is escaped (double braces): none of them is HTML. Each line of a statement carries the end of line that
+    precedes it, after the break the template draws.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * none - false, or a string: the sentence drawn when there is no attestation
+    * hasitems - bool, whether there is a list
+    * items - array, each:
+        * withdrawn - false, or {text}: the sentence of a withdrawn attestation
+        * signed - false, or {role, lines, on, imported}: lines - array of {br (bool), text}; on - string; imported - false
+          or {text}
+
+    Example context (json):
+    {
+        "none": false,
+        "hasitems": true,
+        "items": [
+            {"withdrawn": {"text": "An attestation existed and was withdrawn on 1 June 2026 (Error)."}, "signed": false},
+            {"withdrawn": false, "signed": {"role": "Director", "lines": [{"br": false, "text": "I confirm."},
+                {"br": true, "text": "\nOn two lines."}], "on": "Signed on 2 June 2026.", "imported": false} }
+        ]
+    }
+}}
+{{#none}}
+<div class="text-muted">{{none}}</div>
+{{/none}}
+{{#hasitems}}
+<ul class="tool-vae-attestations">
+{{#items}}<li>{{#withdrawn}}{{text}}{{/withdrawn}}{{!
+}}{{#signed}}<strong>{{role}}</strong><br>{{#lines}}{{#br}}<br>{{/br}}{{text}}{{/lines}}{{!
+}}<br><span class="text-muted">{{on}}</span>{{#imported}}<br><span class="text-muted">{{text}}</span>{{/imported}}{{/signed}}</li>
+{{/items}}</ul>
+{{/hasitems}}

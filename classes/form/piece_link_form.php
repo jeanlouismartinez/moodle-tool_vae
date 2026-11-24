@@ -17,6 +17,7 @@
 namespace tool_vae\form;
 
 use tool_vae\local\piece_manager;
+use tool_vae\output\form_note;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -40,6 +41,8 @@ class piece_link_form extends \moodleform {
      * Build the form. Custom data: `evidenceid` (int).
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $mform->addElement('hidden', 'evidenceid', (int) $this->_customdata['evidenceid']);
@@ -47,11 +50,7 @@ class piece_link_form extends \moodleform {
 
         $mform->addElement('header', 'linkhdr', get_string('piecelinkheading', 'tool_vae'));
         $mform->addElement('static', 'linkhelp', '', get_string('piecelinkhelp', 'tool_vae'));
-        $mform->addElement('html', \html_writer::div(
-            get_string('anonymisepiece', 'tool_vae'),
-            'alert alert-info tool-vae-anonymise',
-            ['id' => self::REMINDER_ID]
-        ));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::piece(self::REMINDER_ID)));
 
         $mform->addElement(
             'select',
@@ -68,6 +67,8 @@ class piece_link_form extends \moodleform {
         $mform->addElement('text', 'url', get_string('pieceurllabel', 'tool_vae'), [
             'size' => 60, 'maxlength' => piece_manager::URL_MAXLENGTH, 'aria-describedby' => self::REMINDER_ID,
         ]);
+        // Not PARAM_URL: it empties https://fr.wikipedia.org/wiki/Établissement, an address the plugin accepts.
+        // piece_manager::validate_url() checks it.
         $mform->setType('url', PARAM_RAW_TRIMMED);
         $mform->addRule('url', null, 'required', null, 'client');
 

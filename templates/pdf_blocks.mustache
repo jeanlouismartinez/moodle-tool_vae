@@ -1,0 +1,83 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/pdf_blocks
+
+    A piece of the printable copy of a dossier (dossier.pdf in the archive): the HTML that tool_vae\local\pdf_renderer hands
+    to TCPDF, drawn block by block. It is not a page of the site: nothing here is shown in a browser.
+
+    Each block sets one kind and leaves the others false: a heading of level 1 to 4 (h1 to h4), a paragraph (p), a paragraph in
+    italics (note), a rule (hr), a table of label and value pairs (table), a list (list), or text that is already HTML (html).
+    Every text is given plain and escaped once here. Three keys are HTML made elsewhere (triple braces): the value of a row of
+    the table (already escaped, or made by the core), the narrative of the vaeiste (format_text(), then cleaned of every tag
+    that is not text markup and of every attribute), and the body of an attestation (escaped, line breaks kept).
+
+    The table is laid out by TCPDF on two columns. The widths and the padding of its cells are given by the style attribute,
+    which TCPDF reads as it reads the attributes width and cellpadding that HTML 5 no longer has: the two drawings are the same
+    (checked on the content of the pages).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * blocks - array of blocks, each with every key below set to false but one:
+      * h1, h2, h3, h4, p, note - object: text - string, plain
+      * hr - object: text - string, empty
+      * table - object: rows - array of label - string, plain, and valuehtml - string, HTML
+      * html - object: text - string, HTML
+      * list - object: items - array of items; each sets plain (object: text) or signed (object: role, bodyhtml, text), the other false
+
+    Example context (json):
+    {
+        "blocks": [
+            {"h1": {"text": "Dossier of Camille Durand"}, "h2": false, "h3": false, "h4": false, "p": false, "note": false,
+             "hr": false, "table": false, "html": false, "list": false},
+            {"h1": false, "h2": false, "h3": false, "h4": false, "p": false, "note": false, "hr": false,
+             "table": {"rows": [{"label": "Archive", "valuehtml": "01ABC"}, {"label": "Platform", "valuehtml": "A site - https://example.org"}]},
+             "html": false, "list": false},
+            {"h1": false, "h2": {"text": "RS00000 - A record of certification"}, "h3": false, "h4": false, "p": false, "note": false,
+             "hr": false, "table": false, "html": false, "list": false},
+            {"h1": false, "h2": false, "h3": {"text": "RS00000-C01 - Help with the meals"}, "h4": false, "p": false, "note": false,
+             "hr": false, "table": false, "html": false, "list": false},
+            {"h1": false, "h2": false, "h3": false, "h4": false, "p": false, "note": false, "hr": false, "table": false,
+             "html": {"text": "<p>I prepare the meals with the team.</p>"}, "list": false},
+            {"h1": false, "h2": false, "h3": false, "h4": false, "p": false, "note": false, "hr": false, "table": false,
+             "html": false,
+             "list": {"items": [
+                 {"plain": {"text": "An attestation withdrawn on 3 November 2026."}, "signed": false},
+                 {"plain": false, "signed": {"role": "Manager, a care home", "bodyhtml": "I read the account.", "text": "Attested on 4 November 2026."} }
+             ] } }
+        ]
+    }
+}}
+{{#blocks}}{{#h1}}<h1>{{text}}</h1>{{/h1}}{{!
+}}{{#h2}}<h2>{{text}}</h2>{{/h2}}{{!
+}}{{#h3}}<h3>{{text}}</h3>{{/h3}}{{!
+}}{{#h4}}<h4>{{text}}</h4>{{/h4}}{{!
+}}{{#p}}<p>{{text}}</p>{{/p}}{{!
+}}{{#note}}<p><em>{{text}}</em></p>{{/note}}{{!
+}}{{#hr}}<hr />{{/hr}}{{!
+}}{{#table}}<table style="padding: 2px">{{#rows}}<tr><td style="width: 35%"><strong>{{label}}</strong></td><td style="width: 65%">{{{valuehtml}}}</td></tr>{{/rows}}</table>{{/table}}{{!
+}}{{#html}}{{{text}}}{{/html}}{{!
+}}{{#list}}<ul>{{#items}}<li>{{#plain}}{{text}}{{/plain}}{{#signed}}<strong>{{role}}</strong><br />{{{bodyhtml}}}<br />{{text}}{{/signed}}</li>{{/items}}</ul>{{/list}}{{!
+}}{{/blocks}}

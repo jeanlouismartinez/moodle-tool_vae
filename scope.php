@@ -29,9 +29,9 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\form\scope_form;
 use tool_vae\local\access;
-use tool_vae\local\display_date;
 use tool_vae\local\scope_choices;
 use tool_vae\local\scope_manager;
+use tool_vae\output\scope_page;
 
 require_login();
 
@@ -75,51 +75,10 @@ if ($open && ($data = $form->get_data())) {
 }
 
 $marks = scope_manager::for_candidate($candidateid);
+$renderer = $PAGE->get_renderer('tool_vae');
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('scopeheading', 'tool_vae'));
-echo html_writer::tag('p', get_string('scopeintro', 'tool_vae'));
-echo html_writer::tag('p', get_string('scopesentence', 'tool_vae'), ['class' => 'font-italic']);
-if (!$open) {
-    echo $OUTPUT->notification(get_string('scopeclosed', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-}
-if ($error !== null) {
-    echo $OUTPUT->notification(s($error), \core\output\notification::NOTIFY_ERROR);
-}
-
-if (!$marks) {
-    echo html_writer::tag('p', get_string('scopenone', 'tool_vae'));
-} else {
-    $table = new html_table();
-    $table->head = [
-        get_string('scopecompetency', 'tool_vae'),
-        get_string('scopenote', 'tool_vae'),
-        get_string('scopesaidon', 'tool_vae'),
-        '',
-    ];
-    $labels = scope_manager::labels($marks);
-    foreach ($marks as $key => $mark) {
-        $table->data[] = [
-            s($key . (($labels[$key] ?? '') === '' ? '' : ' — ' . $labels[$key])),
-            $mark->note === null ? '' : s($mark->note),
-            s(display_date::format((int) $mark->timecreated, get_string('strftimedate', 'langconfig'))),
-            $OUTPUT->single_button(
-                new moodle_url($url, ['remove' => $mark->id]),
-                get_string('scoperemove', 'tool_vae'),
-                'post'
-            ),
-        ];
-    }
-    echo html_writer::table($table);
-}
-
-if ($open) {
-    if (!$options) {
-        echo $OUTPUT->notification(get_string('noframeworkimported', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-    } else {
-        echo $OUTPUT->heading(get_string('scopeaddheading', 'tool_vae'), 3);
-        $form->display();
-    }
-}
-echo html_writer::div(html_writer::link($dossier, get_string('faisabbacktodossier', 'tool_vae')), 'mt-3');
+$labels = $marks ? scope_manager::labels($marks) : [];
+echo $renderer->render(new scope_page($marks, $labels, $open, (bool) $options, $error, $form, $url, $dossier));
 echo $OUTPUT->footer();

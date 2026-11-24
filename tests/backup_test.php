@@ -71,6 +71,15 @@ final class backup_test extends \advanced_testcase {
     }
 
     /**
+     * Run the purge the observer of an account deletion queued, as cron would, and only it (ticket 3 of review MMR-520).
+     */
+    private function run_purge_of_deleted_accounts(): void {
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\purge_deleted_account::class);
+        ob_end_clean();
+    }
+
+    /**
      * A candidate with one declaration.
      *
      * @return \stdClass The candidate.
@@ -211,19 +220,19 @@ final class backup_test extends \advanced_testcase {
             $this->assertStringNotContainsString('Cadre de santé', $text);
             $this->assertStringNotContainsString('Claire Dupont', $text);
 
-            $preuves = array_filter($contents, function (string $path): bool {
+            $evidencefiles = array_filter($contents, function (string $path): bool {
                 return strpos($path, 'preuves/') === 0;
             }, ARRAY_FILTER_USE_KEY);
-            $this->assertCount(1, $preuves);
-            foreach ($preuves as $content) {
-                $preuve = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-                $people = array_filter($preuve['correspondances'], function (array $entry): bool {
+            $this->assertCount(1, $evidencefiles);
+            foreach ($evidencefiles as $content) {
+                $evidence = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+                $people = array_filter($evidence['correspondances'], function (array $entry): bool {
                     return $entry['type'] === 'personne';
                 });
                 $this->assertSame([(string) $candidate->id], array_values(array_column($people, 'valeur')));
 
                 // The claim and the trace of a withdrawn attestation remain.
-                $this->assertSame('retiree', $preuve['attestations'][0]['statut']);
+                $this->assertSame('retiree', $evidence['attestations'][0]['statut']);
             }
         }
     }
@@ -264,6 +273,7 @@ final class backup_test extends \advanced_testcase {
         $this->assertStringContainsString('Claire Dupont', implode("\n", self::contents_of(self::backups_of($admin)[0])));
 
         delete_user($DB->get_record('user', ['id' => $signatory->id], '*', MUST_EXIST));
+        $this->run_purge_of_deleted_accounts();
 
         $attestation = $DB->get_record('tool_vae_attest', ['id' => $attestationid], '*', MUST_EXIST);
         $this->assertNull($attestation->attestantuuid);
@@ -298,6 +308,7 @@ final class backup_test extends \advanced_testcase {
         $before = backup::save((int) $candidate->id, $admin);
 
         delete_user($DB->get_record('user', ['id' => $stranger->id], '*', MUST_EXIST));
+        $this->run_purge_of_deleted_accounts();
 
         $backups = self::backups_of($admin);
         $this->assertCount(1, $backups);
@@ -306,7 +317,7 @@ final class backup_test extends \advanced_testcase {
 
     public function test_a_backup_lands_in_private_files_survives_and_rebuilds_the_dossier(): void {
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
 
         $this->setAdminUser();
         $admin = get_admin();
@@ -315,7 +326,7 @@ final class backup_test extends \advanced_testcase {
         $this->assertSame('user', $file->get_component());
         $this->assertSame('private', $file->get_filearea());
         $this->assertSame(backup::FILEPATH, $file->get_filepath());
-        $this->assertStringStartsWith('dossier-' . $personne . '-', $file->get_filename());
+        $this->assertStringStartsWith('dossier-' . $personuuid . '-', $file->get_filename());
         $this->assertCount(1, self::backups_of((int) $admin->id));
 
         // The backup is the normative archive: the reimport reads it as it is.
@@ -328,7 +339,7 @@ final class backup_test extends \advanced_testcase {
 
         $result = (new dossier_importer())->import((int) $candidate->id, $path);
         $this->assertSame(1, $result->declarations);
-        $this->assertSame($personne, identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id));
+        $this->assertSame($personuuid, identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id));
     }
 
     /**
@@ -339,16 +350,16 @@ final class backup_test extends \advanced_testcase {
      */
     public function test_a_renamed_and_moved_backup_is_still_found_and_erased(): void {
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
 
         $this->setAdminUser();
         $file = backup::save((int) $candidate->id, (int) get_admin()->id);
-        $this->assertSame(backup::SOURCE_PREFIX . $personne, $file->get_source());
+        $this->assertSame(backup::SOURCE_PREFIX . $personuuid, $file->get_source());
 
         $file->rename('/ailleurs/', 'quelconque.zip');
         $this->assertCount(0, self::backups_of((int) get_admin()->id), 'It is out of the folder, by name.');
 
-        $this->assertSame(1, backup::discard($personne), 'The mark still finds it.');
+        $this->assertSame(1, backup::discard($personuuid), 'The mark still finds it.');
         $this->assertFalse(
             get_file_storage()->file_exists(
                 $file->get_contextid(),
@@ -370,17 +381,17 @@ final class backup_test extends \advanced_testcase {
      */
     public function test_a_backup_without_the_mark_is_found_once_the_upgrade_has_marked_it_and_not_by_its_name(): void {
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
 
         $this->setAdminUser();
         $file = backup::save((int) $candidate->id, (int) get_admin()->id);
         // The state of a copy of before T-75.
         $file->set_source('');
 
-        $this->assertSame(0, backup::discard($personne), 'The name proves nothing.');
+        $this->assertSame(0, backup::discard($personuuid), 'The name proves nothing.');
         $this->assertSame(1, backup::mark_unmarked(), 'The upgrade marks it, in the files of an account that may hold it.');
         $this->assertSame(0, backup::mark_unmarked(), 'A second run finds nothing to mark.');
-        $this->assertSame(1, backup::discard($personne), 'Marked, it is found.');
+        $this->assertSame(1, backup::discard($personuuid), 'Marked, it is found.');
     }
 
     /**
@@ -388,7 +399,7 @@ final class backup_test extends \advanced_testcase {
      */
     public function test_the_upgrade_leaves_alone_a_file_that_is_not_a_backup_this_platform_made(): void {
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
         $stranger = $this->getDataGenerator()->create_user();
         $fs = get_file_storage();
         $planted = function (int $userid, string $filename) use ($fs) {
@@ -398,7 +409,7 @@ final class backup_test extends \advanced_testcase {
             ], 'pas une sauvegarde');
         };
 
-        $name = 'dossier-' . $personne . '-' . identity_map::generate_ulid() . '.zip';
+        $name = 'dossier-' . $personuuid . '-' . identity_map::generate_ulid() . '.zip';
         $homonym = $planted((int) $stranger->id, $name);
         $strangename = 'dossier-' . identity_map::generate_ulid() . '-' . identity_map::generate_ulid() . '.zip';
         $unknown = $planted((int) get_admin()->id, $strangename);
@@ -413,7 +424,7 @@ final class backup_test extends \advanced_testcase {
         // The administrator's own file, named as a backup is, for a candidate this platform knows: marked.
         $mine = $planted((int) get_admin()->id, $name);
         $this->assertSame(1, backup::mark_unmarked());
-        $this->assertSame(backup::SOURCE_PREFIX . $personne, $fs->get_file_by_id($mine->get_id())->get_source());
+        $this->assertSame(backup::SOURCE_PREFIX . $personuuid, $fs->get_file_by_id($mine->get_id())->get_source());
     }
 
     /**
@@ -425,7 +436,7 @@ final class backup_test extends \advanced_testcase {
      */
     public function test_a_homonymous_file_planted_by_a_stranger_receives_no_backup(): void {
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
         $stranger = $this->getDataGenerator()->create_user();
         $this->setAdminUser();
         $admin = (int) get_admin()->id;
@@ -434,7 +445,7 @@ final class backup_test extends \advanced_testcase {
         get_file_storage()->create_file_from_string([
             'contextid' => \context_user::instance($stranger->id)->id, 'component' => 'user', 'filearea' => 'private',
             'itemid' => 0, 'filepath' => backup::FILEPATH,
-            'filename' => 'dossier-' . $personne . '-' . identity_map::generate_ulid() . '.zip', 'userid' => $stranger->id,
+            'filename' => 'dossier-' . $personuuid . '-' . identity_map::generate_ulid() . '.zip', 'userid' => $stranger->id,
         ], 'pas une sauvegarde');
 
         $this->setUser($candidate);
@@ -458,7 +469,7 @@ final class backup_test extends \advanced_testcase {
         global $DB;
 
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
         $stranger = $this->getDataGenerator()->create_user();
         $this->setAdminUser();
         $admin = (int) get_admin()->id;
@@ -467,9 +478,9 @@ final class backup_test extends \advanced_testcase {
         $forged = get_file_storage()->create_file_from_string([
             'contextid' => \context_user::instance($stranger->id)->id, 'component' => 'user', 'filearea' => 'private',
             'itemid' => 0, 'filepath' => backup::FILEPATH, 'filename' => 'quelconque.zip', 'userid' => $stranger->id,
-            'source' => backup::SOURCE_PREFIX . $personne,
+            'source' => backup::SOURCE_PREFIX . $personuuid,
         ], 'pas une sauvegarde');
-        $this->assertSame(backup::SOURCE_PREFIX . $personne, $forged->get_source(), 'The premise: it carries the mark.');
+        $this->assertSame(backup::SOURCE_PREFIX . $personuuid, $forged->get_source(), 'The premise: it carries the mark.');
 
         $this->setUser($candidate);
         $this->assertSame(1, backup::refresh((int) $candidate->id), 'Only the administrator is served.');
@@ -501,7 +512,7 @@ final class backup_test extends \advanced_testcase {
      */
     public function test_an_account_holding_importdossier_alone_receives_no_backup_of_a_dossier_the_page_refuses_it(): void {
         $candidate = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $candidate->id);
         $holder = (int) $this->getDataGenerator()->create_user()->id;
         $role = $this->grant_the_right_to_back_up($holder, false);
         $this->setAdminUser();
@@ -516,7 +527,7 @@ final class backup_test extends \advanced_testcase {
         get_file_storage()->create_file_from_string([
             'contextid' => \context_user::instance($holder)->id, 'component' => 'user', 'filearea' => 'private',
             'itemid' => 0, 'filepath' => backup::FILEPATH, 'filename' => 'quelconque.zip', 'userid' => $holder,
-            'source' => backup::SOURCE_PREFIX . $personne,
+            'source' => backup::SOURCE_PREFIX . $personuuid,
         ], 'pas une sauvegarde');
 
         $this->setUser($candidate);
@@ -565,13 +576,13 @@ final class backup_test extends \advanced_testcase {
 
         $gone = $this->candidate_with_a_claim();
         $kept = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $gone->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $gone->id);
 
         $this->setAdminUser();
         $admin = (int) get_admin()->id;
         backup::save((int) $gone->id, $admin);
         $stay = backup::save((int) $kept->id, $admin);
-        $DB->delete_records('tool_vae_identity', ['itemtype' => identity_map::TYPE_USER, 'uuid' => $personne]);
+        $DB->delete_records('tool_vae_identity', ['itemtype' => identity_map::TYPE_USER, 'uuid' => $personuuid]);
 
         $this->assertSame(1, backup::discard_orphans());
         $this->assertSame(0, backup::discard_orphans(), 'A second run finds nothing.');
@@ -587,14 +598,14 @@ final class backup_test extends \advanced_testcase {
     public function test_discarding_one_candidates_backups_leaves_another_untouched(): void {
         $first = $this->candidate_with_a_claim();
         $second = $this->candidate_with_a_claim();
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $first->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $first->id);
 
         $this->setAdminUser();
         backup::save((int) $first->id, (int) get_admin()->id);
         $other = backup::save((int) $second->id, (int) get_admin()->id);
         $other->rename('/ailleurs/', 'autre.zip');
 
-        $this->assertSame(1, backup::discard($personne));
+        $this->assertSame(1, backup::discard($personuuid));
         $this->assertTrue(
             get_file_storage()->file_exists($other->get_contextid(), 'user', 'private', 0, '/ailleurs/', 'autre.zip')
         );
@@ -627,14 +638,14 @@ final class backup_test extends \advanced_testcase {
 
         // Where nobody is logged in the label of the competency is read all the same: the core's API refuses the user 0 and
         // gave `intitule: null`, in the very archive the uninstall leaves behind (audit 17, which found it on the way).
-        $referentiel = json_decode(self::contents_of($backups[0])['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('Competency of an imported record', $referentiel['fiches'][0]['competences'][0]['intitule']);
+        $referential = json_decode(self::contents_of($backups[0])['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Competency of an imported record', $referential['fiches'][0]['competences'][0]['intitule']);
     }
 
     /**
      * Audit 17: the backup an uninstall takes first does not need the competencies to be switched on.
      *
-     * Before: exporter::referentiel() read the label through the core's API, whose first act is require_enabled(): with the
+     * Before: exporter::referential() read the label through the core's API, whose first act is require_enabled(): with the
      * subsystem off, every backup threw `competenciesarenotenabled`, and the uninstall - which lets a failing backup stop it -
      * could not be done until the administrator switched the competencies back on, without being told.
      */
@@ -651,8 +662,8 @@ final class backup_test extends \advanced_testcase {
 
         $backups = self::backups_of((int) get_admin()->id);
         $this->assertCount(2, $backups);
-        $referentiel = json_decode(self::contents_of($backups[0])['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('Competency of an imported record', $referentiel['fiches'][0]['competences'][0]['intitule']);
+        $referential = json_decode(self::contents_of($backups[0])['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Competency of an imported record', $referential['fiches'][0]['competences'][0]['intitule']);
     }
 
     /**
@@ -718,8 +729,8 @@ final class backup_test extends \advanced_testcase {
      * @return string[] Identifier => text.
      */
     private static function strings_of(string $lang): array {
-        $string = [];
-        include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
 
         return $string;
     }
@@ -755,7 +766,9 @@ final class backup_test extends \advanced_testcase {
             ],
         ];
 
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             $intro = self::strings_of($lang)['backupdossierintro'];
             foreach ($expected[$lang] as $words) {
                 $this->assertStringContainsString($words, $intro, "$lang backupdossierintro");

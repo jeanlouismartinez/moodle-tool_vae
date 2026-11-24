@@ -1,0 +1,71 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/selfpos_record_tree
+
+    The tree of a record: the two sentences of every screen, the invitation to say where one stands (for the one who
+    writes), then each node, indented by its level, with its level name, its label, and either the reason it cannot be
+    positioned on or the vaeiste's current level and the way to its page. The parts of a node touch: the template holds on
+    one logical line, each break carried by a comment.
+
+    Every text comes from the context, already worded by tool_vae\output\selfpos_record_tree. The template holds no logic.
+    Every value is escaped (double braces) except one key:
+    * disclaimerhtml - the two sentences, drawn by the template tool_vae/selfpos_disclaimer
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * disclaimerhtml - string, HTML of a template
+    * intro - object or null: text, the invitation to say where one stands
+    * nodes - array of {style, level, levelname, label, explain, positionable}: explain is an object (text) or null;
+      positionable is an object (words: the current level in words, url and link: the way to the page of the node) or null
+
+    Example context (json):
+    {
+        "disclaimerhtml": "<p class=\"text-muted small tool-vae-selfpos-disclaimer\">This is not a validation.</p>",
+        "intro": {"text": "Say, element by element, where you stand."},
+        "nodes": [
+            {
+                "style": "margin-left: 0rem", "level": "1", "levelname": "Record", "label": "Accompany the person",
+                "explain": null,
+                "positionable": {
+                    "words": "No level given yet",
+                    "url": "https://example.com/admin/tool/vae/selfposition.php?userid=7&fiche=RNCP400&rank=D1",
+                    "link": "Position myself on this element"
+                }
+            },
+            {
+                "style": "margin-left: 1.5rem", "level": "2", "levelname": "Level 2", "label": "Odd coded skill",
+                "explain": {"text": "This element cannot be positioned on."}, "positionable": null
+            }
+        ]
+    }
+}}
+<section class="tool-vae-selfpos">{{{disclaimerhtml}}}{{#intro}}<p>{{text}}</p>{{/intro}}{{!
+}}<ul class="list-unstyled tool-vae-selfpos-tree">{{#nodes}}{{!
+}}<li class="tool-vae-selfpos-node" style="{{style}}" data-level="{{level}}">{{!
+}}<span class="small text-muted me-2">{{levelname}}</span><strong>{{label}}</strong>{{!
+}}{{#explain}} <span class="small text-muted">{{text}}</span>{{/explain}}{{!
+}}{{#positionable}} - {{words}} <span class="small"><a href="{{url}}">{{link}}</a></span>{{/positionable}}</li>{{/nodes}}</ul>{{!
+}}</section>

@@ -1,0 +1,110 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/situation_page
+
+    The page of one work situation, under its title: the code of the record, the sentences of every screen, the error of a
+    send, the conflict of a version, the situation that may not be written now (its message and the text given back, in
+    fields that can be read and copied); then either the two forms of the vaeiste with the heading of the text, where the
+    text stands and the live region of the autosave, or the reading (details, latest version, draft in progress); the way to
+    the versions, the pieces and their forms or the notice that adding is closed, the error of an annotation, the
+    annotations, the button "delete", the way back to the list. A textarea keeps its text as it is written.
+
+    Every text comes from the context, already worded by tool_vae\output\situation_page. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * disclaimerhtml - the sentences of every screen, drawn by the template tool_vae/situation_disclaimer
+    * errorhtml, noticehtml, piececlosedhtml, noteerrorhtml - notifications drawn by the renderer of the core ('' for none)
+    * messagehtml - the message of a situation that may not be written: the message of the hidden record, its title escaped
+      by hidden_frameworks::message() (s()), or the sentence of the closed preparation escaped by s()
+    * detailsformhtml, textformhtml - the forms of the vaeiste, drawn by moodleform::render()
+    * detailshtml - the details, drawn by the template tool_vae/situation_facts
+    * texthtml - a text of the situation, through format_text() as plain text
+    * pieceshtml - the pieces, drawn by the template tool_vae/situation_pieces
+    * pieceformshtml - the forms to add a piece, drawn by the template tool_vae/situation_piece_forms ('' for none)
+    * noteshtml - the annotations, drawn by the template tool_vae/notes_block
+    * deletehtml - the button "delete", drawn by the renderer of the core ('' for none)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * tool-vae-autosave (id) - the live region the module tool_vae/autosave writes in
+
+    Context variables required for this template:
+    * code - string, the code of the record
+    * disclaimerhtml, errorhtml - strings
+    * conflict - object or null: noticehtml, kept, reload (url, text)
+    * refused - object or null: colour (danger or info), messagehtml, kept (object: intro, fields, an array of {rows, label,
+      text}) or null
+    * editing - object or null: detailsformhtml, heading, status, textformhtml, autosaved ('' for none)
+    * reading - object or null: detailshtml, noversion (object: text) or null, latest (object: status, texthtml) or null,
+      working (object: notice, texthtml) or null
+    * versions - object: url, text
+    * pieceshtml, pieceformshtml, piececlosedhtml, noteerrorhtml, noteshtml, deletehtml - strings
+    * back - object: url, text
+
+    Example context (json):
+    {
+        "code": "RNCP100",
+        "disclaimerhtml": "<p class=\"small\">Nothing here is attested.</p>",
+        "errorhtml": "",
+        "conflict": {
+            "noticehtml": "<div class=\"alert alert-danger\">Another tab saved this draft.</div>",
+            "kept": "Your text is kept in the form below.",
+            "reload": {"url": "https://example.com/admin/tool/vae/situation.php?userid=7&fiche=RNCP100&slot=1", "text": "Reload"}
+        },
+        "refused": {
+            "colour": "danger", "messagehtml": "The preparation is closed.",
+            "kept": {"intro": "Here is what you wrote.", "fields": [{"rows": 8, "label": "Text", "text": "Alone at night."}]}
+        },
+        "editing": {
+            "detailsformhtml": "<form action=\"#\"></form>", "heading": "Text", "status": "No version yet.",
+            "textformhtml": "<form action=\"#\"></form>", "autosaved": ""
+        },
+        "reading": {
+            "detailshtml": "<div class=\"tool-vae-situation-details mb-3\"></div>",
+            "noversion": null,
+            "latest": {"status": "Current version: 2.", "texthtml": "<div class=\"text_to_html\">My text.</div>"},
+            "working": {"notice": "A draft in progress.", "texthtml": "<div class=\"text_to_html\">More.</div>"}
+        },
+        "versions": {"url": "https://example.com/admin/tool/vae/history.php?draftid=3", "text": "Versions"},
+        "pieceshtml": "<h3 class=\"h5 mt-4\">Pieces</h3>",
+        "pieceformshtml": "",
+        "piececlosedhtml": "",
+        "noteerrorhtml": "",
+        "noteshtml": "<section class=\"tool-vae-notes mt-4\"></section>",
+        "deletehtml": "",
+        "back": {"url": "https://example.com/admin/tool/vae/situations.php?userid=7&fiche=RNCP100", "text": "Back to the list"}
+    }
+}}
+<p><strong>{{code}}</strong></p>{{{disclaimerhtml}}}{{{errorhtml}}}{{!
+}}{{#conflict}}{{{noticehtml}}}<p>{{kept}}</p>{{#reload}}<p><a href="{{url}}">{{text}}</a></p>{{/reload}}{{/conflict}}{{!
+}}{{#refused}}<div class="alert alert-{{colour}}">{{{messagehtml}}}</div>{{#kept}}<p>{{intro}}</p>{{!
+}}{{#fields}}<textarea readonly="readonly" rows="{{rows}}" cols="70" class="form-control mb-3" aria-label="{{label}}">{{!
+}}{{text}}</textarea>{{/fields}}{{/kept}}{{/refused}}{{!
+}}{{#editing}}{{{detailsformhtml}}}<h3 class="h5 mt-4">{{heading}}</h3><p>{{status}}</p>{{{textformhtml}}}{{!
+}}<div class="text-muted small" id="tool-vae-autosave" role="status" aria-live="polite">{{autosaved}}</div>{{/editing}}{{!
+}}{{#reading}}{{{detailshtml}}}{{#noversion}}<p class="text-muted">{{text}}</p>{{/noversion}}{{!
+}}{{#latest}}<p class="text-muted small mb-1">{{status}}</p>{{!
+}}<div class="mb-2 tool-vae-situation-text">{{{texthtml}}}</div>{{/latest}}{{!
+}}{{#working}}<div class="border-start ps-2 mb-2 tool-vae-situation-working"><p class="text-muted small mb-1">{{notice}}</p>{{!
+}}{{{texthtml}}}</div>{{/working}}{{/reading}}{{!
+}}{{#versions}}<p><a href="{{url}}">{{text}}</a></p>{{/versions}}{{{pieceshtml}}}{{{pieceformshtml}}}{{{piececlosedhtml}}}{{!
+}}{{{noteerrorhtml}}}{{{noteshtml}}}{{{deletehtml}}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}

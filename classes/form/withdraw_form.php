@@ -19,6 +19,7 @@ namespace tool_vae\form;
 defined('MOODLE_INTERNAL') || die();
 
 use tool_vae\local\attestation_manager;
+use tool_vae\output\form_note;
 
 // THE PARENT CLASS IS NOT AUTOLOADED. `moodleform` lives in lib/formslib.php, which Moodle's
 // class loader knows nothing about: a page that instantiates this form without having loaded
@@ -52,15 +53,14 @@ class withdraw_form extends \moodleform {
      * Build the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $mform->addElement('hidden', 'attestationid');
         $mform->setType('attestationid', PARAM_INT);
 
-        $mform->addElement('html', \html_writer::div(
-            get_string('withdrawwarning', 'tool_vae'),
-            'alert alert-warning'
-        ));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::withdrawal()));
 
         // An empty first option, deliberately. Without it the select opens on the first
         // entry of the closed list - 'erasure requested by the signatory' - and a manager

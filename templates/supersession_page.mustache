@@ -1,0 +1,73 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/supersession_page
+
+    The page "Fiches remplacées", below its heading: what the page is for, the error of a declaration refused, then the
+    notification that no record is imported, or the table of the records followed by the heading and the form that declares
+    a successor.
+
+    Every text comes from the context, already worded by tool_vae\output\supersession_page. The template holds no logic.
+    Every text is escaped (double braces), except five keys of HTML (triple braces): errorhtml and nonehtml, notifications
+    made by the core ($output->notification(), the message of an error escaped); tablehtml, a table drawn by the template
+    tool_vae/table (its codes and dates escaped by the template tool_vae/cell_content, the labels formatted by
+    format_string(), the buttons made by the core); headinghtml, a heading of the core ($output->heading()); formhtml, the
+    form of the core (moodleform::render()), drawn once.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, what the page is for
+    * errorhtml - false, or HTML: the error of a declaration refused
+    * nonehtml - false, or HTML: the notification that no record is imported
+    * tablehtml - false, or HTML: the table of the records
+    * headinghtml - false, or HTML: the heading above the form
+    * formhtml - false, or HTML: the form that declares a successor
+
+    Example context (json):
+    {
+        "intro": "When a certification record is republished under a new number, say here which record replaces which.",
+        "errorhtml": false,
+        "nonehtml": false,
+        "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>DEMO-GRAND-AGE</td></tr></tbody></table>",
+        "headinghtml": "<h3>Declare a successor</h3>",
+        "formhtml": "<form method=\"post\" action=\"https://example.com/admin/tool/vae/supersession.php\"></form>"
+    }
+}}
+<p>{{intro}}</p>
+{{#errorhtml}}
+{{{errorhtml}}}
+{{/errorhtml}}
+{{#nonehtml}}
+{{{nonehtml}}}
+{{/nonehtml}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}
+{{#headinghtml}}
+{{{headinghtml}}}
+{{/headinghtml}}
+{{#formhtml}}
+{{{formhtml}}}
+{{/formhtml}}

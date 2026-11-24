@@ -229,7 +229,7 @@ class draft_manager {
             return get_string('reflexionentry', 'tool_vae', (int) $draft->slot);
         }
 
-        return faisabilite_catalog::label((string) $draft->section, (int) $draft->slot);
+        return feasibility_catalog::label((string) $draft->section, (int) $draft->slot);
     }
 
     /**
@@ -261,7 +261,7 @@ class draft_manager {
      */
     private static function has_fields(\stdClass $draft): bool {
         return $draft->doctype === self::DOCTYPE_FAISABILITE
-            && faisabilite_catalog::kind((string) $draft->section) === faisabilite_catalog::KIND_FIELDS;
+            && feasibility_catalog::kind((string) $draft->section) === feasibility_catalog::KIND_FIELDS;
     }
 
     /**
@@ -406,8 +406,8 @@ class draft_manager {
         // A section read from the account holds nothing here: no row is ever made for it.
         if (
             $doctype === self::DOCTYPE_FAISABILITE
-                && (!faisabilite_catalog::valid_address($section, $slot)
-                    || faisabilite_catalog::kind($section) === faisabilite_catalog::KIND_ACCOUNT)
+                && (!feasibility_catalog::valid_address($section, $slot)
+                    || feasibility_catalog::kind($section) === feasibility_catalog::KIND_ACCOUNT)
         ) {
             throw new \moodle_exception('errordraftsection', 'tool_vae');
         }
@@ -514,8 +514,8 @@ class draft_manager {
             }
         } else if (
             $doctype !== self::DOCTYPE_FAISABILITE || $fichecode !== ''
-            || !faisabilite_catalog::valid_address($section, $slot)
-            || faisabilite_catalog::kind($section) !== faisabilite_catalog::KIND_TEXT
+            || !feasibility_catalog::valid_address($section, $slot)
+            || feasibility_catalog::kind($section) !== feasibility_catalog::KIND_TEXT
         ) {
             throw new \moodle_exception('errordraftsection', 'tool_vae');
         }
@@ -698,7 +698,7 @@ class draft_manager {
      * Save the draft in progress for a page that saves by itself: save_working(), with the check of the other tabs always made.
      *
      * WHY A DOOR OF ITS OWN. save_working() takes null to mean "no page, nothing to compare", and a page opened with no
-     * draft in progress knows `workingat` 0 - which autosave.php turned into null. The state the writer is in most often (after
+     * draft in progress knows `workingat` 0 - which the old autosave turned into null. The state the writer is in most often (after
      * every version, and for every section never drafted) was thus the one with no check at all: a second tab opened in that
      * state overwrote the draft of the first without a word, and it was the first that was told, afterwards, that the text had
      * been changed elsewhere. Here the time the page knew is not optional, and 0 is a time like any other: a draft written
@@ -772,9 +772,9 @@ class draft_manager {
         // Separate fields: the content is a JSON object of the section's own keys, checked here and
         // stored in its canonical form, so that the same values make the same text.
         if (self::has_fields($draft)) {
-            $content = faisabilite_fields::encode(
+            $content = feasibility_fields::encode(
                 (string) $draft->section,
-                faisabilite_fields::decode((string) $draft->section, $content)
+                feasibility_fields::decode((string) $draft->section, $content)
             );
         }
         $note = self::clean_note($note);

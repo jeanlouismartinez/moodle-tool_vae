@@ -195,8 +195,8 @@ function xmldb_tool_vae_upgrade($oldversion) {
         // the fields never created: the 4.5 package carries no such step of its own. Every 4.5
         // number was therefore held under 2026101311, and the 4.5 line ran out of numbers.
         // This step, numbered above every 4.5 package, does the same work for such a site, so
-        // the rule is now "a 4.5 number stays below 2026101403" - and the CI migration checks the
-        // two fields after the passage (scripts/migration/verify.php).
+        // the rule is now "a 4.5 number stays below 2026101403". The CI migration job that checked
+        // the two fields after the passage was removed on 17 November 2026, and its scripts with it.
         $table = new xmldb_table('tool_vae_attest');
 
         $field = new xmldb_field('withdrawreqby', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'withdrawnreason');
@@ -430,6 +430,101 @@ function xmldb_tool_vae_upgrade($oldversion) {
         // or data. The step exists so that a site already at 2026110408 records the new version and purges its caches, which
         // is what makes the corrected texts read.
         upgrade_plugin_savepoint(true, 2026110409, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111500) {
+        // Getting started page (lot S1, 15 November 2026): a new page, no change of schema, rights or data. The step exists
+        // so that an installed site records the new version and purges its caches, which is what makes the new strings read.
+        upgrade_plugin_savepoint(true, 2026111500, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111600) {
+        // Banner "What you can do now" (lot S2, 16 November 2026): read on the organisation page, no change of schema, rights
+        // or data. The step exists so that an installed site records the new version and purges its caches.
+        upgrade_plugin_savepoint(true, 2026111600, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111601) {
+        // Link "VAE" in the primary navigation (lot S3, 16 November 2026): a listener in db/hooks.php and one string, no
+        // change of schema, rights or data. The step exists so that an installed site records the new version, reads the
+        // list of hooks again and purges its caches.
+        upgrade_plugin_savepoint(true, 2026111601, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111602) {
+        // Settings and administration pages grouped (lot S4, 16 November 2026): the settings stand under seven headings and the
+        // pages of the plugin in a category "VAE" under Competencies. No change of schema, rights or data: no setting is renamed,
+        // removed or written, and no page changes its name. The step exists so that an installed site records the new version
+        // and purges its caches, which is what makes the new strings read.
+        upgrade_plugin_savepoint(true, 2026111602, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111603) {
+        // One reader of the request as PHP received it (lot Q3, 16 November 2026): the uploads, the POST emptied by
+        // post_max_size, the method and a parameter sent as an array are read by one class, tool_vae\local\raw_request.
+        // Nothing changes on the screen. No change of schema, rights or data: the step exists so that an installed site
+        // records the new version and purges its caches, which is what makes the new class load. (That class was removed on
+        // 19 November 2026, review MMR-520: the uploads go through the file picker of the core, see local\draft_upload.)
+        upgrade_plugin_savepoint(true, 2026111603, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111604) {
+        // The scripts of the pages are AMD modules (lot Q4, 16 November 2026): the autosave of a section and of a work situation,
+        // the reminders attached to their fields and the confirmation of the aid run from amd/build, with the same behaviour.
+        // No change of schema, rights or data: the step exists so that an installed site records the new version and purges its
+        // caches, which is what makes the core serve the new modules.
+        upgrade_plugin_savepoint(true, 2026111604, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111605) {
+        // The page "Mise en route" and the banner "Ce que je peux faire maintenant" are written by two Mustache templates
+        // (lot Q10, 16 November 2026), tool_vae/setup_screen and tool_vae/next_actions, with the same HTML as before.
+        // No change of schema, rights or data: the step exists so that an installed site records the new version and purges
+        // its caches, which is what makes the core read the new templates.
+        upgrade_plugin_savepoint(true, 2026111605, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111606) {
+        // A guide of one page for each role (lot S5, 16 November 2026): guide.php serves the guides of the vaeiste, the manager
+        // and the direction from the language strings, through the template tool_vae/role_guide, and each tab of the
+        // organisation page links to the guide of its role. No change of schema, rights or data: the step exists so that an
+        // installed site records the new version and purges its caches, which is what makes the core read the new strings.
+        upgrade_plugin_savepoint(true, 2026111606, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111800) {
+        // A legend on the table of the pending declarations and the guide opened by role=responsable (18 November 2026).
+        // No change of schema, rights or data: the step exists so that an installed site records the new version and purges
+        // its caches, which is what makes the core read the new strings.
+        upgrade_plugin_savepoint(true, 2026111800, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111801) {
+        // The step 2026111800 was missing from the first package installed on a site: this one is the idempotent copy that
+        // a site holding that number runs. No change of schema, rights or data.
+        upgrade_plugin_savepoint(true, 2026111801, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111900) {
+        // Build number chosen by the project owner on 19 November 2026 for the package published as tool_vae-2026111900.
+        // No change of schema, rights or data: the step only records the number and purges the caches.
+        upgrade_plugin_savepoint(true, 2026111900, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026111901) {
+        // The autosave of a text being written calls an external function, tool_vae_save_draft (db/services.php), through
+        // core/ajax, instead of the script autosave.php, which is removed (ticket 5 of the review MMR-520, 19 November 2026).
+        // No change of schema, rights or data: the step exists so that an installed site records the new version, which is
+        // when the core reads db/services.php and declares the function, and purges its caches, which serves the new module.
+        upgrade_plugin_savepoint(true, 2026111901, 'tool', 'vae');
+    }
+
+    if ($oldversion < 2026112200) {
+        // Since 2026111901 the review MMR-520 added and removed classes, templates and strings (deletion follow-up tasks,
+        // file pickers, output classes and Mustache templates) without a new number. No change of schema, rights or data:
+        // the step exists so that an installed site records the new version and purges its caches, which is what makes the
+        // core rebuild its class map and read the new templates and strings.
+        upgrade_plugin_savepoint(true, 2026112200, 'tool', 'vae');
     }
 
     return true;

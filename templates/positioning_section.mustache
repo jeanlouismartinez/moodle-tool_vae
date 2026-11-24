@@ -1,0 +1,110 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/positioning_section
+
+    The positionings of the structure in the dossier. Either the whole section: its heading, the sentence that says a
+    positioning is not a validation, the way to the self-positioning of the vaeiste, the archive of the structure, then for
+    each record its code and its parts (a bloc with its certification, the lines of the record it replaces, the vaeiste's
+    own level and its links, then the list of its competencies; or the competencies that stand alone). Or, when no record is
+    left, the archive of the structure alone in the section. Or nothing. The parts touch: the template holds on one logical
+    line, each break carried by a comment.
+
+    Every text comes from the context, already worded by tool_vae\output\positioning_section. The template holds no logic.
+    Every value is escaped (double braces) except two keys:
+    * structurehtml - the archive of the structure, drawn by the template tool_vae/positioning_structure
+    * linehtml - the line that stands on a bloc or a competency, drawn by the template tool_vae/positioning_line
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * bare - object or null: structurehtml, the archive of the structure alone
+    * full - object or null: heading, disclaimer, selfposurl, selfposlink, structurehtml, records
+    * records - array of {code, parts}
+    * parts - array of {bloc, items}: bloc is null for the competencies that stand alone
+    * bloc - object: heading, none (object: text, or null), linehtml, expired (object: torenew, text, or null), stale (object:
+      text, or null), older (array of {text}), selfpos (object: text, or null), links (array of {sep, url, label})
+    * items - array of {label, gone, none, linehtml, older, selfpos, links}: a competency; gone and none are objects (text)
+      or null
+
+    Example context (json):
+    {
+        "bare": null,
+        "full": {
+            "heading": "Positioning of the structure",
+            "disclaimer": "It is not a validation: only the jury validates, outside this platform.",
+            "selfposurl": "https://example.com/admin/tool/vae/selfposition.php?userid=7",
+            "selfposlink": "Read the self-positioning of the vaeiste",
+            "structurehtml": "<p>Archive of the structure in place.</p>",
+            "records": [{
+                "code": "RNCP100",
+                "parts": [
+                    {
+                        "bloc": {
+                            "heading": "Bloc - Bloc 1",
+                            "none": null,
+                            "linehtml": "<div class=\"ms-3 mb-2\">certified by the structure</div>",
+                            "expired": {"torenew": "To renew", "text": "The certification stood until 2020-06-30."},
+                            "stale": {"text": "A competency of the bloc was evaluated after the certification."},
+                            "older": [{"text": "On the earlier record RNCP90 (BC01): certified by the structure, 2020-01-15"}],
+                            "selfpos": {"text": "Self-positioning of the vaeiste: I act on my own, 4 November 2026"},
+                            "links": [
+                                {"sep": false, "url": "https://example.com/admin/tool/vae/certify.php?userid=7", "label": "Renew"},
+                                {"sep": true, "url": "https://example.com/admin/tool/vae/certify.php?userid=7", "label": "History"}
+                            ]
+                        },
+                        "items": [{
+                            "label": "Competence C01",
+                            "gone": {"text": "no longer in the record"},
+                            "none": {"text": "Not positioned yet"},
+                            "linehtml": "",
+                            "older": [],
+                            "selfpos": null,
+                            "links": [{"sep": false, "url": "https://example.com/admin/tool/vae/evaluate.php", "label": "History"}]
+                        }]
+                    },
+                    {"bloc": null, "items": []}
+                ]
+            }]
+        }
+    }
+}}
+{{#bare}}<section class="tool-vae-positioning mb-4">{{{structurehtml}}}</section>{{/bare}}{{!
+}}{{#full}}<section class="tool-vae-positioning mb-4"><h3>{{heading}}</h3><p class="text-muted small">{{disclaimer}}</p>{{!
+}}<p class="small"><a href="{{selfposurl}}">{{selfposlink}}</a></p>{{{structurehtml}}}{{!
+}}{{#records}}<h4 class="h5">{{code}}</h4>{{!
+}}{{#parts}}{{!
+}}{{#bloc}}<h5 class="h6">{{heading}}</h5>{{!
+}}{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{{linehtml}}}{{!
+}}{{#expired}}<div class="alert alert-secondary small"><strong>{{torenew}}</strong> : {{text}}</div>{{/expired}}{{!
+}}{{#stale}}<div class="alert alert-warning small">{{text}}</div>{{/stale}}{{!
+}}{{#older}}<div class="small text-muted ms-3">{{text}}</div>{{/older}}{{!
+}}{{#selfpos}}<div class="small text-muted ms-3 tool-vae-selfpos-line">{{text}}</div>{{/selfpos}}{{!
+}}<p class="small">{{#links}}{{#sep}} | {{/sep}}<a href="{{url}}">{{label}}</a>{{/links}}</p>{{/bloc}}{{!
+}}<ul class="list-unstyled ms-3">{{#items}}<li><strong>{{label}}</strong>{{!
+}}{{#gone}} <span class="small text-muted">{{text}}</span>{{/gone}}{{#none}} - {{text}}{{/none}}{{{linehtml}}}{{!
+}}{{#older}}<div class="small text-muted ms-3">{{text}}</div>{{/older}}{{!
+}}{{#selfpos}}<div class="small text-muted ms-3 tool-vae-selfpos-line">{{text}}</div>{{/selfpos}}{{!
+}}<span class="small"> {{#links}}{{#sep}} | {{/sep}}<a href="{{url}}">{{label}}</a>{{/links}}</span></li>{{/items}}</ul>{{!
+}}{{/parts}}{{/records}}</section>{{/full}}

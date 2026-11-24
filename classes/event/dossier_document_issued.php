@@ -86,7 +86,7 @@ class dossier_document_issued extends \core\event\base {
     /**
      * Map the object id for restore from a backup. There is no object.
      *
-     * @return bool
+     * @return false
      */
     public static function get_objectid_mapping() {
         return false;

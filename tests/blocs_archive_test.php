@@ -117,27 +117,27 @@ final class blocs_archive_test extends \advanced_testcase {
     /**
      * The fiches of a referentiel by code.
      *
-     * @param array $referentiel
+     * @param array $referential
      * @return array
      */
-    private static function fiches(array $referentiel): array {
-        return array_column($referentiel['fiches'], null, 'code');
+    private static function fiches(array $referential): array {
+        return array_column($referential['fiches'], null, 'code');
     }
 
-    public function test_the_referentiel_names_the_bloc_and_lists_the_blocs_once(): void {
+    public function test_the_referential_names_the_bloc_and_lists_the_blocs_once(): void {
         $this->declare('RS00000-C02');
         $this->declare('RS00000-C03');
         $this->declare('RS00000-BC01');
         $this->declare('RS00000-Z01');
 
-        [, $referentiel] = $this->snapshot();
+        [, $referential] = $this->snapshot();
 
-        $fiche = self::fiches($referentiel)['RS00000'];
-        $competences = array_column($fiche['competences'], null, 'rang');
-        $this->assertSame('BC01', $competences['C02']['bloc']);
-        $this->assertSame('BC02', $competences['C03']['bloc']);
-        $this->assertArrayNotHasKey('bloc', $competences['BC01'], 'A bloc is under no bloc.');
-        $this->assertArrayNotHasKey('bloc', $competences['Z01']);
+        $fiche = self::fiches($referential)['RS00000'];
+        $archivedcompetencies = array_column($fiche['competences'], null, 'rang');
+        $this->assertSame('BC01', $archivedcompetencies['C02']['bloc']);
+        $this->assertSame('BC02', $archivedcompetencies['C03']['bloc']);
+        $this->assertArrayNotHasKey('bloc', $archivedcompetencies['BC01'], 'A bloc is under no bloc.');
+        $this->assertArrayNotHasKey('bloc', $archivedcompetencies['Z01']);
         $this->assertSame(
             [['rang' => 'BC01', 'intitule' => 'Accompagner la personne'], ['rang' => 'BC02', 'intitule' => 'Travailler en équipe']],
             $fiche['blocs']
@@ -147,11 +147,11 @@ final class blocs_archive_test extends \advanced_testcase {
     public function test_a_claimed_bloc_is_listed_even_when_none_of_its_competencies_is_claimed(): void {
         $this->declare('RS00000-BC01');
 
-        [, $referentiel] = $this->snapshot();
+        [, $referential] = $this->snapshot();
 
         $this->assertSame(
             [['rang' => 'BC01', 'intitule' => 'Accompagner la personne']],
-            self::fiches($referentiel)['RS00000']['blocs']
+            self::fiches($referential)['RS00000']['blocs']
         );
     }
 
@@ -159,12 +159,12 @@ final class blocs_archive_test extends \advanced_testcase {
         $this->declare('RS11111-C01');
         $this->declare('RS11111-C02');
 
-        [, $referentiel] = $this->snapshot();
+        [, $referential] = $this->snapshot();
 
-        $fiche = self::fiches($referentiel)['RS11111'];
+        $fiche = self::fiches($referential)['RS11111'];
         $this->assertArrayNotHasKey('blocs', $fiche);
-        foreach ($fiche['competences'] as $competence) {
-            $this->assertArrayNotHasKey('bloc', $competence);
+        foreach ($fiche['competences'] as $archivedcompetency) {
+            $this->assertArrayNotHasKey('bloc', $archivedcompetency);
         }
     }
 
@@ -175,9 +175,9 @@ final class blocs_archive_test extends \advanced_testcase {
         $this->declare('RS00000-C02');
         $this->declare('RS00000-BC01');
         $this->declare('RS11111-C02');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $html = pdf_renderer::html($this->manifest(), $preuves, $referentiel);
+        $html = pdf_renderer::html($this->manifest(), $evidencefiles, $referential);
 
         $bc01 = strpos($html, 'Bloc BC01 - Accompagner la personne');
         $bc02 = strpos($html, 'Bloc BC02 - Travailler en équipe');
@@ -194,9 +194,9 @@ final class blocs_archive_test extends \advanced_testcase {
     public function test_the_competencies_under_no_bloc_have_a_heading_of_their_own(): void {
         $this->declare('RS00000-C03');
         $this->declare('RS00000-Z01');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $html = pdf_renderer::html($this->manifest(), $preuves, $referentiel);
+        $html = pdf_renderer::html($this->manifest(), $evidencefiles, $referential);
 
         $nobloc = strpos($html, get_string('exportpdfnobloc', 'tool_vae'));
         $this->assertNotFalse($nobloc);
@@ -219,9 +219,9 @@ final class blocs_archive_test extends \advanced_testcase {
         $this->setUser($this->candidate);
         $this->declare('RS33333-C1');
         $this->declare('RS33333-C2');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $html = pdf_renderer::html($this->manifest(), $preuves, $referentiel);
+        $html = pdf_renderer::html($this->manifest(), $evidencefiles, $referential);
 
         $this->assertLessThan(strpos($html, 'Bloc BC10 - Dix'), strpos($html, 'Bloc BC2 - Deux'), 'BC2 before BC10.');
     }
@@ -229,9 +229,9 @@ final class blocs_archive_test extends \advanced_testcase {
     public function test_the_printable_copy_of_a_flat_record_is_written_as_it_always_was(): void {
         $this->declare('RS11111-C02');
         $this->declare('RS11111-C01');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $html = pdf_renderer::html($this->manifest(), $preuves, $referentiel);
+        $html = pdf_renderer::html($this->manifest(), $evidencefiles, $referential);
 
         $this->assertStringNotContainsString('Bloc BC', $html);
         $this->assertLessThan(
@@ -244,12 +244,12 @@ final class blocs_archive_test extends \advanced_testcase {
     /**
      * The text of the editable copy (.odt) of a candidate's declarations.
      *
-     * @param array $preuves
-     * @param array $referentiel
+     * @param array $evidencefiles
+     * @param array $referential
      * @return string The content.xml of the document.
      */
-    private function odt_content(array $preuves, array $referentiel): string {
-        $bytes = dossier_document::compose($this->candidate, $preuves, $referentiel, time())->odt();
+    private function odt_content(array $evidencefiles, array $referential): string {
+        $bytes = dossier_document::compose($this->candidate, $evidencefiles, $referential, time())->odt();
         $path = make_request_directory() . '/copie.odt';
         file_put_contents($path, $bytes);
         $zip = new \ZipArchive();
@@ -266,9 +266,9 @@ final class blocs_archive_test extends \advanced_testcase {
         $this->declare('RS00000-C02');
         $this->declare('RS00000-BC01');
         $this->declare('RS11111-C02');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $content = $this->odt_content($preuves, $referentiel);
+        $content = $this->odt_content($evidencefiles, $referential);
 
         $bc01 = strpos($content, 'Bloc BC01 - Accompagner la personne');
         $bc02 = strpos($content, 'Bloc BC02 - Travailler en équipe');
@@ -288,9 +288,9 @@ final class blocs_archive_test extends \advanced_testcase {
     public function test_the_editable_copy_of_a_flat_record_is_written_as_it_always_was(): void {
         $this->declare('RS11111-C02');
         $this->declare('RS11111-C01');
-        [$preuves, $referentiel] = $this->snapshot();
+        [$evidencefiles, $referential] = $this->snapshot();
 
-        $content = $this->odt_content($preuves, $referentiel);
+        $content = $this->odt_content($evidencefiles, $referential);
 
         $this->assertStringNotContainsString('Bloc BC', $content);
         $this->assertStringNotContainsString(get_string('exportpdfnobloc', 'tool_vae'), $content);

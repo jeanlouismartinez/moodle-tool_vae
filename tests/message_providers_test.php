@@ -23,7 +23,7 @@ namespace tool_vae;
  * 'messageprovider:<name>' of its component. A provider without that string is shown to the user
  * as the raw placeholder '[[messageprovider:<name>]]' - seen on the test instance on 26 October 2026
  * for 'withdrawalrequested' and 'withdrawalrefused'. Nothing else checks this: the strings of the
- * capabilities are controlled by scripts/verifier-langue.php, those of the providers were not.
+ * capabilities are controlled by tests/lang_strings_test.php, those of the providers were not.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>

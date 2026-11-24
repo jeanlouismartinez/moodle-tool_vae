@@ -1,0 +1,48 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/notes_block
+
+    The block of the annotations of one target: its heading, its lines, and the form for whoever may annotate.
+
+    Every text comes from the context, already worded by tool_vae\output\notes_block. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * lineshtml - the lines, drawn by the template tool_vae/note_lines
+    * formhtml - the form of an annotation, drawn by moodleform::render() ('' for whoever may not annotate)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * heading - string, the heading of the block
+    * lineshtml - string, the lines
+    * formhtml - string, the form or ''
+
+    Example context (json):
+    {
+        "heading": "Annotations",
+        "lineshtml": "<p class=\"small text-muted\">An annotation validates nothing.</p>",
+        "formhtml": "<form action=\"#\"></form>"
+    }
+}}
+<section class="tool-vae-notes mt-4"><h3 class="h5">{{heading}}</h3>{{{lineshtml}}}{{{formhtml}}}</section>

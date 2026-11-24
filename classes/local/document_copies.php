@@ -129,9 +129,9 @@ final class document_copies {
         // administrator (\core\cron::setup_user()) and a refresh runs as a manager or as the candidate: the same dossier gave
         // a copy with the preparation or without it, and a weekly copy that never changed when a section was saved again.
         $document = dossier_document::for_candidate($candidateid, $now, true, null, true, true, true);
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
+        $person = identity_map::uuid_for(identity_map::TYPE_USER, $candidateid);
 
-        foreach (self::files_of($personne) as $record) {
+        foreach (self::files_of($person) as $record) {
             if (self::digest_of($record) === $document['digest']) {
                 // A copy in the other format does not stand for this one.
                 if (self::extension($record->filename) === $format) {
@@ -152,7 +152,7 @@ final class document_copies {
             'filepath' => self::FILEPATH,
             'filename' => 'dossier-' . gmdate('Y-m-d', $now) . '.' . $format,
             'userid' => $candidateid,
-            'source' => self::SOURCE_PREFIX . $personne . ':' . $document['digest'],
+            'source' => self::SOURCE_PREFIX . $person . ':' . $document['digest'],
             'author' => fullname(\core_user::get_user($candidateid)),
             'license' => 'unknown',
         ];
@@ -170,7 +170,7 @@ final class document_copies {
         }
         $file = $fs->create_file_from_string($record, $bytes);
 
-        self::rotate($personne);
+        self::rotate($person);
 
         dossier_document_issued::create([
             'context' => \context_user::instance($candidateid),
@@ -189,12 +189,12 @@ final class document_copies {
     /**
      * Delete every copy of a candidate.
      *
-     * @param string $personne The candidate's ULID.
+     * @param string $person The candidate's ULID.
      * @return int How many copies were deleted.
      */
-    public static function discard(string $personne): int {
+    public static function discard(string $person): int {
         $fs = get_file_storage();
-        $records = self::files_of($personne);
+        $records = self::files_of($person);
         foreach ($records as $record) {
             $fs->get_file_instance($record)->delete();
         }
@@ -215,17 +215,17 @@ final class document_copies {
     public static function refresh(int $candidateid): int {
         global $DB;
 
-        $personne = $DB->get_field('tool_vae_identity', 'uuid', [
+        $person = $DB->get_field('tool_vae_identity', 'uuid', [
             'itemtype' => identity_map::TYPE_USER,
             'itemid' => $candidateid,
         ]);
-        $held = $personne === false ? [] : array_values(self::files_of($personne));
+        $held = $person === false ? [] : array_values(self::files_of($person));
         if (!$held) {
             return 0;
         }
 
         $format = self::extension($held[0]->filename);
-        self::discard($personne);
+        self::discard($person);
         if (!$DB->record_exists('tool_vae_evidence', ['candidateid' => $candidateid])) {
             return 0;
         }
@@ -255,10 +255,10 @@ final class document_copies {
         $fs = get_file_storage();
         $count = 0;
         foreach ($rows as $row) {
-            $personne = self::personne_of($row);
+            $person = self::person_of($row);
             $known = $DB->record_exists('tool_vae_identity', [
                 'itemtype' => identity_map::TYPE_USER,
-                'uuid' => $personne,
+                'uuid' => $person,
             ]);
             if (!$known) {
                 $fs->get_file_instance($row)->delete();
@@ -272,10 +272,10 @@ final class document_copies {
     /**
      * Keep the newest copies of a candidate and delete the others.
      *
-     * @param string $personne The candidate's ULID.
+     * @param string $person The candidate's ULID.
      */
-    private static function rotate(string $personne): void {
-        $records = self::files_of($personne);
+    private static function rotate(string $person): void {
+        $records = self::files_of($person);
         usort($records, function ($a, $b) {
             return [(int) $b->timecreated, (int) $b->id] <=> [(int) $a->timecreated, (int) $a->id];
         });
@@ -292,10 +292,10 @@ final class document_copies {
      * By the mark only, wherever the owner moved them. The directory entries Moodle keeps for a
      * folder have no source and are not matched.
      *
-     * @param string $personne The candidate's ULID.
+     * @param string $person The candidate's ULID.
      * @return \stdClass[] Rows of the files table.
      */
-    private static function files_of(string $personne): array {
+    private static function files_of(string $person): array {
         global $DB;
 
         return $DB->get_records_select(
@@ -304,7 +304,7 @@ final class document_copies {
             [
                 'component' => 'user',
                 'filearea' => 'private',
-                'source' => $DB->sql_like_escape(self::SOURCE_PREFIX . $personne . ':') . '%',
+                'source' => $DB->sql_like_escape(self::SOURCE_PREFIX . $person . ':') . '%',
             ]
         );
     }
@@ -315,7 +315,7 @@ final class document_copies {
      * @param \stdClass $record Row of the files table.
      * @return string
      */
-    private static function personne_of(\stdClass $record): string {
+    private static function person_of(\stdClass $record): string {
         $rest = substr((string) $record->source, strlen(self::SOURCE_PREFIX));
 
         return explode(':', $rest, 2)[0];

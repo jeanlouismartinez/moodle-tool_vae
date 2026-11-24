@@ -70,7 +70,7 @@
       }
     },
     "periode": {
-      "$comment": "DEDUIT (install.xml : periodstart, periodend). Regle hors schema, verifiee par scripts/verifier-schema.mjs : fin >= debut.",
+      "$comment": "DEDUIT (install.xml : periodstart, periodend). Regle hors schema, verifiee par scripts/check-schema.mjs : fin >= debut.",
       "description": "Periode d'exercice de l'activite.",
       "type": "object",
       "additionalProperties": false,

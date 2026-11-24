@@ -27,8 +27,8 @@
  * page says so and gives back the text that was being sent; the situation stays readable. Adding a piece follows piecesopen
  * alone, as every piece does; detaching and removing a piece work closed.
  *
- * THE UPLOAD is read before the forms are built, as piece.php does it: the form library empties $_FILES, and a file larger
- * than post_max_size arrives as an empty POST that must be said.
+ * THE FILE of a piece comes through the file picker of the core, as on piece.php: the form sends the number of a draft area of
+ * the vaeiste, and the page reads the file there (draft_upload says how), then empties the area.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
@@ -40,21 +40,21 @@ require_once(__DIR__ . '/../../../config.php');
 use tool_vae\form\note_form;
 use tool_vae\form\situation_details_form;
 use tool_vae\form\situation_form;
+use tool_vae\form\spiece_file_form;
 use tool_vae\local\access;
 use tool_vae\local\draft_manager;
+use tool_vae\local\draft_upload;
 use tool_vae\local\hidden_frameworks;
 use tool_vae\local\note_manager;
-use tool_vae\local\note_screen;
 use tool_vae\local\piece_manager;
 use tool_vae\local\situation_manager;
 use tool_vae\local\situation_screen;
 use tool_vae\local\spiece_manager;
-use tool_vae\local\whereami_panel;
 
 require_login();
 
 $candidateid = optional_param('userid', (int) $USER->id, PARAM_INT);
-$fichecode = required_param('fiche', PARAM_RAW_TRIMMED);
+$fichecode = required_param('fiche', PARAM_ALPHANUMEXT);
 $slot = required_param('slot', PARAM_INT);
 
 $context = access::require_can_view($candidateid);
@@ -89,15 +89,46 @@ $PAGE->set_context($context);
 $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('situationheading', 'tool_vae', situation_screen::title($situation)));
 $PAGE->set_heading(fullname($candidate));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 $pieces = new spiece_manager();
 
-// The upload is taken BEFORE the forms are built (see piece.php).
-$upload = $_FILES['piecefile'] ?? null;
-if (
-    $_SERVER['REQUEST_METHOD'] === 'POST' && !$_POST && !$upload && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
-) {
-    redirect($url, get_string('errorpiecetoolarge', 'tool_vae', display_size($maxbytes)), null, $notify::NOTIFY_ERROR);
+// Attaching a file: a form of the core with its file picker, built whenever the vaeiste may act, so that a file sent after
+// the pieces were closed is refused in words by spiece_manager, as before; drawn only when adding is open. The file is in a
+// draft area of the vaeiste (draft_upload); its size is read BEFORE the form gives its data, since the file picker takes out
+// a file over its limit then, without a word.
+$fileform = $mayact ? new spiece_file_form($url->out(false), ['maxbytes' => $maxbytes], 'post', '', [
+    'class' => 'mb-4 tool-vae-spiece-file',
+]) : null;
+if ($fileform !== null) {
+    $toolarge = $fileform->is_submitted()
+        && draft_upload::larger_than(optional_param('piecefile', 0, PARAM_INT), $maxbytes);
+    if ($data = $fileform->get_data()) {
+        $error = null;
+        $itemid = (int) $data->piecefile;
+        $copy = null;
+        try {
+            if ($toolarge) {
+                throw new moodle_exception('errorpiecetoolarge', 'tool_vae', '', display_size($maxbytes));
+            }
+            $copy = draft_upload::piece($itemid, $maxbytes);
+            // The name of the file is never asked for: the piece is stored under an identifier.
+            $pieces->add_file($situationid, (string) $data->filenature, (string) $data->filetitle, $copy->path, (string) (
+                $data->filepart ?? ''
+            ));
+        } catch (moodle_exception $e) {
+            $error = $e->getMessage();
+        } finally {
+            // Taken, kept or refused: nothing of the vaeiste stays in the draft area, nor in the copy.
+            draft_upload::discard($itemid, $copy);
+        }
+        redirect(
+            $url,
+            $error ?? get_string('pieceaddedfile', 'tool_vae'),
+            null,
+            $error !== null ? $notify::NOTIFY_ERROR : $notify::NOTIFY_SUCCESS
+        );
+    }
 }
 
 // The annotations (lot 1b): the author takes back their own annotation, even once the consent is withdrawn; a POST with the
@@ -155,6 +186,8 @@ if ($action !== '') {
                 $message = get_string('pieceremoved', 'tool_vae');
                 break;
             case 'attach':
+                // The part concerned is free text ("Page 3 <-> 4" would lose its arrow under PARAM_TEXT): checked by
+                // spiece_manager::clean_part() (width, no control character) and escaped wherever it is shown.
                 $pieces->attach($situationid, required_param('piece', PARAM_INT), optional_param('part', '', PARAM_RAW));
                 break;
             case 'link':
@@ -162,38 +195,21 @@ if ($action !== '') {
                     $situationid,
                     optional_param('nature', '', PARAM_ALPHA),
                     optional_param('title', '', PARAM_TEXT),
+                    // Not PARAM_URL: it empties https://fr.wikipedia.org/wiki/Établissement, an address the plugin accepts.
+                    // piece_manager::validate_url() checks it (http or https, a host, no space, no control character).
                     optional_param('url', '', PARAM_RAW_TRIMMED),
+                    // Free text, checked by spiece_manager::clean_part() and escaped where it is shown.
                     optional_param('part', '', PARAM_RAW)
                 );
                 $warnings = array_map(fn($key) => get_string($key, 'tool_vae'), $row->warnings);
                 $message = trim(get_string('pieceaddedlink', 'tool_vae') . ' ' . implode(' ', $warnings));
                 $level = $warnings ? $notify::NOTIFY_WARNING : $notify::NOTIFY_SUCCESS;
                 break;
-            case 'file':
-                if (!$upload || !is_array($upload) || is_array($upload['error']) || $upload['error'] === UPLOAD_ERR_NO_FILE) {
-                    throw new moodle_exception('errorpiecenofile', 'tool_vae');
-                }
-                if (in_array($upload['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
-                    throw new moodle_exception('errorpiecetoolarge', 'tool_vae', '', display_size($maxbytes));
-                }
-                if ($upload['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($upload['tmp_name'])) {
-                    throw new moodle_exception('errorpiecefile', 'tool_vae');
-                }
-                // The name of the file is never asked for: the piece is stored under an identifier.
-                $pieces->add_file(
-                    $situationid,
-                    optional_param('nature', '', PARAM_ALPHA),
-                    optional_param('title', '', PARAM_TEXT),
-                    $upload['tmp_name'],
-                    optional_param('part', '', PARAM_RAW)
-                );
-                $message = get_string('pieceaddedfile', 'tool_vae');
-                break;
         }
     } catch (moodle_exception $e) {
         $error = $e->getMessage();
     }
-    if (!$confirmdelete && in_array($action, ['delete', 'detach', 'remove', 'attach', 'link', 'file'], true)) {
+    if (!$confirmdelete && in_array($action, ['delete', 'detach', 'remove', 'attach', 'link'], true)) {
         redirect($error !== null ? $url : $target, $error ?? $message, null, $error !== null ? $notify::NOTIFY_ERROR : $level);
     }
 }
@@ -236,9 +252,13 @@ $textform = null;
 if ($editing && !$confirmdelete) {
     // The boxes of the panel say the tags as they were sent when the form comes back with an error, else as they stand.
     $sentdetails = optional_param('_qf__tool_vae_form_situation_details_form', 0, PARAM_INT) && data_submitted();
-    $checked = $sentdetails ? optional_param_array('tags', [], PARAM_RAW_TRIMMED) : $situation->tags;
+    $checked = $sentdetails ? optional_param_array('tags', [], PARAM_ALPHANUM) : $situation->tags;
     $detailsform = new situation_details_form($url->out(false), [
-        'panel' => whereami_panel::render($candidateid, $fichecode, ['boxes' => true, 'checked' => $checked, 'title' => '']),
+        'panel' => new \tool_vae\output\whereami_tree(
+            $candidateid,
+            $fichecode,
+            ['boxes' => true, 'checked' => $checked, 'title' => '']
+        ),
     ]);
     if ($data = $detailsform->get_data()) {
         try {
@@ -248,7 +268,7 @@ if ($editing && !$confirmdelete) {
                 empty($data->periodstart) ? null : (int) $data->periodstart,
                 empty($data->periodend) ? null : (int) $data->periodend,
                 (string) ($data->setting ?? ''),
-                optional_param_array('tags', [], PARAM_RAW_TRIMMED)
+                optional_param_array('tags', [], PARAM_ALPHANUM)
             );
         } catch (moodle_exception $e) {
             $error = $e->getMessage();
@@ -309,98 +329,45 @@ if ($confirmdelete) {
     );
     echo $OUTPUT->footer();
 } else {
-    echo html_writer::tag('p', html_writer::tag('strong', s($fichecode)));
-    echo situation_screen::disclaimer($candidateid);
-    if ($error !== null) {
-        echo $OUTPUT->notification(s($error), $notify::NOTIFY_ERROR);
-    }
-    if ($conflict) {
-        echo $OUTPUT->notification(get_string('errordraftconflict', 'tool_vae'), $notify::NOTIFY_ERROR);
-        echo html_writer::tag('p', s(get_string('draftconflicttextkept', 'tool_vae')));
-        echo html_writer::tag('p', html_writer::link($url, get_string('draftconflictreload', 'tool_vae')));
-    }
-    if ($hiddenmessage !== null) {
-        // Hidden under the vaeiste: said to whoever reads, and what the vaeiste was sending given back, never lost.
-        echo situation_screen::refused($hiddenmessage, $canwrite ? situation_screen::kept_text() : []);
-    } else if ($canwrite && !$open) {
-        // Closed under the vaeiste: said, and what they were sending given back, never lost.
-        echo situation_screen::closed(situation_screen::kept_text());
-    }
-
-    if ($editing) {
-        $detailsform->display();
-        echo html_writer::tag('h3', s(get_string('situationtext', 'tool_vae')), ['class' => 'h5 mt-4']);
-        echo html_writer::tag('p', s($latest !== null
-            ? get_string('sectioncurrentversion', 'tool_vae', (int) $latest->number)
-            : get_string('sectionnoversion', 'tool_vae')));
-        $textform->display();
-        // A live region, not a toast: a screen reader announces it (section.php).
-        echo html_writer::div(
-            $draft->workingat && !$conflict ? s(get_string('draftautosaved', 'tool_vae', userdate((int) $draft->workingat))) : '',
-            'text-muted small',
-            ['id' => 'tool-vae-autosave', 'role' => 'status', 'aria-live' => 'polite']
-        );
-    } else {
-        echo situation_screen::details($situation);
-        echo situation_screen::text($latest, $draft, $context);
-    }
-    echo html_writer::tag('p', html_writer::link($history, get_string('situationversions', 'tool_vae')));
-
-    // The pieces: the vaeiste detaches a piece from this situation, or removes it everywhere; open or closed.
-    $actions = null;
-    if ($mayact) {
-        $actions = function (\stdClass $link) use ($OUTPUT, $url): string {
-            $out = $OUTPUT->single_button(
-                new moodle_url($url, ['action' => 'detach', 'piece' => (int) $link->pieceid]),
-                get_string('spiecedetach', 'tool_vae'),
-                'post'
-            );
-            if ($link->piece->timeremoved === null) {
-                $out .= $OUTPUT->single_button(
-                    new moodle_url($url, ['action' => 'remove', 'piece' => (int) $link->pieceid]),
-                    get_string('pieceremove', 'tool_vae'),
-                    'post'
-                );
-            }
-
-            return $out;
-        };
-    }
+    // The pieces: the vaeiste detaches a piece from this situation, or removes it everywhere; open or closed. Adding one
+    // follows piecesopen: the pieces of the vaeiste on the record not removed and not linked here may be attached.
     $links = $pieces->for_situation($situationid);
-    echo situation_screen::pieces($links, $context, $actions);
+    $attachable = [];
     if ($canadd) {
         $linked = array_map(fn($link) => (int) $link->pieceid, $links);
         $attachable = array_filter(
             $pieces->for_candidate($candidateid, $fichecode),
             fn($piece) => $piece->timeremoved === null && !in_array((int) $piece->id, $linked, true)
         );
-        echo situation_screen::piece_forms($url, $attachable, $maxbytes);
-    } else if ($mayact) {
-        echo $OUTPUT->notification(get_string('piececlosed', 'tool_vae'), $notify::NOTIFY_INFO);
     }
-
-    // The annotations on the situation: under the text, signed and dated, apart from the vaeiste's own voice.
-    if ($noteerror !== null) {
-        echo $OUTPUT->notification(s($noteerror), $notify::NOTIFY_ERROR);
-    }
-    echo note_screen::block(
+    // The code of the record, the sentences, the error, the conflict; the record hidden or the preparation closed under the
+    // vaeiste, said, with what they were sending given back, never lost; the forms or the reading; the versions, the pieces,
+    // the annotations under the text (signed and dated, apart from the vaeiste's own voice), "delete" and the way back.
+    echo $renderer->render(\tool_vae\output\situation_page::situation(
+        $situation,
         $candidateid,
-        note_manager::TARGET_SITUATION,
-        $fichecode,
-        $slot,
-        '',
+        $context,
+        $error,
+        $conflict,
+        $url,
+        $hiddenmessage,
+        $canwrite,
+        $open,
+        situation_screen::kept_text(),
+        $editing,
+        $detailsform,
+        $textform,
+        $latest,
+        $draft,
+        $history,
+        new \tool_vae\output\situation_pieces($links, $context, $mayact ? $url : null),
+        $mayact,
+        $canadd ? new \tool_vae\output\situation_piece_forms($url, $attachable, $fileform) : null,
+        $noteerror,
         $notes->for_target($candidateid, note_manager::TARGET_SITUATION, $fichecode, $slot, ''),
         $canannotate,
-        $noteform ? $noteform->render() : ''
-    );
-
-    if ($editing) {
-        echo $OUTPUT->single_button(
-            new moodle_url($url, ['action' => 'delete']),
-            get_string('situationdelete', 'tool_vae'),
-            'post'
-        );
-    }
-    echo html_writer::tag('p', html_writer::link($listurl, get_string('situationbacklist', 'tool_vae')));
+        $noteform,
+        $listurl
+    ));
     echo $OUTPUT->footer();
 }

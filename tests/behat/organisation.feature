@@ -101,3 +101,20 @@ Feature: The pathway of a candidate is shown to the candidate alone
     When I am on the "candidat" "tool_vae > Dossier" page
     And I press "My pathway"
     Then I should see "Record RNCP36832"
+
+  # Lot 7, wave 4b: the way out of both pages when the competencies are switched off, which the tool of equivalence does
+  # not serve: the error under the heading and the tabs, and nothing of the pathway or of the dossier after it.
+  Scenario: With the competencies switched off, the pathway and the dossier say so and draw nothing else
+    Given the following config values are set as admin:
+      | enabled | 0 | core_competency |
+    And I log in as "candidat"
+    When I am on the "tool_vae > Organisation" page
+    Then I should see "The competency subsystem is switched off on this site."
+    And I should see "My pathway"
+    And I should see "My pathway" in the ".nav-tabs.mb-3 .nav-link.active" "css_element"
+    And I should not see "Record RNCP36832"
+    And "Declare an activity" "button" should not exist
+    When I am on the "candidat" "tool_vae > Dossier" page
+    Then I should see "The competency subsystem is switched off on this site."
+    And I should not see "Night rounds with the care assistant"
+    And "Declare an activity" "button" should not exist

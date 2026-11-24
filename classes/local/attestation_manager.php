@@ -547,7 +547,7 @@ final class attestation_manager {
             'context' => $context,
             'objectid' => $attestationid,
             'relateduserid' => (int) $attestation->attestantid,
-            'other' => ['evidenceid' => (int) $attestation->evidenceid, 'candidateid' => $candidateid],
+            'other' => ['evidenceid' => (int) $attestation->evidenceid, 'candidateid' => $candidateid, 'requestedat' => $now],
         ])->trigger();
 
         return $stored;

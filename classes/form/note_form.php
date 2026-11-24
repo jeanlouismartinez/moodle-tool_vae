@@ -22,6 +22,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 use tool_vae\local\note_manager;
+use tool_vae\output\form_note;
 
 /**
  * Annotating a work situation or a node of the self-positioning of a vaeiste (lot 1b): one text, plain or Markdown.
@@ -41,19 +42,18 @@ class note_form extends \moodleform {
      * Build the form. The target - vaeiste, record, slot or rank - is in the address, not in the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
-        $mform->addElement('html', \html_writer::div(
-            s(get_string('anonymiseshort', 'tool_vae')),
-            'small text-muted mb-2 tool-vae-anonymise',
-            ['id' => self::REMINDER_ID]
-        ));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::short_marked(self::REMINDER_ID)));
         $mform->addElement(
             'textarea',
             'notetext',
             get_string('notetext', 'tool_vae'),
             ['rows' => 5, 'cols' => 70, 'maxlength' => note_manager::MAX_LENGTH, 'aria-describedby' => self::REMINDER_ID]
         );
+        // Free text: PARAM_RAW, as Moodle asks for a text area; checked by its manager and cleaned or escaped when shown.
         $mform->setType('notetext', PARAM_RAW);
 
         $mform->addElement('advcheckbox', 'markdown', get_string('noteformatmarkdown', 'tool_vae'));

@@ -19,7 +19,7 @@ namespace tool_vae;
 use tool_vae\form\declare_form;
 use tool_vae\form\section_form;
 use tool_vae\local\ai_assistant;
-use tool_vae\local\ai_screens;
+use tool_vae\output\ai_page;
 
 /**
  * The screens of the reformulation aid and the button that leads to them (T-70, lot 2).
@@ -35,7 +35,7 @@ use tool_vae\local\ai_screens;
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\ai_screens::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\ai_page::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\form\ai_button::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\ai_assistant::class)]
 final class ai_screens_test extends \advanced_testcase {
@@ -60,10 +60,46 @@ final class ai_screens_test extends \advanced_testcase {
         return new \moodle_url('/admin/tool/vae/section.php', ['section' => 'objectifs']);
     }
 
+    /**
+     * The policy drawn by the renderer of the plugin (lot 7: ai_screens became tool_vae\output\ai_page).
+     *
+     * @param mixed ...$args As ai_page::policy().
+     * @return string HTML.
+     */
+    private static function policy(...$args): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(ai_page::policy(...$args));
+    }
+
+    /**
+     * The confirmation drawn by the renderer of the plugin.
+     *
+     * @param mixed ...$args As ai_page::confirm().
+     * @return string HTML.
+     */
+    private static function confirm(...$args): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(ai_page::confirm(...$args));
+    }
+
+    /**
+     * The result drawn by the renderer of the plugin.
+     *
+     * @param mixed ...$args As ai_page::result().
+     * @return string HTML.
+     */
+    private static function result_screen(...$args): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render(ai_page::result(...$args));
+    }
+
     public function test_the_confirmation_shows_the_exact_text_the_provider_and_the_count(): void {
         $text = "Mon texte.\nDeuxieme ligne.";
         $carried = ['confirm' => 'abc123', 'mark' => 'def456'];
-        $html = ai_screens::confirm($this->params, $text, 'Fournisseur d\'essai', $this->back(), 'Retour', $carried);
+        $html = self::confirm($this->params, $text, 'Fournisseur d\'essai', $this->back(), 'Retour', $carried);
 
         $this->assertStringContainsString('Check what will be sent', $html);
         $this->assertStringContainsString('Fournisseur d&#039;essai', $html);
@@ -90,18 +126,18 @@ final class ai_screens_test extends \advanced_testcase {
     }
 
     public function test_an_empty_or_too_long_text_cannot_be_sent(): void {
-        $empty = ai_screens::confirm($this->params, '', 'Fournisseur', $this->back(), 'Retour');
+        $empty = self::confirm($this->params, '', 'Fournisseur', $this->back(), 'Retour');
         $this->assertStringNotContainsString('Send this text', $empty);
         $this->assertStringContainsString('There is no text to rephrase.', $empty);
 
         $toolong = str_repeat('a', ai_assistant::max_chars() + 1);
-        $long = ai_screens::confirm($this->params, $toolong, 'Fournisseur', $this->back(), 'Retour');
+        $long = self::confirm($this->params, $toolong, 'Fournisseur', $this->back(), 'Retour');
         $this->assertStringNotContainsString('Send this text', $long);
         $this->assertStringContainsString('The text is too long', $long);
         $this->assertStringContainsString('Retour', $long, 'The way out is always there.');
 
         $exact = str_repeat('a', ai_assistant::max_chars());
-        $edge = ai_screens::confirm($this->params, $exact, 'Fournisseur', $this->back(), 'Retour');
+        $edge = self::confirm($this->params, $exact, 'Fournisseur', $this->back(), 'Retour');
         $this->assertStringContainsString('Send this text to Fournisseur', $edge);
     }
 
@@ -110,7 +146,7 @@ final class ai_screens_test extends \advanced_testcase {
      * show too, and that the core records one acceptance of for every place.
      */
     public function test_the_policy_is_the_sites_own_and_carries_the_text_to_the_acceptance(): void {
-        $html = ai_screens::policy($this->params, 'Mon texte.', $this->back(), 'Retour');
+        $html = self::policy($this->params, 'Mon texte.', $this->back(), 'Retour');
 
         $this->assertStringContainsString(s(get_string('aiusagepolicy', 'core_ai')), $html);
         $this->assertStringContainsString('Welcome to the new AI feature!', $html);
@@ -125,7 +161,7 @@ final class ai_screens_test extends \advanced_testcase {
     }
 
     public function test_the_result_sets_the_proposal_next_to_the_original_and_says_to_read_it(): void {
-        $html = ai_screens::result('Une autre formulation.', null, 'Mon texte.', $this->back(), 'Retour');
+        $html = self::result_screen('Une autre formulation.', null, 'Mon texte.', $this->back(), 'Retour');
 
         $this->assertStringContainsString('A proposal, to read', $html);
         $this->assertStringContainsString('read it against your text', $html);
@@ -139,7 +175,7 @@ final class ai_screens_test extends \advanced_testcase {
     }
 
     public function test_without_a_proposal_only_the_plugins_own_words_are_shown(): void {
-        $html = ai_screens::result(null, 'No proposal could be obtained.', 'Mon texte.', $this->back(), 'Retour');
+        $html = self::result_screen(null, 'No proposal could be obtained.', 'Mon texte.', $this->back(), 'Retour');
 
         $this->assertStringContainsString('No proposal could be obtained.', $html);
         $this->assertStringNotContainsString('A proposal, to read', $html);
@@ -149,9 +185,9 @@ final class ai_screens_test extends \advanced_testcase {
     public function test_everything_printed_is_escaped_the_proposal_first(): void {
         $attack = '</textarea><script>alert(1)</script><img src=x onerror=alert(2)>';
 
-        $result = ai_screens::result($attack, null, $attack, $this->back(), 'Retour');
-        $confirm = ai_screens::confirm($this->params, $attack, $attack, $this->back(), 'Retour');
-        $policy = ai_screens::policy($this->params, $attack, $this->back(), 'Retour');
+        $result = self::result_screen($attack, null, $attack, $this->back(), 'Retour');
+        $confirm = self::confirm($this->params, $attack, $attack, $this->back(), 'Retour');
+        $policy = self::policy($this->params, $attack, $this->back(), 'Retour');
 
         foreach ([$result, $confirm, $policy] as $html) {
             $this->assertStringNotContainsString('<script>', $html);
@@ -159,9 +195,9 @@ final class ai_screens_test extends \advanced_testcase {
             $this->assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
         }
         // A provider's name or an error that carries markup is escaped as well.
-        $this->assertStringNotContainsString('<b>', ai_screens::result(null, '<b>x</b>', 'Mon texte.', $this->back(), 'Retour'));
+        $this->assertStringNotContainsString('<b>', self::result_screen(null, '<b>x</b>', 'Mon texte.', $this->back(), 'Retour'));
         $params = ['source' => 'section', 'section' => '"><script>x</script>'];
-        $this->assertStringNotContainsString('<script>x', ai_screens::confirm($params, 'a', 'b', $this->back(), 'Retour'));
+        $this->assertStringNotContainsString('<script>x', self::confirm($params, 'a', 'b', $this->back(), 'Retour'));
     }
 
     public function test_the_text_is_cleaned_the_same_way_for_the_screen_and_the_send(): void {

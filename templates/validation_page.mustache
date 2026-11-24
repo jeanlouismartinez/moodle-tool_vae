@@ -1,0 +1,138 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/validation_page
+
+    The preparation of the validation dossier, under its title, in one of three drawings: the head of every screen (the notice
+    to a reader, the words "not the official dossier", the way to the deposits); the list of the records declared on; or the
+    preparation of one record - its heading, the way back to the list, the notice of a record drawn without its blocs, the
+    panel "where am I", then group by group (each bloc or the record as a whole, with the declarations beside it; the
+    synthesis; the sections of a bloc that left the record) the sections, each with where it stands, the way to write it or
+    to its history and, for a reader, its text; the way back to the dossier. The list of the records is written as
+    html_writer::alist() wrote it, a line break after each item. The parts of a line touch: the template holds on logical
+    lines, each break carried by a comment.
+
+    Every text comes from the context, already worded by tool_vae\output\validation_page. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * nonehtml, noticehtml - a notification drawn by the renderer of the core ('' when none)
+    * headinghtml - a heading drawn by the renderer of the core ('' for a record drawn with no bloc)
+    * panelhtml - the panel drawn by the template tool_vae/whereami_tree ('' when nothing is drawn)
+    * statehtml - the state of the attestations, drawn by the template tool_vae/state_label
+    * declarationhtml - a declaration, drawn by the template tool_vae/declaration
+    * latesthtml, workinghtml - the text of a section, given by format_text() of the core as plain text
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * head - object or null: notice (object: text) or null; labelling; deposit (object: url, text) or null
+    * records - object or null: intro (object: text) or null; nonehtml; list (object: choose, an object (text) or null, and
+      codes, an array of {url, code}) or null; back (url, text)
+    * record - object or null: headinghtml; backtolist (url, text); noticehtml; panelhtml; intro (object: text) or null;
+      groups, an array of {headinghtml, declared, declarations, help, lines}; back (url, text). declared is an object (text)
+      or null; declarations is null or {none, folds}: none an object (text) or null, folds an array of {start, end,
+      statehtml, declarationhtml}; help is an object (text) or null. A line is {label, write, state, history, texts}: write an
+      object (url) or null; history an object (url, text) or null; texts an object (latest: an object (latesthtml) or null;
+      working: an object (notice, workinghtml) or null) or null
+
+    Example context (json):
+    {
+        "head": {
+            "notice": {"text": "This preparation is the vaeiste's own word."},
+            "labelling": "Preparation - not the official dossier",
+            "deposit": {"url": "https://example.com/admin/tool/vae/deposit.php?doctype=validation", "text": "Deposits"}
+        },
+        "records": {
+            "intro": {"text": "Prepare your dossier record by record."},
+            "nonehtml": "",
+            "list": {
+                "choose": {"text": "Choose a record."},
+                "codes": [{"url": "https://example.com/admin/tool/vae/validation.php?fiche=RNCP100", "code": "RNCP100"}]
+            },
+            "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=7", "text": "Back to my dossier"}
+        },
+        "record": {
+            "headinghtml": "<h3>RNCP100</h3>",
+            "backtolist": {"url": "https://example.com/admin/tool/vae/validation.php", "text": "Back to the records"},
+            "noticehtml": "",
+            "panelhtml": "",
+            "intro": null,
+            "groups": [
+                {
+                    "headinghtml": "<h4>BC01 - Bloc 1</h4>",
+                    "declared": {"text": "My declarations"},
+                    "declarations": {
+                        "none": null,
+                        "folds": [
+                            {
+                                "start": "5 January 2026", "end": "20 March 2026", "statehtml": "<span>Attested</span>",
+                                "declarationhtml": "<div>A declaration</div>"
+                            }
+                        ]
+                    },
+                    "help": null,
+                    "lines": [
+                        {
+                            "label": "Describe", "write": {"url": "https://example.com/admin/tool/vae/section.php"},
+                            "state": "Not started", "history": null, "texts": null
+                        },
+                        {
+                            "label": "Link", "write": null, "state": "Version 1",
+                            "history": {"url": "https://example.com/admin/tool/vae/history.php?draftid=3", "text": "History"},
+                            "texts": {
+                                "latest": {"latesthtml": "<div class=\"text_to_html\">The text.</div>"},
+                                "working": {"notice": "Draft in progress", "workinghtml": "<div>The draft.</div>"}
+                            }
+                        }
+                    ]
+                },
+                {
+                    "headinghtml": "<h4>Retired</h4>", "declared": null, "declarations": null, "help": {"text": "Kept."},
+                    "lines": [{"label": "Old", "write": null, "state": "Version 2", "history": null, "texts": null}]
+                }
+            ],
+            "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=7", "text": "Back to my dossier"}
+        }
+    }
+}}
+{{#head}}{{#notice}}<div class="alert alert-info" role="note">{{text}}</div>{{/notice}}{{!
+}}<div class="alert alert-info tool-vae-labelling" role="note">{{labelling}}</div>{{!
+}}{{#deposit}}<p><a href="{{url}}">{{text}}</a></p>{{/deposit}}{{/head}}{{!
+}}{{#records}}{{#intro}}<p>{{text}}</p>{{/intro}}{{{nonehtml}}}{{!
+}}{{#list}}{{#choose}}<p>{{text}}</p>{{/choose}}<ul>
+{{#codes}}<li><a href="{{url}}">{{code}}</a></li>
+{{/codes}}</ul>{{/list}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}{{/records}}{{!
+}}{{#record}}{{{headinghtml}}}{{#backtolist}}<p><a href="{{url}}">{{text}}</a></p>{{/backtolist}}{{!
+}}{{{noticehtml}}}{{{panelhtml}}}{{#intro}}<p>{{text}}</p>{{/intro}}{{!
+}}{{#groups}}{{{headinghtml}}}{{#declared}}<h5 class="h6">{{text}}</h5>{{/declared}}{{!
+}}{{#declarations}}{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{!
+}}{{#folds}}<details class="mb-2"><summary>{{start}} - {{end}} {{{statehtml}}}</summary>{{!
+}}{{{declarationhtml}}}</details>{{/folds}}{{/declarations}}{{!
+}}{{#help}}<p>{{text}}</p>{{/help}}<ul>{{#lines}}{{!
+}}<li>{{#write}}<a href="{{url}}">{{label}}</a>{{/write}}{{^write}}{{label}}{{/write}}{{!
+}} - <span class="text-muted">{{state}}</span>{{#history}} - <a href="{{url}}">{{text}}</a>{{/history}}{{!
+}}{{#texts}}{{#latest}}<div class="mb-2">{{{latesthtml}}}</div>{{/latest}}{{!
+}}{{#working}}<div class="border-start ps-2 mb-2"><p class="text-muted small mb-1">{{notice}}</p>{{!
+}}{{{workinghtml}}}</div>{{/working}}{{/texts}}</li>{{/lines}}</ul>{{/groups}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}{{/record}}

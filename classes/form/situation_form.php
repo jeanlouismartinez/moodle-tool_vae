@@ -22,13 +22,14 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 use tool_vae\local\draft_manager;
+use tool_vae\output\form_note;
 
 /**
  * The text of a work situation (lot 1b): free text with the reminder of the eight prompts, a version at the click.
  *
- * Plain text, as the text of a section is: no editor. The draft in progress is kept by the autosave of the page (autosave.php,
- * by draftid); the button writes a version, through situation_manager, with the snapshot of the details. The anonymisation
- * reminder is above the field, pointed at by aria-describedby, and not dismissible.
+ * Plain text, as the text of a section is: no editor. The draft in progress is kept by the autosave of the page (the external
+ * function tool_vae_save_draft, by draftid); the button writes a version, through situation_manager, with the snapshot of the
+ * details. The anonymisation reminder is above the field, pointed at by aria-describedby, and not dismissible.
  *
  * @package    tool_vae
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
@@ -42,25 +43,20 @@ class situation_form extends \moodleform {
      * Build the form. The situation is in the address, not in the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $mform->addElement('hidden', 'workingat');
         $mform->setType('workingat', PARAM_INT);
 
-        $mform->addElement('html', \html_writer::div(
-            get_string('anonymisereminder', 'tool_vae'),
-            'alert alert-info tool-vae-anonymise',
-            ['id' => self::REMINDER_ID]
-        ));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::reminder(self::REMINDER_ID)));
         // The eight prompts of the Livret 2: a reminder, in the language pack, never separate fields.
-        $mform->addElement('html', \html_writer::tag(
-            'p',
-            s(get_string('situationmemo', 'tool_vae')),
-            ['class' => 'tool-vae-section-help', 'id' => 'tool_vae_situationmemo']
-        ));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::situation_memo()));
         $mform->addElement('textarea', 'content', get_string('situationtext', 'tool_vae'), [
             'rows' => 18, 'cols' => 80, 'aria-describedby' => self::REMINDER_ID . ' tool_vae_situationmemo',
         ]);
+        // Free text: PARAM_RAW, as Moodle asks for a text area; checked by its manager and cleaned or escaped when shown.
         $mform->setType('content', PARAM_RAW);
 
         $this->add_action_buttons(false, get_string('situationsaveversion', 'tool_vae'));

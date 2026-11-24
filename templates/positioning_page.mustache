@@ -1,0 +1,69 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/positioning_page
+
+    The page of a rank, under its heading (certify.php, evaluate.php): the sentence that says a positioning is not a
+    validation, the record and the label of the rank, the error of a send, the competencies of the bloc that are not yet
+    sufficient, the form with its sentence for whoever may write, the heading of the history and the history, the way back
+    to the dossier.
+
+    Every text comes from the context, already worded by tool_vae\output\positioning_page. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * errorhtml - the error of a send, a notification of the core (its message escaped by the class), or empty
+    * alerthtml - the competencies that are not yet sufficient, a notification of the core (its message escaped by the
+      class), or empty
+    * formhtml - the form, drawn by the core (moodleform::render())
+    * historyheadinghtml - the heading of the history, drawn by the core
+    * historyhtml - the history of the rank, drawn by the template tool_vae/positioning_history
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * disclaimer - string, the sentence that says a positioning is not a validation
+    * fichecode, label - string, the record and the label of the rank
+    * errorhtml, alerthtml - string, HTML of the core, or empty
+    * form - object or null: intro (the sentence above the form), formhtml (HTML of the core)
+    * historyheadinghtml, historyhtml - string, HTML of the core and of a template
+    * backurl, back - string, the way back to the dossier
+
+    Example context (json):
+    {
+        "disclaimer": "It is not a validation: only the jury validates, outside this platform.",
+        "fichecode": "RNCP100",
+        "label": "Bloc 1",
+        "errorhtml": "",
+        "alerthtml": "<div class=\"alert alert-warning\">Not yet sufficient: Help to eat</div>",
+        "form": {"intro": "Certify this bloc.", "formhtml": "<form action=\"#\" method=\"post\"><p>The form.</p></form>"},
+        "historyheadinghtml": "<h3>History</h3>",
+        "historyhtml": "<p class=\"text-muted\">No line yet.</p>",
+        "backurl": "https://example.com/admin/tool/vae/dossier.php?userid=7",
+        "back": "Back to the dossier"
+    }
+}}
+<p class="text-muted small">{{disclaimer}}</p>{{!
+}}<p><strong>{{fichecode}}</strong> - {{label}}</p>{{!
+}}{{{errorhtml}}}{{{alerthtml}}}{{#form}}<p>{{intro}}</p>{{{formhtml}}}{{/form}}{{!
+}}{{{historyheadinghtml}}}{{{historyhtml}}}{{!
+}}<p><a href="{{backurl}}">{{back}}</a></p>

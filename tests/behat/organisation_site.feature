@@ -98,7 +98,7 @@ Feature: Whoever may view any dossier reads the configuration of the scheme, and
     When I am on the "tool_vae > Organisation site" page
     Then the following should exist in the "tool-vae-site-powers" table:
       | Right                                                    | Roles that give it | Roles that forbid it |
-      | View any candidate's dossier and the configuration       | Direction VAE      | none                 |
+      | View any vaeiste's dossier and the configuration       | Direction VAE      | none                 |
       | Export a dossier for the panel                           | no role            | Follows a candidate  |
     And I should see "Site administrators hold every right"
 
@@ -129,11 +129,11 @@ Feature: Whoever may view any dossier reads the configuration of the scheme, and
     When I am on the "tool_vae > Organisation" page
     Then "Followed candidates" "link" should exist in the ".nav-tabs.mb-3" "css_element"
     And "Organisation" "link" should not exist in the ".nav-tabs.mb-3" "css_element"
-    And the "suivi" "Organisation site" page should be refused with "Sorry, but you do not currently have permissions to do that (View any candidate's dossier and the configuration of the scheme"
+    And the "suivi" "Organisation site" page should be refused with "Sorry, but you do not currently have permissions to do that (View any vaeiste's dossier and the configuration of the scheme"
 
   Scenario: A candidate is not offered the tab either, and its address is refused
     Given I log in as "candidat"
     When I am on the "tool_vae > Organisation" page
     Then "My pathway" "link" should exist in the ".nav-tabs.mb-3" "css_element"
     And "Organisation" "link" should not exist in the ".nav-tabs.mb-3" "css_element"
-    And the "candidat" "Organisation site" page should be refused with "Sorry, but you do not currently have permissions to do that (View any candidate's dossier and the configuration of the scheme"
+    And the "candidat" "Organisation site" page should be refused with "Sorry, but you do not currently have permissions to do that (View any vaeiste's dossier and the configuration of the scheme"

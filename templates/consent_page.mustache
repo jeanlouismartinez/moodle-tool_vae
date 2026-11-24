@@ -1,0 +1,69 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/consent_page
+
+    The page "Accord pour annoter", below its heading: what the consent is, the people who may receive it with the state of
+    each (or one sentence when there is nobody), the dated history, and the way back to the dossier.
+
+    Every text comes from the context, already worded by tool_vae\output\consent_page. The template holds no logic. Every
+    text and address is escaped (double braces), except one key of HTML made by another template (triple braces):
+    tablehtml, a table drawn by the template tool_vae/table (the names and states in it are escaped by the template
+    tool_vae/cell_content; the buttons are made by the core).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, what the consent is
+    * none - false, or a string: the sentence drawn when nobody may receive the consent
+    * tablehtml - false, or HTML: the table of the people
+    * history - false, or {label, tablehtml}: the heading and the table of the history
+    * back - {url, label}: the way back to the dossier
+
+    Example context (json):
+    {
+        "intro": "You may allow a manager who follows you to annotate your dossier. You may take it back at any time.",
+        "none": false,
+        "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>Marie Lefèvre</td><td>Given</td></tr></tbody></table>",
+        "history": {
+            "label": "History of the consent",
+            "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>Given</td></tr></tbody></table>"
+        },
+        "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=7", "label": "Back to the dossier"}
+    }
+}}
+<p>{{intro}}</p>
+{{#none}}
+<p>{{none}}</p>
+{{/none}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}
+{{#history}}
+<h3>{{label}}</h3>
+{{{tablehtml}}}
+{{/history}}
+{{#back}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/back}}

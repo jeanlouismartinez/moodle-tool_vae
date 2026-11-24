@@ -403,7 +403,8 @@ final class validation_preparation_test extends \advanced_testcase {
         $PAGE = new \moodle_page();
         ob_start();
         try {
-            include(__DIR__ . '/../' . $script);
+            require_once(__DIR__ . '/fixtures/plugin_pages.php');
+            \tool_vae\fixtures\plugin_pages::run($script);
         } finally {
             $out = ob_get_clean();
             $_GET = [];
@@ -582,10 +583,10 @@ final class validation_preparation_test extends \advanced_testcase {
     public function test_the_label_of_a_section_follows_the_document(): void {
         $validation = $this->prepare('RS00000', 'bc02_lier');
         $this->setUser($this->candidate);
-        $faisabilite = (new draft_manager())->section((int) $this->candidate->id, draft_manager::DOCTYPE_FAISABILITE, 'objectifs');
+        $feasibility = (new draft_manager())->section((int) $this->candidate->id, draft_manager::DOCTYPE_FAISABILITE, 'objectifs');
 
         $this->assertSame('Bloc BC02 - Travailler en équipe - Make the link with the bloc', draft_manager::label($validation));
-        $this->assertSame(\tool_vae\local\faisabilite_catalog::label('objectifs', 0), draft_manager::label($faisabilite));
+        $this->assertSame(\tool_vae\local\feasibility_catalog::label('objectifs', 0), draft_manager::label($feasibility));
     }
 
     public function test_a_bloc_that_left_the_record_keeps_its_text_and_is_still_named(): void {

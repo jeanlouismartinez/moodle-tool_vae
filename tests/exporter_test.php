@@ -198,7 +198,7 @@ final class exporter_test extends \advanced_testcase {
      * @param string[] $files
      * @return array Path => decoded claim.
      */
-    private static function preuves(array $files): array {
+    private static function evidence_files(array $files): array {
         $out = [];
         foreach ($files as $path => $content) {
             if (str_starts_with($path, 'preuves/')) {
@@ -346,31 +346,31 @@ final class exporter_test extends \advanced_testcase {
     public function test_claim_has_the_shape_of_the_schema(): void {
         $claim = $this->declare();
         $this->attest($claim);
-        $preuve = self::preuves($this->build())['preuves/' . $claim->uuid . '.json'];
+        $evidence = self::evidence_files($this->build())['preuves/' . $claim->uuid . '.json'];
 
         $this->assertSame(
             ['id', 'personne', 'competence', 'fiche', 'periode', 'cadre', 'situation', 'declaree_le', 'attestations',
                 'correspondances'],
-            array_keys($preuve)
+            array_keys($evidence)
         );
         foreach (['id', 'personne', 'competence'] as $key) {
-            $this->assertMatchesRegularExpression(identity_map::ULID_PATTERN, $preuve[$key], $key);
+            $this->assertMatchesRegularExpression(identity_map::ULID_PATTERN, $evidence[$key], $key);
         }
-        $this->assertSame($claim->uuid, $preuve['id']);
+        $this->assertSame($claim->uuid, $evidence['id']);
         $this->assertSame([
             'code' => 'RNCP36832',
             'rang' => 'C03',
             'mise_a_jour' => gmdate('Y-m-d\TH:i:s\Z', (int) $claim->ficheupdated),
-        ], $preuve['fiche']);
+        ], $evidence['fiche']);
         $this->assertSame([
             'debut' => gmdate('Y-m-d\TH:i:s\Z', (int) $claim->periodstart),
             'fin' => gmdate('Y-m-d\TH:i:s\Z', (int) $claim->periodend),
-        ], $preuve['periode']);
-        $this->assertSame(['type' => 'ehpad', 'precision' => 'Unite protegee, equipe de jour'], $preuve['cadre']);
-        $this->assertSame(['texte' => self::SITUATION, 'format' => 'markdown'], $preuve['situation']);
+        ], $evidence['periode']);
+        $this->assertSame(['type' => 'ehpad', 'precision' => 'Unite protegee, equipe de jour'], $evidence['cadre']);
+        $this->assertSame(['texte' => self::SITUATION, 'format' => 'markdown'], $evidence['situation']);
 
-        $this->assertCount(1, $preuve['attestations']);
-        $attestation = $preuve['attestations'][0];
+        $this->assertCount(1, $evidence['attestations']);
+        $attestation = $evidence['attestations'][0];
         $this->assertSame(['statut', 'id', 'attestant', 'role', 'declaration', 'attestee_le'], array_keys($attestation));
         $this->assertSame('en_vigueur', $attestation['statut']);
         $this->assertSame(identity_map::uuid_for(identity_map::TYPE_USER, (int) $this->manager->id), $attestation['attestant']);
@@ -383,10 +383,10 @@ final class exporter_test extends \advanced_testcase {
 
         $claim = $this->declare();
         $DB->set_field('tool_vae_evidence', 'settingdetail', null, ['id' => $claim->id]);
-        $preuve = self::preuves($this->build())['preuves/' . $claim->uuid . '.json'];
+        $evidence = self::evidence_files($this->build())['preuves/' . $claim->uuid . '.json'];
 
-        $this->assertSame(['type' => 'ehpad'], $preuve['cadre']);
-        $this->assertSame([], $preuve['attestations']);
+        $this->assertSame(['type' => 'ehpad'], $evidence['cadre']);
+        $this->assertSame([], $evidence['attestations']);
     }
 
     public function test_withdrawn_attestation_keeps_only_a_date_and_a_reason(): void {
@@ -398,11 +398,11 @@ final class exporter_test extends \advanced_testcase {
 
         $files = $this->build();
         $text = $files['preuves/' . $claim->uuid . '.json'];
-        $preuve = self::preuves($files)['preuves/' . $claim->uuid . '.json'];
+        $evidence = self::evidence_files($files)['preuves/' . $claim->uuid . '.json'];
 
-        $this->assertSame(['statut', 'retiree_le', 'motif'], array_keys($preuve['attestations'][0]));
-        $this->assertSame('retiree', $preuve['attestations'][0]['statut']);
-        $this->assertSame('contestation', $preuve['attestations'][0]['motif']);
+        $this->assertSame(['statut', 'retiree_le', 'motif'], array_keys($evidence['attestations'][0]));
+        $this->assertSame('retiree', $evidence['attestations'][0]['statut']);
+        $this->assertSame('contestation', $evidence['attestations'][0]['motif']);
 
         // Nothing that designates the signatory: their words, their position, the identifier
         // of the signature, which carries its time, or their ULID and Moodle id.
@@ -416,23 +416,23 @@ final class exporter_test extends \advanced_testcase {
         foreach ($traces as $trace) {
             $this->assertStringNotContainsString($trace, $text);
         }
-        $this->assertNotContains((string) $this->manager->id, array_column($preuve['correspondances'], 'valeur'));
+        $this->assertNotContains((string) $this->manager->id, array_column($evidence['correspondances'], 'valeur'));
     }
 
     public function test_platform_identifiers_appear_only_in_correspondences(): void {
         $this->attest($this->declare());
 
-        foreach (self::preuves($this->build()) as $path => $preuve) {
-            $values = array_column($preuve['correspondances'], 'valeur');
+        foreach (self::evidence_files($this->build()) as $path => $evidence) {
+            $values = array_column($evidence['correspondances'], 'valeur');
             $this->assertContains((string) $this->candidate->id, $values);
             $this->assertContains((string) $this->competencyid, $values);
             $this->assertContains((string) $this->manager->id, $values);
-            foreach ($preuve['correspondances'] as $entry) {
+            foreach ($evidence['correspondances'] as $entry) {
                 $this->assertSame(exporter::SYSTEM, $entry['systeme']);
             }
 
-            unset($preuve['correspondances']);
-            array_walk_recursive($preuve, function ($value, $key) use ($path) {
+            unset($evidence['correspondances']);
+            array_walk_recursive($evidence, function ($value, $key) use ($path) {
                 $this->assertIsNotInt($value, "$path: an integer under '$key' outside correspondances");
             });
         }
@@ -450,7 +450,7 @@ final class exporter_test extends \advanced_testcase {
     private static function printed(array $files): string {
         return pdf_renderer::html(
             json_decode($files['manifeste.json'], true, 512, JSON_THROW_ON_ERROR),
-            array_values(self::preuves($files)),
+            array_values(self::evidence_files($files)),
             json_decode($files['referentiel.json'], true, 512, JSON_THROW_ON_ERROR)
         );
     }
@@ -716,12 +716,12 @@ final class exporter_test extends \advanced_testcase {
         }
     }
 
-    public function test_referentiel_carries_label_licence_and_attribution(): void {
+    public function test_referential_carries_label_licence_and_attribution(): void {
         $this->declare();
-        $referentiel = json_decode($this->build()['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
+        $referential = json_decode($this->build()['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
 
-        $this->assertCount(1, $referentiel['fiches']);
-        $fiche = $referentiel['fiches'][0];
+        $this->assertCount(1, $referential['fiches']);
+        $fiche = $referential['fiches'][0];
         $this->assertSame('RNCP36832', $fiche['code']);
         $this->assertSame('rncp', $fiche['type']);
         $this->assertSame('Licence Ouverte 2.0', $fiche['licence']);
@@ -729,27 +729,30 @@ final class exporter_test extends \advanced_testcase {
         $this->assertNotNull($fiche['mise_a_jour_source']);
 
         $this->assertCount(1, $fiche['competences']);
-        $competence = $fiche['competences'][0];
-        $this->assertSame(identity_map::uuid_for(identity_map::TYPE_COMPETENCY, $this->competencyid), $competence['identifiant']);
-        $this->assertSame('C03', $competence['rang']);
-        $this->assertSame('Competency of an imported record', $competence['intitule']);
-        $this->assertNull($competence['etat']);
+        $archivedcompetency = $fiche['competences'][0];
+        $this->assertSame(
+            identity_map::uuid_for(identity_map::TYPE_COMPETENCY, $this->competencyid),
+            $archivedcompetency['identifiant']
+        );
+        $this->assertSame('C03', $archivedcompetency['rang']);
+        $this->assertSame('Competency of an imported record', $archivedcompetency['intitule']);
+        $this->assertNull($archivedcompetency['etat']);
     }
 
     /**
      * Audit 17: the label of a competency is read where nobody is logged in and where the competencies are switched off.
      *
-     * Before: exporter::referentiel() went through the core's API, whose first act is require_enabled(): with the subsystem
+     * Before: exporter::referential() went through the core's API, whose first act is require_enabled(): with the subsystem
      * off, building the archive - which is what the backup of an uninstall and the erasure of a signatory do - threw
      * `competenciesarenotenabled`.
      */
-    public function test_the_referentiel_is_built_with_the_competencies_switched_off(): void {
+    public function test_the_referential_is_built_with_the_competencies_switched_off(): void {
         $this->declare();
         set_config('enabled', 0, local\competency_gateway::SUBSYSTEM);
 
-        $referentiel = json_decode($this->build()['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
+        $referential = json_decode($this->build()['referentiel.json'], true, 512, JSON_THROW_ON_ERROR);
 
-        $this->assertSame('Competency of an imported record', $referentiel['fiches'][0]['competences'][0]['intitule']);
+        $this->assertSame('Competency of an imported record', $referential['fiches'][0]['competences'][0]['intitule']);
     }
 
     /**
@@ -876,7 +879,7 @@ final class exporter_test extends \advanced_testcase {
         $claims = $DB->get_records('tool_vae_evidence', ['candidateid' => $this->candidate->id], 'timecreated ASC, id ASC');
         $builder = new exporter();
         $files = $builder->build((int) $this->candidate->id, $claims, identity_map::generate_ulid(), time());
-        $this->assertSame('c7', self::preuves($files)['preuves/' . $claim->uuid . '.json']['fiche']['rang']);
+        $this->assertSame('c7', self::evidence_files($files)['preuves/' . $claim->uuid . '.json']['fiche']['rang']);
         $this->assertCount(1, $builder->warnings());
         $this->assertSame('/fiche/rang', $builder->warnings()[0]['field'], 'The first faulty value is named.');
 
@@ -913,8 +916,8 @@ final class exporter_test extends \advanced_testcase {
      * @return string[] Identifier => text.
      */
     private static function strings_of(string $lang): array {
-        $string = [];
-        include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
 
         return $string;
     }
@@ -960,7 +963,9 @@ final class exporter_test extends \advanced_testcase {
             'fr' => '/\b(votre|vos)\b/iu',
         ];
 
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             $strings = self::strings_of($lang);
 
             foreach (['exportintro', 'exportintroother', 'importdossierintro'] as $identifier) {
@@ -989,10 +994,13 @@ final class exporter_test extends \advanced_testcase {
         global $CFG;
 
         $page = file_get_contents($CFG->dirroot . '/admin/tool/vae/export.php');
+        // Since lot 7 the page says who the dossier belongs to, and its class of output words the text accordingly.
+        $words = file_get_contents($CFG->dirroot . '/admin/tool/vae/classes/output/export_page.php');
 
-        $this->assertStringContainsString("'exportintroother'", $page);
-        $this->assertStringContainsString("'exportintro'", $page);
+        $this->assertStringContainsString("'exportintroother'", $words);
+        $this->assertStringContainsString("'exportintro'", $words);
         $this->assertMatchesRegularExpression('/\$candidateid === \(int\) \$USER->id/', $page);
+        $this->assertStringContainsString('export_page::intro($candidateid === (int) $USER->id', $page);
     }
 
     public function test_the_candidate_and_the_direction_may_export_and_nobody_else(): void {

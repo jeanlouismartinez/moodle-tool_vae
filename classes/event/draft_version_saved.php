@@ -79,7 +79,7 @@ class draft_version_saved extends \core\event\base {
     /**
      * Map the object id for restore from a backup. Not restorable.
      *
-     * @return bool
+     * @return false
      */
     public static function get_objectid_mapping() {
         return false;

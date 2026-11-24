@@ -103,6 +103,8 @@ final class referent_manager_test extends \advanced_testcase {
             'competencyid' => (int) $competency, 'periodstart' => 1756684800, 'periodend' => 1782777600,
             'settingtype' => 'ehpad', 'situation' => 'Une situation.', 'situationformat' => FORMAT_PLAIN,
         ]);
+        // The recipients are found from cron (lot 9, ticket 3 of review MMR-520): the task that finds them runs first.
+        $this->runAdhocTasks(\tool_vae\task\queue_notifications::class);
         $names = [];
         $byid = [];
         foreach ($this->managers as $name => $user) {
@@ -165,7 +167,7 @@ final class referent_manager_test extends \advanced_testcase {
         $DB->set_field('competency', 'idnumber', $hostile, ['idnumber' => 'RS00000-BC01']);
         $source = $DB->get_record('tool_vae_source', ['fichecode' => 'RS00000'], '*', MUST_EXIST);
 
-        $this->assertSame(['BC02'], referent_manager::blocs($source));
+        $this->assertSame(['BC02'], referent_manager::bloc_ranks($source));
         $map = referent_manager::bloc_map('RS00000');
         $this->assertArrayNotHasKey('<img src=x onerror=alert(1)>', $map);
         $this->assertSame('', $map['C01'], 'What sat under a bloc that is no bloc any more sits under none.');

@@ -26,6 +26,7 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\competency_gateway;
 use tool_vae\local\course_linker;
+use tool_vae\output\course_link_page;
 
 $courseid = required_param('courseid', PARAM_INT);
 $fichecode = optional_param('fichecode', '', PARAM_ALPHANUMEXT);
@@ -42,12 +43,11 @@ $PAGE->set_pagelayout('incourse');
 $PAGE->set_title(get_string('linkrecord', 'tool_vae'));
 $PAGE->set_heading(format_string($course->fullname, true, ['context' => $context]));
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 if (!competency_gateway::is_subsystem_enabled()) {
     echo $OUTPUT->header();
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(course_link_page::disabled());
     echo $OUTPUT->footer();
     die();
 }
@@ -82,43 +82,5 @@ echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('linkrecord', 'tool_vae'));
 
 $records = $linker->records($courseid);
-if (!$records) {
-    echo $OUTPUT->notification(get_string('linkrecordnone', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-    echo $OUTPUT->footer();
-    die();
-}
-
-echo html_writer::tag('p', s(get_string('linkrecordintro', 'tool_vae')));
-
-$table = new html_table();
-$table->head = [
-    get_string('linkrecordcode', 'tool_vae'),
-    get_string('linkrecordupdated', 'tool_vae'),
-    get_string('linkrecordincourse', 'tool_vae'),
-    '',
-];
-foreach ($records as $record) {
-    $complete = $record->total > 0 && $record->incourse >= $record->total;
-    if ($record->hidden) {
-        // A framework hidden in tool_lp is one the core will not attach: the reason, instead of a button
-        // that ends on an error.
-        $action = html_writer::tag('span', s(get_string('linkrecordhidden', 'tool_vae')), ['class' => 'small text-muted']);
-    } else {
-        $action = $complete ? '' : $OUTPUT->single_button(
-            new moodle_url($url, ['fichecode' => $record->fichecode]),
-            get_string('linkrecordbutton', 'tool_vae'),
-            'post'
-        );
-    }
-    $table->data[] = [
-        s($record->fichecode) . ' (' . s(core_text::strtoupper($record->fichetype)) . ')',
-        $record->sourceupdated ? \tool_vae\local\display_date::format(
-            (int) $record->sourceupdated,
-            get_string('strftimedate', 'langconfig')
-        ) : '-',
-        s(get_string('linkrecordcount', 'tool_vae', $record)),
-        $action,
-    ];
-}
-echo html_writer::table($table);
+echo $renderer->render($records ? course_link_page::records($records, $url) : course_link_page::none());
 echo $OUTPUT->footer();

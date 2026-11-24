@@ -31,6 +31,7 @@ require_once(__DIR__ . '/../../../config.php');
 use tool_vae\form\dossier_import_form;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\dossier_importer;
+use tool_vae\output\import_dossier_page;
 
 require_login();
 
@@ -49,13 +50,11 @@ $PAGE->set_context($context);
 $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('importdossier', 'tool_vae'));
 $PAGE->set_heading(fullname($candidate));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 if (!competency_gateway::is_subsystem_enabled()) {
     echo $OUTPUT->header();
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(import_dossier_page::disabled());
     echo $OUTPUT->footer();
     die();
 }
@@ -122,10 +121,5 @@ if ($form->get_data()) {
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('importdossier', 'tool_vae'));
-echo html_writer::tag('p', s(get_string('importdossierintro', 'tool_vae')));
-echo $OUTPUT->notification(
-    get_string('importdossierwithdrawnotice', 'tool_vae'),
-    \core\output\notification::NOTIFY_WARNING
-);
-$form->display();
+echo $renderer->render(import_dossier_page::form($form));
 echo $OUTPUT->footer();

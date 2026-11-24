@@ -42,9 +42,9 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\competency_gateway;
 use tool_vae\local\draft_manager;
+use tool_vae\local\next_actions;
 use tool_vae\local\organisation;
 use tool_vae\local\organisation_screen;
-use tool_vae\local\presenter;
 use tool_vae\local\scope_manager;
 
 require_login();
@@ -72,7 +72,7 @@ if ($tab === organisation::TAB_SITE) {
         $pathway = organisation::for_candidate($candidateid);
     } else {
         // The bloc is checked against the reader's own list by the class: a value from the address names nothing else.
-        $followed = organisation::followed($candidateid, optional_param('bloc', '', PARAM_RAW));
+        $followed = organisation::followed($candidateid, optional_param('bloc', '', PARAM_TEXT));
     }
 }
 
@@ -95,98 +95,98 @@ if ($tab === organisation::TAB_SITE) {
     $PAGE->set_title(get_string('orgtab' . $tab, 'tool_vae'));
     $PAGE->set_heading(fullname($USER));
 }
+// The link "VAE" of the primary navigation is the active entry on the three tabs (lot S3): the core would not find it alone,
+// since it compares addresses with their parameters and this page always carries its tab. Without the link (a session of "log
+// in as"), the core falls back on its own rule.
+$PAGE->set_primary_active_tab(\tool_vae\hook_callbacks::PRIMARY_NODE_KEY);
 
 echo $OUTPUT->header();
+$renderer = $PAGE->get_renderer('tool_vae');
 // The heading is the label of the tab that is open (conception T-90, § 4.4).
 echo $OUTPUT->heading(get_string('orgtab' . $tab, 'tool_vae'));
-echo $OUTPUT->tabtree(organisation_screen::tabs(organisation::tabs()), $tab);
+// The link "Help" to the guide of the role of the tab (lot S5), near its heading, for whoever may open that guide, then the
+// tabs: drawn by the class of the page, above the tab that is open.
+$guide = new \tool_vae\output\organisation_guide_link($tab);
+$tabs = organisation_screen::tabs(organisation::tabs());
 
 if ($site !== null) {
-    echo organisation_screen::notice(get_string('orgintrosite', 'tool_vae'));
-    echo organisation_screen::site($site);
+    echo $renderer->render(\tool_vae\output\organisation_page::site(
+        $guide,
+        $tabs,
+        $tab,
+        new \tool_vae\output\organisation_site($site)
+    ));
     echo $OUTPUT->footer();
     die();
 }
 
 if ($pathway === null && $followed === null) {
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(\tool_vae\output\organisation_page::disabled($guide, $tabs, $tab));
     echo $OUTPUT->footer();
     die();
 }
 
 if ($followed !== null) {
+    // What the manager can do now (lot S2): over every followed vaeiste, whatever bloc the table below is limited to.
     // No button of action on this tab: the names lead to the dossiers, which carry their own rights.
-    echo organisation_screen::notice(get_string('orgintrofollowed', 'tool_vae'));
-    echo organisation_screen::followed($followed, $url);
+    echo $renderer->render(\tool_vae\output\organisation_page::followed(
+        $guide,
+        $tabs,
+        $tab,
+        \tool_vae\output\next_actions::manager(next_actions::for_manager(array_keys($followed->candidates))),
+        new \tool_vae\output\organisation_followed($followed, $url)
+    ));
     echo $OUTPUT->footer();
     die();
 }
+
+// What the vaeiste can do now (lot S2), on their own dossier, before the tables.
+$actions = \tool_vae\output\next_actions::candidate(next_actions::for_vaeiste($candidateid));
 
 // The preparation of the validation dossier: one's own, offered on the same conditions as on the dossier.
 $mayvalidate = $pathway->declared && draft_manager::can_write($candidateid) && draft_manager::validation_open();
 
 if (!$pathway->declared && !$pathway->planned) {
-    echo organisation_screen::nothing($pathway);
+    $body = [\tool_vae\output\organisation_notice::nothing($pathway)];
 } else {
+    $body = [];
     // The introduction speaks of the tables: a pathway of records only a plan names has none.
     if ($pathway->declared) {
         $intro = get_string('orgintromine', 'tool_vae');
         if ($mayvalidate) {
             $intro .= ' ' . get_string('orgintrovalidation', 'tool_vae');
         }
-        echo organisation_screen::notice($intro);
+        $body[] = new \tool_vae\output\organisation_notice($intro);
     }
-    echo organisation_screen::mine($pathway);
+    $body[] = new \tool_vae\output\organisation_pathway($pathway);
 }
 
 // What the candidate says is outside their activity (T-42), apart from the counts.
 $maydeclare = has_capability('tool/vae:declare', $context);
-echo presenter::scope_box(
+$scope = new \tool_vae\output\scope_box(
     $pathway->marks,
     scope_manager::labels($pathway->marks),
     $maydeclare,
     !empty(get_config('tool_vae', 'scopeopen'))
 );
 
-if ($maydeclare) {
-    echo $OUTPUT->single_button(
-        new moodle_url('/admin/tool/vae/declare.php'),
-        get_string('declareheading', 'tool_vae'),
-        'get'
-    );
-}
-// Positioning oneself on the nodes of a record (lot 1a): the vaeiste's own word, open at any time, with or without a declaration.
-if (\tool_vae\local\selfpos_manager::can_write($candidateid)) {
-    echo $OUTPUT->single_button(
-        \tool_vae\local\selfpos_screen::url($candidateid),
-        get_string('selfposlink', 'tool_vae'),
-        'get'
-    );
-}
-// The work situations of the vaeiste (lot 1b): their own account of their work, with or without a declaration.
-if (\tool_vae\local\situation_manager::can_write($candidateid)) {
-    echo $OUTPUT->single_button(
-        \tool_vae\local\situation_screen::url($candidateid),
-        get_string('situationslink', 'tool_vae'),
-        'get'
-    );
-}
-if ($pathway->declared || $pathway->planned) {
-    echo $OUTPUT->single_button(
-        new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]),
-        get_string('mydossier', 'tool_vae'),
-        'get'
-    );
-}
-if ($mayvalidate) {
-    echo $OUTPUT->single_button(
-        new moodle_url('/admin/tool/vae/validation.php'),
-        get_string('validationtitle', 'tool_vae'),
-        'get'
-    );
-}
+// The buttons, each by its address under its own condition, null when it is not offered.
+$buttons = [
+    'declare' => $maydeclare ? new moodle_url('/admin/tool/vae/declare.php') : null,
+    // Positioning oneself on the nodes of a record (lot 1a): the vaeiste's own word, open at any time, with or without a
+    // declaration.
+    'selfpos' => \tool_vae\local\selfpos_manager::can_write($candidateid)
+        ? \tool_vae\local\selfpos_screen::url($candidateid)
+        : null,
+    // The work situations of the vaeiste (lot 1b): their own account of their work, with or without a declaration.
+    'situations' => \tool_vae\local\situation_manager::can_write($candidateid)
+        ? \tool_vae\local\situation_screen::url($candidateid)
+        : null,
+    'dossier' => $pathway->declared || $pathway->planned
+        ? new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid])
+        : null,
+    'validation' => $mayvalidate ? new moodle_url('/admin/tool/vae/validation.php') : null,
+];
 
+echo $renderer->render(\tool_vae\output\organisation_page::mine($guide, $tabs, $tab, $actions, $body, $scope, $buttons));
 echo $OUTPUT->footer();

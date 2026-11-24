@@ -1,0 +1,50 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/positioning_structure
+
+    The archive of the structure in the dossier: a paragraph that says which archive is in place, followed by the link that
+    downloads it; a paragraph with the button that produces a new one. Each only for whoever may.
+
+    Every text comes from the context, already worded by tool_vae\output\positioning_structure. The template holds no logic.
+    Every value is escaped (double braces): none of them is HTML.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * current - object or null: text (which archive is in place), url and label (the link that downloads it)
+    * issue - object or null: url and label (the button that produces a new archive)
+
+    Example context (json):
+    {
+        "current": {
+            "text": "Archive of the structure in place: produced on 4 November 2026, number 01JB0000000000000000000000.",
+            "url": "https://example.com/pluginfile.php/5/tool_vae/structurearchive/0/structure.pdf?forcedownload=1",
+            "label": "Download it"
+        },
+        "issue": {"url": "https://example.com/admin/tool/vae/structure.php?userid=7", "label": "Produce the archive"}
+    }
+}}
+{{#current}}<p>{{text}} <a href="{{url}}">{{label}}</a></p>{{/current}}{{!
+}}{{#issue}}<p><a href="{{url}}" class="btn btn-secondary">{{label}}</a></p>{{/issue}}

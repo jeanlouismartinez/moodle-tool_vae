@@ -17,6 +17,7 @@
 namespace tool_vae\local;
 
 use tool_vae\event\dossier_imported;
+use tool_vae\output\text_list;
 
 /**
  * Rebuilding a dossier from the normative archive - the second half of lot 8.
@@ -350,23 +351,23 @@ final class dossier_importer {
             throw new \moodle_exception('errorarchiveempty', 'tool_vae');
         }
 
-        $personne = $manifest->candidat->identifiant;
+        $person = $manifest->candidat->identifiant;
         $competencies = [];
         $named = [];
         $claims = [];
         $attestationids = [];
         foreach (array_keys($claimpaths) as $path) {
-            $preuve = $this->preuve($path, $files[$path]);
+            $evidence = $this->evidence_from($path, $files[$path]);
 
-            if ($preuve->personne !== $personne) {
+            if ($evidence->personne !== $person) {
                 throw new \moodle_exception('errorarchiveperson', 'tool_vae', '', $path);
             }
-            if ($DB->record_exists('tool_vae_evidence', ['uuid' => $preuve->id])) {
-                throw new \moodle_exception('errorarchiveexists', 'tool_vae', '', $preuve->id);
+            if ($DB->record_exists('tool_vae_evidence', ['uuid' => $evidence->id])) {
+                throw new \moodle_exception('errorarchiveexists', 'tool_vae', '', $evidence->id);
             }
 
             $inforce = 0;
-            foreach ($preuve->attestations as $attestation) {
+            foreach ($evidence->attestations as $attestation) {
                 if ($attestation->statut !== 'en_vigueur') {
                     continue;
                 }
@@ -374,11 +375,11 @@ final class dossier_importer {
                 // What attestation_manager::attest() refuses on this site, an archive cannot bring
                 // in: a candidate attesting their own claim, or a claim carrying two
                 // attestations in force.
-                if ($attestation->attestant === $personne) {
-                    throw new \moodle_exception('errorarchiveattestown', 'tool_vae', '', $preuve->id);
+                if ($attestation->attestant === $person) {
+                    throw new \moodle_exception('errorarchiveattestown', 'tool_vae', '', $evidence->id);
                 }
                 if (++$inforce > 1) {
-                    throw new \moodle_exception('errorarchiveattestmany', 'tool_vae', '', $preuve->id);
+                    throw new \moodle_exception('errorarchiveattestmany', 'tool_vae', '', $evidence->id);
                 }
 
                 if (
@@ -390,7 +391,7 @@ final class dossier_importer {
                 $attestationids[$attestation->id] = true;
             }
 
-            $local = $this->local_competency($preuve->fiche->code, $preuve->fiche->rang);
+            $local = $this->local_competency($evidence->fiche->code, $evidence->fiche->rang);
             $competencyid = (int) $local->id;
 
             // One ULID, one competency, both ways round. An archive naming two competencies by
@@ -398,21 +399,21 @@ final class dossier_importer {
             // choosing which of its statements to believe.
             $known = array_search($competencyid, $competencies, true);
             if (
-                (isset($competencies[$preuve->competence]) && $competencies[$preuve->competence] !== $competencyid)
-                || ($known !== false && $known !== $preuve->competence)
+                (isset($competencies[$evidence->competence]) && $competencies[$evidence->competence] !== $competencyid)
+                || ($known !== false && $known !== $evidence->competence)
             ) {
-                throw new \moodle_exception('errorarchivecompetencymismatch', 'tool_vae', '', $preuve->competence);
+                throw new \moodle_exception('errorarchivecompetencymismatch', 'tool_vae', '', $evidence->competence);
             }
 
             // What each competency is called here is kept for the refusal below: its code and rank as the archive writes them
             // (the site's own, since that is how it was found) and the name this site gives it.
             $named[$competencyid] ??= (object) [
-                'name' => $preuve->fiche->code . '-' . $preuve->fiche->rang,
+                'name' => $evidence->fiche->code . '-' . $evidence->fiche->rang,
                 'label' => (string) $local->label,
             ];
-            $competencies[$preuve->competence] = $competencyid;
+            $competencies[$evidence->competence] = $competencyid;
 
-            $claims[] = (object) ['preuve' => $preuve, 'competencyid' => $competencyid];
+            $claims[] = (object) ['preuve' => $evidence, 'competencyid' => $competencyid];
         }
 
         // WHAT write() WOULD REFUSE, SAID HERE, ONCE FOR EVERY COMPETENCY. write() gives each competency the identifier the
@@ -429,11 +430,11 @@ final class dossier_importer {
         return (object) [
             'archive' => $manifest->archive,
             'foreign' => $issued === false,
-            'personne' => $personne,
+            'personne' => $person,
             'competencies' => $competencies,
             'named' => $named,
             'claims' => $claims,
-            'rubriques' => $this->rubriques($files),
+            'rubriques' => $this->faisabilite_sections($files),
             'validation' => $this->validation($files),
             'reflexion' => $this->reflexion($files),
             'scope' => $this->scope($files),
@@ -484,33 +485,36 @@ final class dossier_importer {
      * What the refusal of an archive that numbers competencies differently carries: how many, and which.
      *
      * The list is in the order of the codes (BC01 before BC10), HELD_LISTED of them at most and then how many more, each with
-     * the name this site gives it so that the administrator can tell whether it is the same competency. It is HTML, built here:
-     * the refusal is shown as HTML, and every text in it is escaped - a record code and a label are what an administrator typed
-     * into the framework, or what an import wrote from a file.
+     * the name this site gives it so that the administrator can tell whether it is the same competency. It is HTML, drawn by
+     * the template of tool_vae\output\text_list (lot 7, wave 4c): the refusal is shown as HTML, and every line in it is
+     * escaped there - a record code and a label are what an administrator typed into the framework, or what an import wrote
+     * from a file. The lines are worded here as plain text.
      *
      * @param \stdClass[] $held Each with name (`code-rank`) and label (the name this site gives it).
      * @return \stdClass count, how many in all; list, the HTML. Last, so that nothing a label holds is read for a placeholder.
      */
     private static function describe_held(array $held): \stdClass {
+        global $PAGE;
+
         usort($held, fn($first, $second) => strnatcmp($first->name, $second->name));
 
         $items = [];
         foreach (array_slice($held, 0, self::HELD_LISTED) as $competency) {
             $label = self::tidy_label($competency->label);
             if ($label === '') {
-                $items[] = s($competency->name);
+                $items[] = $competency->name;
                 continue;
             }
             $items[] = get_string('errorarchivecompetencyheldone', 'tool_vae', (object) [
-                'name' => s($competency->name),
-                'label' => s($label),
+                'name' => $competency->name,
+                'label' => $label,
             ]);
         }
         if (count($held) > self::HELD_LISTED) {
             $items[] = get_string('errorarchivecompetencyheldmore', 'tool_vae', count($held) - self::HELD_LISTED);
         }
 
-        return (object) ['count' => count($held), 'list' => \html_writer::alist($items)];
+        return (object) ['count' => count($held), 'list' => $PAGE->get_renderer('tool_vae')->render(new text_list($items))];
     }
 
     /**
@@ -545,22 +549,22 @@ final class dossier_importer {
         }
 
         $sources = [];
-        foreach ($byid as $preuve) {
-            if (!isset($preuve->reportee_depuis)) {
+        foreach ($byid as $evidence) {
+            if (!isset($evidence->reportee_depuis)) {
                 continue;
             }
-            $from = $preuve->reportee_depuis;
-            if (!isset($byid[$from]) || $byid[$from]->fiche->code === $preuve->fiche->code || isset($sources[$from])) {
-                throw new \moodle_exception('errorarchivefiliation', 'tool_vae', '', $preuve->id);
+            $from = $evidence->reportee_depuis;
+            if (!isset($byid[$from]) || $byid[$from]->fiche->code === $evidence->fiche->code || isset($sources[$from])) {
+                throw new \moodle_exception('errorarchivefiliation', 'tool_vae', '', $evidence->id);
             }
             $sources[$from] = true;
         }
 
-        foreach ($byid as $preuve) {
+        foreach ($byid as $evidence) {
             $seen = [];
-            for ($step = $preuve; isset($step->reportee_depuis); $step = $byid[$step->reportee_depuis]) {
+            for ($step = $evidence; isset($step->reportee_depuis); $step = $byid[$step->reportee_depuis]) {
                 if (isset($seen[$step->id])) {
-                    throw new \moodle_exception('errorarchivefiliation', 'tool_vae', '', $preuve->id);
+                    throw new \moodle_exception('errorarchivefiliation', 'tool_vae', '', $evidence->id);
                 }
                 $seen[$step->id] = true;
             }
@@ -580,7 +584,7 @@ final class dossier_importer {
      * @param string[] $files path => content, already checked against the manifest.
      * @return \stdClass[] code, slot, content, savedat.
      */
-    private function rubriques(array $files): array {
+    private function faisabilite_sections(array $files): array {
         if (!isset($files[exporter::FAISABILITE_PATH])) {
             return [];
         }
@@ -595,15 +599,15 @@ final class dossier_importer {
             throw new \moodle_exception('errorarchivefaisabilite', 'tool_vae', '', s(reset($errors)));
         }
 
-        $rubriques = [];
+        $sections = [];
         $seen = [];
-        foreach ($data->rubriques as $index => $rubrique) {
-            $code = $rubrique->code;
-            $slot = $rubrique->emplacement;
+        foreach ($data->rubriques as $index => $section) {
+            $code = $section->code;
+            $slot = $section->emplacement;
             $address = $code . '/' . $slot;
             if (
-                faisabilite_catalog::kind($code) !== faisabilite_catalog::KIND_TEXT
-                || !faisabilite_catalog::valid_address($code, $slot)
+                feasibility_catalog::kind($code) !== feasibility_catalog::KIND_TEXT
+                || !feasibility_catalog::valid_address($code, $slot)
                 || isset($seen[$address])
             ) {
                 throw new \moodle_exception(
@@ -615,15 +619,15 @@ final class dossier_importer {
             }
             $seen[$address] = true;
 
-            $rubriques[] = (object) [
+            $sections[] = (object) [
                 'code' => $code,
                 'slot' => $slot,
-                'content' => $rubrique->texte,
-                'savedat' => self::timestamp($rubrique->enregistree_le),
+                'content' => $section->texte,
+                'savedat' => self::timestamp($section->enregistree_le),
             ];
         }
 
-        return $rubriques;
+        return $sections;
     }
 
     /**
@@ -657,25 +661,25 @@ final class dossier_importer {
 
         $out = [];
         $seen = [];
-        foreach ($data->rubriques as $index => $rubrique) {
-            $where = "/rubriques/$index " . $rubrique->fiche . ' ' . $rubrique->code;
-            $parsed = validation_catalog::parse($rubrique->code);
-            $source = $DB->get_record('tool_vae_source', ['fichecode' => $rubrique->fiche]);
+        foreach ($data->rubriques as $index => $section) {
+            $where = "/rubriques/$index " . $section->fiche . ' ' . $section->code;
+            $parsed = validation_catalog::parse($section->code);
+            $source = $DB->get_record('tool_vae_source', ['fichecode' => $section->fiche]);
             $blocok = $parsed !== null && ($parsed[0] === ''
-                ? $rubrique->bloc === null
-                : $rubrique->bloc !== null && strtolower($rubrique->bloc) === $parsed[0]);
-            $consistent = $blocok && $parsed[1] === $rubrique->partie;
-            $key = $rubrique->fiche . '/' . $rubrique->code;
-            if (!$consistent || !$source || $source->fichecode !== $rubrique->fiche || isset($seen[$key])) {
+                ? $section->bloc === null
+                : $section->bloc !== null && strtolower($section->bloc) === $parsed[0]);
+            $consistent = $blocok && $parsed[1] === $section->partie;
+            $key = $section->fiche . '/' . $section->code;
+            if (!$consistent || !$source || $source->fichecode !== $section->fiche || isset($seen[$key])) {
                 throw new \moodle_exception('errorarchivevalidation', 'tool_vae', '', $where);
             }
             $seen[$key] = true;
 
             $out[] = (object) [
-                'fiche' => $rubrique->fiche,
-                'code' => $rubrique->code,
-                'content' => $rubrique->texte,
-                'savedat' => self::timestamp($rubrique->enregistree_le),
+                'fiche' => $section->fiche,
+                'code' => $section->code,
+                'content' => $section->texte,
+                'savedat' => self::timestamp($section->enregistree_le),
             ];
         }
 
@@ -1730,36 +1734,41 @@ final class dossier_importer {
      * The errors of one claim, empty when it may be imported.
      *
      * The schema, then what the schema cannot say: the end of the period after its start, and
-     * identifiers this plugin can store.
+     * identifiers this plugin can store. Each error is a sentence of the language file, in the language of the page, as
+     * the validator writes its own (schema_validator::message()): the first one is shown to the person who imports.
      *
-     * @param mixed $preuve The decoded claim.
+     * @param mixed $evidence The decoded claim.
      * @return string[]
      */
-    public function preuve_errors($preuve): array {
-        $errors = $this->validator->validate($preuve);
+    public function evidence_errors($evidence): array {
+        $errors = $this->validator->validate($evidence);
         if ($errors) {
             return $errors;
         }
 
-        if (self::timestamp($preuve->periode->fin) < self::timestamp($preuve->periode->debut)) {
-            $errors[] = '/periode ends before it starts';
+        if (self::timestamp($evidence->periode->fin) < self::timestamp($evidence->periode->debut)) {
+            $errors[] = get_string('schemaerrorperiodorder', 'tool_vae', (object) ['pointer' => '/periode']);
         }
 
         // The filiation (T-30, lot 3) is both fields or neither, and a claim is not carried over from itself.
-        if (isset($preuve->reportee_depuis) !== isset($preuve->reportee_le)) {
-            $errors[] = '/reportee_depuis and /reportee_le go together';
-        } else if (isset($preuve->reportee_depuis) && $preuve->reportee_depuis === $preuve->id) {
-            $errors[] = '/reportee_depuis names the claim itself';
+        if (isset($evidence->reportee_depuis) !== isset($evidence->reportee_le)) {
+            $errors[] = get_string(
+                'schemaerrorfiliationpair',
+                'tool_vae',
+                (object) ['pointer' => '/reportee_depuis', 'other' => '/reportee_le']
+            );
+        } else if (isset($evidence->reportee_depuis) && $evidence->reportee_depuis === $evidence->id) {
+            $errors[] = get_string('schemaerrorfiliationself', 'tool_vae', (object) ['pointer' => '/reportee_depuis']);
         }
 
-        $identifiers = ['/id' => $preuve->id, '/personne' => $preuve->personne, '/competence' => $preuve->competence];
-        if (isset($preuve->reportee_depuis)) {
-            $identifiers['/reportee_depuis'] = $preuve->reportee_depuis;
+        $identifiers = ['/id' => $evidence->id, '/personne' => $evidence->personne, '/competence' => $evidence->competence];
+        if (isset($evidence->reportee_depuis)) {
+            $identifiers['/reportee_depuis'] = $evidence->reportee_depuis;
         }
-        if (isset($preuve->structure)) {
-            $identifiers['/structure'] = $preuve->structure;
+        if (isset($evidence->structure)) {
+            $identifiers['/structure'] = $evidence->structure;
         }
-        foreach ($preuve->attestations as $index => $attestation) {
+        foreach ($evidence->attestations as $index => $attestation) {
             if ($attestation->statut === 'en_vigueur') {
                 $identifiers["/attestations/$index/id"] = $attestation->id;
                 $identifiers["/attestations/$index/attestant"] = $attestation->attestant;
@@ -1767,7 +1776,7 @@ final class dossier_importer {
         }
         foreach ($identifiers as $pointer => $identifier) {
             if (!identity_map::is_valid_ulid($identifier)) {
-                $errors[] = "$pointer is a UUID v4, which this plugin does not store";
+                $errors[] = get_string('schemaerroruuid', 'tool_vae', (object) ['pointer' => $pointer]);
             }
         }
 
@@ -1823,42 +1832,42 @@ final class dossier_importer {
             }
 
             foreach ($plan->claims as $claim) {
-                $preuve = $claim->preuve;
-                $periodstart = self::timestamp($preuve->periode->debut);
-                $periodend = self::timestamp($preuve->periode->fin);
+                $evidence = $claim->preuve;
+                $periodstart = self::timestamp($evidence->periode->debut);
+                $periodend = self::timestamp($evidence->periode->fin);
 
                 // The label is the one this site would write, in this site's time zone: it is a
                 // core record of this site. What the panel reads is the claim, carried intact.
-                $corelabel = evidence_manager::label_for($preuve->fiche->code, $preuve->fiche->rang, $periodstart, $periodend);
+                $corelabel = evidence_manager::label_for($evidence->fiche->code, $evidence->fiche->rang, $periodstart, $periodend);
 
                 $userevidenceid = $this->gateway->create_evidence($candidateid, $corelabel);
                 $this->gateway->link_to_competency($userevidenceid, $claim->competencyid);
 
                 $evidenceid = $DB->insert_record('tool_vae_evidence', (object) [
-                    'uuid' => $preuve->id,
+                    'uuid' => $evidence->id,
                     'userevidenceid' => $userevidenceid,
                     'candidateid' => $candidateid,
                     'periodstart' => $periodstart,
                     'periodend' => $periodend,
-                    'settingtype' => $preuve->cadre->type,
-                    'settingdetail' => $preuve->cadre->precision ?? null,
-                    'situation' => $preuve->situation->texte,
-                    'situationformat' => (int) ($preuve->situation->format === 'markdown' ? FORMAT_MARKDOWN : FORMAT_PLAIN),
-                    'fichecode' => $preuve->fiche->code,
-                    'ficherang' => $preuve->fiche->rang,
+                    'settingtype' => $evidence->cadre->type,
+                    'settingdetail' => $evidence->cadre->precision ?? null,
+                    'situation' => $evidence->situation->texte,
+                    'situationformat' => (int) ($evidence->situation->format === 'markdown' ? FORMAT_MARKDOWN : FORMAT_PLAIN),
+                    'fichecode' => $evidence->fiche->code,
+                    'ficherang' => $evidence->fiche->rang,
                     // The version of the record AT THE TIME OF THE CLAIM, as the archive states
                     // it - not the version this site imported, which may be later.
-                    'ficheupdated' => self::timestamp($preuve->fiche->mise_a_jour),
+                    'ficheupdated' => self::timestamp($evidence->fiche->mise_a_jour),
                     'corelabel' => $corelabel,
                     'competencyid' => $claim->competencyid,
-                    'timecreated' => self::timestamp($preuve->declaree_le),
+                    'timecreated' => self::timestamp($evidence->declaree_le),
                     'timemodified' => $now,
                     'usermodified' => (int) $USER->id,
                 ]);
                 $declarations++;
-                $written[$preuve->id] = (object) ['id' => $evidenceid, 'competencyid' => $claim->competencyid];
+                $written[$evidence->id] = (object) ['id' => $evidenceid, 'competencyid' => $claim->competencyid];
 
-                foreach ($preuve->attestations as $attestation) {
+                foreach ($evidence->attestations as $attestation) {
                     $attestid = $DB->insert_record('tool_vae_attest', self::attestation_row($attestation, $evidenceid, $now));
                     if ($attestation->statut === 'en_vigueur') {
                         $attestids[$attestation->id] = (int) $attestid;
@@ -1870,19 +1879,19 @@ final class dossier_importer {
             // The filiations (T-30, lot 3), once every claim is written. Who decided the correspondence and the
             // note never travel in an archive: the trace comes back without them, as after an erasure.
             foreach ($plan->claims as $claim) {
-                $preuve = $claim->preuve;
-                if (!isset($preuve->reportee_depuis)) {
+                $evidence = $claim->preuve;
+                if (!isset($evidence->reportee_depuis)) {
                     continue;
                 }
                 $DB->insert_record('tool_vae_carry', (object) [
-                    'oldevidenceid' => (int) $written[$preuve->reportee_depuis]->id,
-                    'newevidenceid' => (int) $written[$preuve->id]->id,
-                    'fromcompetencyid' => (int) $written[$preuve->reportee_depuis]->competencyid,
-                    'tocompetencyid' => (int) $written[$preuve->id]->competencyid,
+                    'oldevidenceid' => (int) $written[$evidence->reportee_depuis]->id,
+                    'newevidenceid' => (int) $written[$evidence->id]->id,
+                    'fromcompetencyid' => (int) $written[$evidence->reportee_depuis]->competencyid,
+                    'tocompetencyid' => (int) $written[$evidence->id]->competencyid,
                     'decidedby' => 0,
                     'decidedat' => 0,
                     'note' => '',
-                    'carriedat' => self::timestamp($preuve->reportee_le),
+                    'carriedat' => self::timestamp($evidence->reportee_le),
                 ]);
             }
 
@@ -1890,13 +1899,13 @@ final class dossier_importer {
             // it is, the others come back as their version 1 (T-44, T-10 lot 4b).
             $drafts = new draft_manager();
             $note = get_string('faisabimportnote', 'tool_vae', $plan->archive);
-            foreach ($plan->rubriques as $rubrique) {
+            foreach ($plan->rubriques as $section) {
                 $version = $drafts->restore_from_archive(
                     $candidateid,
-                    $rubrique->code,
-                    $rubrique->slot,
-                    $rubrique->content,
-                    $rubrique->savedat,
+                    $section->code,
+                    $section->slot,
+                    $section->content,
+                    $section->savedat,
                     $note
                 );
                 if ($version === null) {
@@ -1908,16 +1917,16 @@ final class dossier_importer {
 
             // The preparation of the validation dossier: the same rule, a section already written here stays as it is.
             $preparation = get_string('validationimportnote', 'tool_vae', $plan->archive);
-            foreach ($plan->validation as $rubrique) {
+            foreach ($plan->validation as $section) {
                 $version = $drafts->restore_from_archive(
                     $candidateid,
-                    $rubrique->code,
+                    $section->code,
                     0,
-                    $rubrique->content,
-                    $rubrique->savedat,
+                    $section->content,
+                    $section->savedat,
                     $preparation,
                     draft_manager::DOCTYPE_VALIDATION,
-                    $rubrique->fiche
+                    $section->fiche
                 );
                 if ($version === null) {
                     $validationkept++;
@@ -2171,8 +2180,8 @@ final class dossier_importer {
         if (!is_string($manifest->archive ?? null) || !identity_map::is_valid_ulid($manifest->archive)) {
             throw new \moodle_exception('errorarchivemanifest', 'tool_vae', '', 'archive');
         }
-        $personne = $manifest->candidat->identifiant ?? null;
-        if (!is_string($personne) || !identity_map::is_valid_ulid($personne)) {
+        $person = $manifest->candidat->identifiant ?? null;
+        if (!is_string($person) || !identity_map::is_valid_ulid($person)) {
             throw new \moodle_exception('errorarchivemanifest', 'tool_vae', '', 'candidat');
         }
         foreach (['preuves', 'fichiers'] as $field) {
@@ -2236,17 +2245,17 @@ final class dossier_importer {
      * @param string $content
      * @return \stdClass
      */
-    private function preuve(string $path, string $content): \stdClass {
+    private function evidence_from(string $path, string $content): \stdClass {
         try {
-            $preuve = json_decode($content, false, 512, JSON_THROW_ON_ERROR);
+            $evidence = json_decode($content, false, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
             throw new \moodle_exception('errorarchiveschema', 'tool_vae', '', (object) [
                 'file' => $path,
-                'error' => 'not JSON',
+                'error' => get_string('schemaerrornotjson', 'tool_vae'),
             ]);
         }
 
-        $errors = $this->preuve_errors($preuve);
+        $errors = $this->evidence_errors($evidence);
         if ($errors) {
             throw new \moodle_exception('errorarchiveschema', 'tool_vae', '', (object) [
                 'file' => $path,
@@ -2257,11 +2266,11 @@ final class dossier_importer {
         // The file is named after the claim it holds. A claim filed under another claim's name is
         // a sign of an archive put together by hand.
         preg_match(self::CLAIM_PATH, $path, $matches);
-        if ($preuve->id !== $matches[1]) {
+        if ($evidence->id !== $matches[1]) {
             throw new \moodle_exception('errorarchivefiles', 'tool_vae', '', s($path));
         }
 
-        return $preuve;
+        return $evidence;
     }
 
     /**

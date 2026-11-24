@@ -40,6 +40,9 @@ Feature: A candidate says that a competency is outside their activity, and it ex
     Then I should see "Outside my activity"
     And I should see "RNCP100-C01"
     And I should see "It exempts from nothing: the decision belongs to the panel."
+    When I am on the "tool_vae > Organisation" page
+    Then I should see "My post does not go through it." in the ".tool-vae-scope" "css_element"
+    And I should see "It exempts from nothing: the decision belongs to the panel."
     When I am on the "tool_vae > Scope" page
     And I press "Take back"
     Then I should see "The mark was taken back."

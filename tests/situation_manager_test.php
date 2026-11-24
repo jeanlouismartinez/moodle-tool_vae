@@ -64,7 +64,7 @@ final class situation_manager_test extends \advanced_testcase {
         $this->resetAfterTest();
         // The code under test opens delegated transactions and rolls one back when a snapshot fails. advanced_testcase wraps
         // each test in a transaction of its own, and Moodle only undoes the outermost level: without this call, an inner
-        // rollback undoes nothing the assertions can see and aborts the test's own transaction (trap 4 of docs/BANC-ESSAI.md).
+        // rollback undoes nothing the assertions can see and aborts the test's own transaction (a known trap of the test bench).
         $this->preventResetByRollback();
         validation_catalog::reset();
         set_config('validationopen', 1, 'tool_vae');
@@ -181,7 +181,8 @@ final class situation_manager_test extends \advanced_testcase {
         $PAGE = new \moodle_page();
         ob_start();
         try {
-            include(__DIR__ . '/../' . $script);
+            require_once(__DIR__ . '/fixtures/plugin_pages.php');
+            \tool_vae\fixtures\plugin_pages::run($script);
         } finally {
             $out = ob_get_clean();
             $_GET = [];
@@ -779,7 +780,7 @@ final class situation_manager_test extends \advanced_testcase {
             'errorframeworkhidden'
         );
         $this->assert_refused(fn() => $manager->delete((int) $situation->id), 'errorframeworkhidden');
-        // The draft in progress goes by the same door (autosave.php, tour 1): refused too, the draft untouched.
+        // The draft in progress goes by the same door (the autosave, tour 1): refused too, the draft untouched.
         $drafts = new draft_manager();
         $this->assert_refused(fn() => $drafts->autosave((int) $situation->draftid, 'Tape en cache.', 0), 'errorframeworkhidden');
         $this->assert_refused(fn() => $drafts->save_working((int) $situation->draftid, 'Tape en cache.'), 'errorframeworkhidden');

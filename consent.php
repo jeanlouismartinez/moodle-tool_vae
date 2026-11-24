@@ -31,6 +31,7 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\access;
 use tool_vae\local\consent_manager;
+use tool_vae\output\consent_page;
 
 require_login();
 
@@ -85,65 +86,30 @@ $eligible = $canmanage ? $consent->eligible($candidateid) : [];
 $people = array_unique(array_merge($eligible, array_keys($current)));
 sort($people);
 
-$body = html_writer::tag('p', s(get_string('consentintro', 'tool_vae')));
-if (!$people) {
-    $body .= html_writer::tag('p', s(get_string('consentnone', 'tool_vae')));
-} else {
-    $table = new html_table();
-    $table->head = [get_string('fullnameuser'), get_string('status')];
-    if ($canmanage) {
-        $table->head[] = '';
-    }
-    foreach ($people as $personid) {
-        $state = isset($current[$personid]) ? (string) $current[$personid]->state : '';
-        $label = $state === consent_manager::GIVEN ? 'consentgiven'
-            : ($state === consent_manager::WITHDRAWN ? 'consentwithdrawn' : 'consentnone');
-        $row = [s($nameof($personid)), s(get_string($label, 'tool_vae'))];
-        if ($canmanage) {
-            $button = '';
-            if ($state === consent_manager::GIVEN) {
-                $button = $OUTPUT->single_button(
-                    new moodle_url($url, ['action' => 'withdraw', 'managerid' => $personid]),
-                    get_string('consentwithdraw', 'tool_vae'),
-                    'post'
-                );
-            } else if (in_array($personid, $eligible, true)) {
-                $button = $OUTPUT->single_button(
-                    new moodle_url($url, ['action' => 'give', 'managerid' => $personid]),
-                    get_string('consentgive', 'tool_vae'),
-                    'post'
-                );
-            }
-            $row[] = $button;
-        }
-        $table->data[] = $row;
-    }
-    $body .= html_writer::table($table);
-}
-
 $history = $consent->history($candidateid);
-if ($history) {
-    $body .= html_writer::tag('h3', s(get_string('consenthistory', 'tool_vae')));
-    $table = new html_table();
-    $table->head = [get_string('date'), get_string('fullnameuser'), get_string('status')];
-    foreach ($history as $line) {
-        $table->data[] = [
-            s(userdate((int) $line->timecreated, get_string('strftimedatetime', 'langconfig'))),
-            s($line->restored
-                ? get_string('consentrestored', 'tool_vae')
-                : $nameof($line->managerid ? (int) $line->managerid : null)),
-            s(get_string($line->state === consent_manager::GIVEN ? 'consentgiven' : 'consentwithdrawn', 'tool_vae')),
-        ];
+// The names, read here once for the table of the people and the lines of the history; 0 for a line that names nobody.
+$names = [];
+foreach ($people as $personid) {
+    $names[$personid] = $nameof($personid);
+}
+foreach ($history as $line) {
+    if (!$line->restored) {
+        $managerid = $line->managerid ? (int) $line->managerid : 0;
+        $names[$managerid] = $nameof($managerid ?: null);
     }
-    $body .= html_writer::table($table);
 }
 
-$body .= html_writer::tag('p', html_writer::link(
-    new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]),
-    get_string('selfposbackdossier', 'tool_vae')
-));
-
+$renderer = $PAGE->get_renderer('tool_vae');
 echo $OUTPUT->header();
 echo $OUTPUT->heading(s($heading));
-echo $body;
+echo $renderer->render(new consent_page(
+    $people,
+    $current,
+    $eligible,
+    $canmanage,
+    $history,
+    $names,
+    $url,
+    new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid])
+));
 echo $OUTPUT->footer();

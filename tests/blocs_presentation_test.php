@@ -22,7 +22,6 @@ use tool_vae\local\coverage;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\importer;
 use tool_vae\local\outline;
-use tool_vae\local\presenter;
 
 /**
  * A record presented by bloc: the list to declare in, the coverage, the dossier (T-33, lot 2).
@@ -116,6 +115,18 @@ final class blocs_presentation_test extends \advanced_testcase {
         ]);
     }
 
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     public function test_the_outline_puts_blocs_first_and_their_competencies_under_them_in_rank_order(): void {
         $nodes = outline::group($this->competencies());
 
@@ -199,7 +210,7 @@ final class blocs_presentation_test extends \advanced_testcase {
     public function test_the_coverage_table_says_bloc_in_words_and_never_a_state(): void {
         $this->declare('RS00000-C02');
 
-        $html = presenter::coverage(coverage::for_candidate((int) $this->candidate->id));
+        $html = self::render(new \tool_vae\output\coverage(coverage::for_candidate((int) $this->candidate->id)));
 
         $this->assertStringContainsString(get_string('coverageblocnote', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('coveragebloctag', 'tool_vae'), $html);
@@ -329,8 +340,8 @@ final class blocs_presentation_test extends \advanced_testcase {
         $nobloc = $this->declare('RS00000-Z01');
         $context = \context_user::instance((int) $this->candidate->id);
 
-        $with = presenter::declaration($underbloc, $context);
-        $without = presenter::declaration($nobloc, $context);
+        $with = self::render(new output\declaration($underbloc, $context));
+        $without = self::render(new output\declaration($nobloc, $context));
 
         $this->assertStringContainsString(get_string('declarationbloc', 'tool_vae'), $with);
         $this->assertStringContainsString('RS00000-BC01 — Accompagner la personne', $with);

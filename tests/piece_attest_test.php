@@ -20,7 +20,6 @@ use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\writer;
 use tool_vae\local\attestation_manager;
 use tool_vae\local\piece_manager;
-use tool_vae\local\presenter;
 use tool_vae\local\purge;
 use tool_vae\privacy\provider;
 use tool_vae\task\send_notification;
@@ -41,6 +40,7 @@ use tool_vae\task\send_notification;
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\attestation_manager::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\piece_manager::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\presenter::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\pieces::class)]
 final class piece_attest_test extends \advanced_testcase {
     /** @var \stdClass The candidate. */
     private $candidate;
@@ -172,6 +172,18 @@ final class piece_attest_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     public function test_a_declaration_with_no_piece_is_attested_as_before(): void {
         $this->setUser($this->manager);
 
@@ -249,7 +261,8 @@ final class piece_attest_test extends \advanced_testcase {
     public function test_a_refused_signature_leaves_both_locks_free(): void {
         // The two locks (the claim's, the candidate's pieces) are taken for the whole act and released by finally{} even when
         // the act is refused: the same signature, corrected, goes through at once. That two processes exclude each other is not
-        // provable from one process (the database locks are re-entrant for a session) and is played by hand, see TRAVAIL.md.
+        // provable from one process (the database locks are re-entrant for a session): it is to be played by hand, with two
+        // processes, and is noted as such in the maintainer's work list.
         $this->link();
         $this->setUser($this->manager);
 
@@ -264,6 +277,9 @@ final class piece_attest_test extends \advanced_testcase {
 
     public function test_a_piece_added_after_the_signature_is_marked_and_tells_the_managers_who_follow(): void {
         $this->link('https://exemple.test/a');
+        // Whether the declaration carries a signature is asked from cron (lot 9): asked here, before the signature, as the
+        // first run of cron after this piece would ask it.
+        $this->runAdhocTasks(\tool_vae\task\queue_notifications::class);
         $this->setUser($this->manager);
         (new attestation_manager())->attest($this->evidenceid, $this->data());
         \core\task\manager::clear_static_caches();
@@ -272,10 +288,12 @@ final class piece_attest_test extends \advanced_testcase {
         $standing = attestation_manager::active_attestation($this->evidenceid);
         $context = \context_user::instance($this->candidate->id);
         $this->setUser($this->manager);
-        $html = presenter::pieces(piece_manager::for_evidence($this->evidenceid), $context, $standing);
+        $html = self::render(new output\pieces(piece_manager::for_evidence($this->evidenceid), $context, $standing));
         $this->assertStringContainsString('Added after the signature of', $html);
         $this->assertSame(1, substr_count($html, 'Added after the signature of'), 'Only the later piece.');
 
+        // The managers to tell are found from cron (lot 9, ticket 3 of review MMR-520): that task runs first.
+        $this->runAdhocTasks(\tool_vae\task\queue_notifications::class);
         $tasks = array_values(array_filter(
             \core\task\manager::get_adhoc_tasks(send_notification::class),
             fn($task) => ($task->get_custom_data()->provider ?? '') === 'pieceafterattest'
@@ -302,6 +320,8 @@ final class piece_attest_test extends \advanced_testcase {
         \core\task\manager::clear_static_caches();
         $this->link();
 
+        // Whether the declaration carries a signature is asked from cron (lot 9): the task that asks runs first.
+        $this->runAdhocTasks(\tool_vae\task\queue_notifications::class);
         $tasks = array_filter(
             \core\task\manager::get_adhoc_tasks(send_notification::class),
             fn($task) => ($task->get_custom_data()->provider ?? '') === 'pieceafterattest'
@@ -316,11 +336,11 @@ final class piece_attest_test extends \advanced_testcase {
         $this->setUser($this->candidate);
         (new piece_manager())->remove((int) $piece->id);
 
-        $html = presenter::pieces(
+        $html = self::render(new output\pieces(
             piece_manager::for_evidence($this->evidenceid),
             \context_user::instance($this->candidate->id),
             attestation_manager::active_attestation($this->evidenceid)
-        );
+        ));
 
         $this->assertStringContainsString('removed since', $html);
     }
@@ -341,7 +361,7 @@ final class piece_attest_test extends \advanced_testcase {
         $this->assertSame(1, $GLOBALS['DB']->count_records('tool_vae_piece_open'));
         $this->assertSame([(int) $file->id => true], piece_manager::opened_by((int) $this->manager->id, [(int) $file->id]));
 
-        $html = presenter::pieces(piece_manager::for_evidence($this->evidenceid), $context);
+        $html = self::render(new output\pieces(piece_manager::for_evidence($this->evidenceid), $context));
         $this->assertStringContainsString('You opened this file.', $html);
         $this->assertStringContainsString('1 of 1 files you may open were opened by you. Opening is not reading.', $html);
     }
@@ -351,7 +371,7 @@ final class piece_attest_test extends \advanced_testcase {
         $context = \context_user::instance($this->candidate->id);
 
         $this->setUser($this->reader);
-        $html = presenter::pieces(piece_manager::for_evidence($this->evidenceid), $context);
+        $html = self::render(new output\pieces(piece_manager::for_evidence($this->evidenceid), $context));
 
         $this->assertStringContainsString('Listed here. You may not open it.', $html);
         $this->assertStringNotContainsString('pluginfile.php', $html);
@@ -463,6 +483,11 @@ final class piece_attest_test extends \advanced_testcase {
         $this->assertSame(1, $DB->count_records('tool_vae_piece_open'));
 
         delete_user($this->manager);
+        // Ticket 3 of review MMR-520: the observer only queues the purge; cron runs it, and only it runs here.
+        $this->assertSame(1, $DB->count_records('tool_vae_piece_open'), 'The observer did the work of its task.');
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\purge_deleted_account::class);
+        ob_end_clean();
 
         $this->assertSame(0, $DB->count_records('tool_vae_piece_open'));
     }
@@ -496,13 +521,13 @@ final class piece_attest_test extends \advanced_testcase {
         $pieces = piece_manager::for_evidence($this->evidenceid);
 
         $this->setUser($this->manager);
-        $this->assertStringContainsString('Titre libre', presenter::pieces($pieces, $context));
+        $this->assertStringContainsString('Titre libre', self::render(new output\pieces($pieces, $context)));
 
         $this->setUser($this->reader);
-        $this->assertStringNotContainsString('Titre libre', presenter::pieces($pieces, $context));
+        $this->assertStringNotContainsString('Titre libre', self::render(new output\pieces($pieces, $context)));
 
         $this->setUser($this->candidate);
-        $this->assertStringContainsString('Titre libre', presenter::pieces($pieces, $context));
+        $this->assertStringContainsString('Titre libre', self::render(new output\pieces($pieces, $context)));
     }
 
     public function test_the_sweep_takes_the_list_and_the_openings_that_hang_from_an_orphan_piece(): void {

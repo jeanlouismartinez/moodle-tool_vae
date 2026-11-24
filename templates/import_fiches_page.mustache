@@ -1,0 +1,92 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/import_fiches_page
+
+    The page "Importer des fiches de France compétences", below its heading: a refusal; or the result of a plan, the way to
+    try again and the button to go on; or the preview, a word on the time it takes and the form of the confirmation; or the
+    numbers, the two ways to get the export and the link to take back the numbers already imported, with the form.
+
+    The template holds no logic: the states exclude one another before, in tool_vae\output\import_fiches_page. The texts are
+    escaped (double braces). Five keys are HTML (triple braces): noticehtml, a notification of the core
+    ($output->notification()); resultshtml, the template tool_vae/fiche_results; continuehtml, the button of the core
+    ($output->continue_button()); previewhtml, the template tool_vae/fiche_preview; formhtml, a form of the core
+    (moodleform::render()), drawn once.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * noticehtml - false, or HTML: the refusal, the result not kept, or the failure of the last send
+    * resultshtml - false, or HTML: the result of a plan
+    * redo - false, or an object {url, label}: the way to try again what was not written
+    * continuehtml - false, or HTML: the button to go on
+    * previewhtml - false, or HTML: the preview of a plan
+    * wait - false, or an object {text}: the import takes a while
+    * numbers - false, or an object {intro, neutral, known}: known is false or an object {url, label}
+    * formhtml - false, or HTML: the form of the page
+
+    Example context (json):
+    {
+        "noticehtml": false,
+        "resultshtml": false,
+        "redo": false,
+        "continuehtml": false,
+        "previewhtml": false,
+        "wait": false,
+        "numbers": {
+            "intro": "Type the numbers of the records to import.",
+            "neutral": "Nothing is sent before you choose a way.",
+            "known": {"url": "https://example.com/admin/tool/vae/import_fiches.php?known=1", "label": "Take back the numbers"}
+        },
+        "formhtml": "<form method=\"post\" action=\"https://example.com/admin/tool/vae/import_fiches.php\"></form>"
+    }
+}}
+{{#noticehtml}}
+{{{noticehtml}}}
+{{/noticehtml}}
+{{#resultshtml}}
+{{{resultshtml}}}
+{{/resultshtml}}
+{{#redo}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/redo}}
+{{#continuehtml}}
+{{{continuehtml}}}
+{{/continuehtml}}
+{{#previewhtml}}
+{{{previewhtml}}}
+{{/previewhtml}}
+{{#wait}}
+<p class="small">{{text}}</p>
+{{/wait}}
+{{#numbers}}
+<p>{{intro}}</p>
+<p class="small">{{neutral}}</p>
+{{#known}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/known}}
+{{/numbers}}
+{{#formhtml}}
+{{{formhtml}}}
+{{/formhtml}}

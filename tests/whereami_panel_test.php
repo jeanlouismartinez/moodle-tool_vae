@@ -35,6 +35,8 @@ use tool_vae\local\whereami_panel;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(whereami_panel::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\whereami_tree::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\tagged_situations::class)]
 final class whereami_panel_test extends \advanced_testcase {
     /** @var \stdClass Declares, positions themselves and writes their preparation. */
     private $vaeiste;
@@ -140,7 +142,19 @@ final class whereami_panel_test extends \advanced_testcase {
     private function panel(string $fichecode, array $options = [], ?\stdClass $reader = null): string {
         $this->setUser($reader ?? $this->vaeiste);
 
-        return whereami_panel::render((int) $this->vaeiste->id, $fichecode, $options);
+        return self::draw(new \tool_vae\output\whereami_tree((int) $this->vaeiste->id, $fichecode, $options));
+    }
+
+    /**
+     * A piece of the plugin drawn by its renderer, as the old screen was called under PHPUnit (lot 7, wave 3b).
+     *
+     * @param \core\output\renderable $piece
+     * @return string
+     */
+    private static function draw(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
     }
 
     /**
@@ -185,7 +199,8 @@ final class whereami_panel_test extends \advanced_testcase {
         $PAGE = new \moodle_page();
         ob_start();
         try {
-            include(__DIR__ . '/../' . $script);
+            require_once(__DIR__ . '/fixtures/plugin_pages.php');
+            \tool_vae\fixtures\plugin_pages::run($script);
         } finally {
             $out = ob_get_clean();
             $_GET = [];
@@ -509,7 +524,7 @@ final class whereami_panel_test extends \advanced_testcase {
         $this->assertSame(0, whereami_panel::counts((int) $this->limited->id, 'RNCP100')['C01']->situations);
         foreach ([get_admin()] as $reader) {
             $this->setUser($reader);
-            $html = whereami_panel::render((int) $this->limited->id, 'RNCP100');
+            $html = self::draw(new \tool_vae\output\whereami_tree((int) $this->limited->id, 'RNCP100'));
             $text = strip_tags($html);
             $this->assertStringNotContainsString('situation', $text, 'Nothing said of what is not read.');
             $this->assertStringNotContainsString('0 situation', $text);

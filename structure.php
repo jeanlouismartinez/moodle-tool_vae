@@ -29,6 +29,7 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\local\competency_gateway;
 use tool_vae\local\structure_archive;
+use tool_vae\output\structure_page;
 
 require_login();
 
@@ -52,16 +53,13 @@ $PAGE->set_context(context_user::instance($candidateid));
 $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('structureheading', 'tool_vae'));
 $PAGE->set_heading(fullname($candidate));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('structureheading', 'tool_vae'));
 
 if (!competency_gateway::is_subsystem_enabled()) {
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
-    echo $OUTPUT->continue_button($dossierurl);
+    echo $renderer->render(structure_page::disabled($dossierurl));
     echo $OUTPUT->footer();
     die();
 }
@@ -72,39 +70,17 @@ if ($confirm) {
     try {
         $file = structure_archive::issue($candidateid);
     } catch (\moodle_exception $e) {
-        echo $OUTPUT->notification(s($e->getMessage()), \core\output\notification::NOTIFY_ERROR);
-        echo $OUTPUT->continue_button($dossierurl);
+        echo $renderer->render(structure_page::failed($e->getMessage(), $dossierurl));
         echo $OUTPUT->footer();
         die();
     }
     $registered = \tool_vae\local\exporter::registered($file);
-    echo $OUTPUT->notification(
-        get_string('structuredone', 'tool_vae', (object) ['archive' => $registered->archiveuuid, 'sha256' => $registered->sha256]),
-        \core\output\notification::NOTIFY_SUCCESS
-    );
-    echo html_writer::link(
-        moodle_url::make_pluginfile_url(
-            $file->get_contextid(),
-            'tool_vae',
-            structure_archive::FILEAREA,
-            $file->get_itemid(),
-            $file->get_filepath(),
-            $file->get_filename(),
-            true
-        ),
-        get_string('structuredownload', 'tool_vae'),
-        ['class' => 'btn btn-primary']
-    );
-    echo $OUTPUT->continue_button($dossierurl);
+    echo $renderer->render(structure_page::done($registered, $file, $dossierurl));
     echo $OUTPUT->footer();
     die();
 }
 
-echo html_writer::tag('p', s(get_string('structureintro', 'tool_vae')));
-echo $OUTPUT->notification(get_string('structurenotice', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-if (structure_archive::current($candidateid)) {
-    echo $OUTPUT->notification(get_string('structurereplaces', 'tool_vae'), \core\output\notification::NOTIFY_WARNING);
-}
+echo $renderer->render(structure_page::intro((bool) structure_archive::current($candidateid)));
 echo $OUTPUT->confirm(
     get_string('structureconfirm', 'tool_vae'),
     new moodle_url($url, ['confirm' => 1, 'sesskey' => sesskey()]),

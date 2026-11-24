@@ -18,7 +18,6 @@ namespace tool_vae;
 
 use tool_vae\event\ref_changed;
 use tool_vae\local\competency_gateway;
-use tool_vae\local\presenter;
 use tool_vae\local\ref_manager;
 
 /**
@@ -66,6 +65,18 @@ final class ref_manager_test extends \advanced_testcase {
     /**
      * An address is given, listed with its title and its day, and taken back.
      */
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     public function test_give_list_and_remove(): void {
         $day = time() - DAYSECS;
         [$row, $warnings] = ref_manager::add('RNCP100', 'Fiche du répertoire', 'https://example.org/rncp/100/', $day);
@@ -252,7 +263,7 @@ final class ref_manager_test extends \advanced_testcase {
             $this->setUser($user);
             $this->assertStringContainsString(
                 s(get_string('refcheckedon', 'tool_vae', '20 October 2026')),
-                presenter::coverage($fiches),
+                self::render(new output\coverage($fiches)),
                 "The day read in $timezone."
             );
         }
@@ -322,7 +333,7 @@ final class ref_manager_test extends \advanced_testcase {
             $fiches[$code] = (object) ['fichecode' => $code, 'source' => null, 'hasblocs' => false, 'competencies' => []];
         }
 
-        $html = presenter::coverage($fiches);
+        $html = self::render(new output\coverage($fiches));
 
         $this->assertSame(1, substr_count($html, 'tool-vae-rule-refs'), 'One box.');
         $this->assertSame(1, substr_count($html, s(get_string('refsentence', 'tool_vae'))), 'The sentence once.');
@@ -347,16 +358,16 @@ final class ref_manager_test extends \advanced_testcase {
         ]];
 
         set_config('refopen', 0, 'tool_vae');
-        $this->assertStringNotContainsString('example.org', presenter::coverage($fiches));
+        $this->assertStringNotContainsString('example.org', self::render(new output\coverage($fiches)));
 
         set_config('refopen', 1, 'tool_vae');
-        $html = presenter::coverage($fiches);
+        $html = self::render(new output\coverage($fiches));
         $this->assertStringContainsString('href="https://example.org/rncp/100/"', $html);
         $this->assertStringContainsString('rel="noopener noreferrer"', $html);
         $this->assertStringContainsString('target="_blank"', $html);
         $this->assertStringContainsString(s(get_string('refsentence', 'tool_vae')), $html);
         // The text of the title is escaped as any text.
         ref_manager::add('RNCP100', '<b>gras</b>', 'https://example.org/2');
-        $this->assertStringNotContainsString('<b>gras</b>', presenter::coverage($fiches));
+        $this->assertStringNotContainsString('<b>gras</b>', self::render(new output\coverage($fiches)));
     }
 }

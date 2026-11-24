@@ -45,6 +45,14 @@ use tool_vae\local\identity_map;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\observer::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\purge::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\deletion_followup::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\plugin_schema::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\followup_task::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\check_changed_evidence::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\purge_deleted_account::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\purge_deleted_evidence::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\release_deleted_framework::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\reconcile_orphans::class)]
 final class observer_test extends \advanced_testcase {
     /** @var \stdClass The candidate whose dossier is destroyed. */
     private $candidate;
@@ -177,10 +185,16 @@ final class observer_test extends \advanced_testcase {
      * userevidencemanageown, which tool_lp's evidence list uses - so the door tested here is
      * the door a candidate actually uses.
      *
+     * The observer queues the purge; it is run right after, as cron would, unless the test asks for the state before.
+     *
      * @param int $userevidenceid
+     * @param bool $followup Whether to run the purge the observer queued.
      */
-    private function delete_core_evidence(int $userevidenceid): void {
+    private function delete_core_evidence(int $userevidenceid, bool $followup = true): void {
         (new competency_gateway())->delete_evidence($userevidenceid);
+        if ($followup) {
+            $this->run_followup(\tool_vae\task\purge_deleted_evidence::class);
+        }
     }
 
     /**
@@ -202,19 +216,24 @@ final class observer_test extends \advanced_testcase {
      * trigger(): the event goes into the sink and the dispatcher is never called, so NO OBSERVER
      * RUNS while a sink is open. A test that redirects events and then expects the observer's
      * effect proves nothing - it would pass word for word on a plugin that declares no observer
-     * at all. Trap 8 of docs/BANC-ESSAI.md.
+     * at all. A known trap of the test bench: redirecting events disables the observers.
      *
      * So the wiring and the trace are proved separately. The deletion tests above run with no
      * sink and prove that db/events.php reaches the observer; these tests replay the REAL core
      * event - taken from the sink, not built by hand - through the observer and check what it
-     * writes to the log.
+     * writes to the log. Since ticket 3 of review MMR-520 the observer only queues a task: the
+     * task it queued is run here, inside the sink, and the trace is the one the task leaves.
      *
      * @param callable $action What deletes.
      * @param string $coreclass The core event to replay.
      * @param string $method The observer method to replay it through.
-     * @return \core\event\base[] Everything the sink saw, the observer's own events included.
+     * @return \core\event\base[] Everything the sink saw, the follow-up's own events included.
      */
     private function replay_through_observer(callable $action, string $coreclass, string $method): array {
+        $followups = [
+            'user_evidence_deleted' => \tool_vae\task\purge_deleted_evidence::class,
+            'user_deleted' => \tool_vae\task\purge_deleted_account::class,
+        ];
         $sink = $this->redirectEvents();
         $action();
 
@@ -223,6 +242,7 @@ final class observer_test extends \advanced_testcase {
                 call_user_func([observer::class, $method], $event);
             }
         }
+        $this->run_followup($followups[$method]);
 
         $events = $sink->get_events();
         $sink->close();
@@ -544,11 +564,13 @@ final class observer_test extends \advanced_testcase {
     public function test_the_reason_shown_for_an_erased_signature_does_not_say_the_signatory_asked(): void {
         // The reason, and the sentence of the dossier that carries it (screen, PDF and copies): on 27 October 2026 the sentence
         // was completed to say the attestation is no longer valid, and it must not say who asked either.
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             // Read from the plugin's own file: the French pack is not installed in the test site, and the string manager
             // then answers in English whatever language is asked.
-            $string = [];
-            include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+            require_once(__DIR__ . '/fixtures/lang_files.php');
+            $string = \tool_vae\fixtures\lang_files::strings($lang);
             $strings = $string;
             foreach (['withdrawreason:rgpd', 'attestationwithdrawnon'] as $key) {
                 $this->assertDoesNotMatchRegularExpression(
@@ -740,16 +762,16 @@ final class observer_test extends \advanced_testcase {
     private function register_archive_of(\stdClass $user): string {
         global $DB;
 
-        $personne = identity_map::uuid_for(identity_map::TYPE_USER, (int) $user->id);
+        $personuuid = identity_map::uuid_for(identity_map::TYPE_USER, (int) $user->id);
         $DB->insert_record(exporter::REGISTER, (object) [
             'archiveuuid' => identity_map::generate_ulid(),
             'sha256' => hash('sha256', 'manifeste'),
-            'candidateuuid' => $personne,
+            'candidateuuid' => $personuuid,
             'userid' => $this->attestant->id,
             'timecreated' => time(),
         ]);
 
-        return $personne;
+        return $personuuid;
     }
 
     /**
@@ -844,6 +866,9 @@ final class observer_test extends \advanced_testcase {
 
         $this->setAdminUser();
         $this->assertTrue((new competency_gateway())->delete_framework((int) $framework->get('id')));
+        // The observer queued the release; until cron runs it, the row is as it was.
+        $this->assertSame('ok', $DB->get_field('tool_vae_source', 'lastimportstatus', ['id' => $secondid]));
+        $this->run_followup(\tool_vae\task\release_deleted_framework::class);
 
         $second = $DB->get_record('tool_vae_source', ['id' => $secondid], '*', MUST_EXIST);
         $this->assertSame('RS00001', $second->fichecode, 'The provenance of the record went with its framework.');
@@ -866,15 +891,557 @@ final class observer_test extends \advanced_testcase {
         $this->assertSame([], \tool_vae\local\source_frameworks::missing([$untouched]));
     }
 
+    // ----------------------------------------------------------------------
+    // Ticket 3 of review MMR-520 - the observers only queue; the work is done by ad hoc tasks, from cron.
+
     /**
-     * Delete an account the way an administrator does.
+     * How many rows each table of this plugin holds.
+     *
+     * @return int[] Table name => rows.
+     */
+    private function plugin_rows(): array {
+        global $DB;
+
+        $counts = [];
+        foreach ($DB->get_tables(false) as $table) {
+            if (str_starts_with($table, 'tool_vae_')) {
+                $counts[$table] = $DB->count_records($table);
+            }
+        }
+        ksort($counts);
+
+        return $counts;
+    }
+
+    /**
+     * The follow-up tasks of one class waiting in the queue.
+     *
+     * @param string $class
+     * @return \core\task\adhoc_task[]
+     */
+    private function followups(string $class): array {
+        return array_values(\core\task\manager::get_adhoc_tasks($class));
+    }
+
+    /**
+     * Run what is queued, as cron would, and keep what the tasks print out of the test's output.
+     *
+     * Every queued task runs: the follow-up of the deletion, and the messages already waiting, caught by a sink so that
+     * nothing is sent.
+     *
+     * AS A CRON PROCESS, NOT AS THE REQUEST THAT DELETED (lot 9 of review MMR-520). The account is deleted by a request - the
+     * administrator's page - and the queue is run later by cron, another PHP process, which starts with empty caches of
+     * rights: so the caches of accesslib are emptied first, once. Not between two tasks: \core\cron::run_inner_adhoc_task()
+     * does not empty them either (read in public/lib/classes/cron.php of Moodle 5.3). Without this, on MySQL and MariaDB -
+     * where PHPUnit opens no transaction, so the messages of setUp() wait in the queue - a manager's rights read before the
+     * deletion answered after it, and the core's messaging, which reads the database, called debugging() on a message to a
+     * manager who no longer held the right (lot 8, section 8).
+     *
+     * @return string What the tasks printed.
+     */
+    private function run_queued_tasks(): string {
+        accesslib_clear_all_caches_for_unit_testing();
+        $sink = $this->redirectMessages();
+        ob_start();
+        $this->run_all_adhoc_tasks();
+        $output = ob_get_clean();
+        $sink->close();
+
+        return $output;
+    }
+
+    /**
+     * Each of the four observers queues exactly one task, carrying identifiers only, and writes nothing of this plugin.
+     *
+     * The rows of every table of the plugin are counted before and after each core action: an observer that still did
+     * part of the work - a request cleared, a provenance row rewritten - would change one count.
+     */
+    public function test_each_observer_queues_one_task_with_identifiers_and_writes_nothing(): void {
+        $gateway = new competency_gateway();
+        $lpg = $this->getDataGenerator()->get_plugin_generator(competency_gateway::SUBSYSTEM);
+        $framework = $lpg->create_framework(['shortname' => 'RS00001', 'idnumber' => 'RS00001']);
+        $frameworkid = (int) $framework->get('id');
+
+        $actions = [
+            \tool_vae\task\check_changed_evidence::class => [
+                function () use ($gateway) {
+                    $this->setUser($this->candidate);
+                    $gateway->update_evidence((int) $this->claim->userevidenceid, ['name' => 'Renamed in tool_lp']);
+                },
+                ['userevidenceid' => (int) $this->claim->userevidenceid],
+            ],
+            \tool_vae\task\purge_deleted_evidence::class => [
+                function () use ($gateway) {
+                    $this->setUser($this->candidate);
+                    $gateway->delete_evidence((int) $this->claim->userevidenceid);
+                },
+                ['userevidenceid' => (int) $this->claim->userevidenceid],
+            ],
+            \tool_vae\task\purge_deleted_account::class => [
+                function () {
+                    $this->delete_account($this->bystander, false);
+                },
+                ['userid' => (int) $this->bystander->id],
+            ],
+            \tool_vae\task\release_deleted_framework::class => [
+                function () use ($gateway, $frameworkid) {
+                    $this->setAdminUser();
+                    $this->assertTrue($gateway->delete_framework($frameworkid));
+                },
+                ['frameworkid' => $frameworkid, 'userid' => (int) get_admin()->id],
+            ],
+        ];
+
+        foreach ($actions as $class => [$action, $expected]) {
+            $before = $this->plugin_rows();
+            $action();
+            $this->assertSame($before, $this->plugin_rows(), "The observer behind $class wrote to a table of the plugin.");
+
+            $tasks = $this->followups($class);
+            $this->assertCount(1, $tasks, "One $class expected in the queue.");
+            $data = (array) $tasks[0]->get_custom_data();
+            $this->assertSame($expected, array_map('intval', $data), "$class carries other data than its identifiers.");
+            foreach ($data as $value) {
+                $this->assertIsInt($value, "$class carries something that is not an identifier.");
+            }
+            $this->assertNull($tasks[0]->get_userid(), 'A task tied to an account cannot run once the account is deleted.');
+        }
+    }
+
+    /**
+     * The same event twice queues the task once: the queue does not fill with duplicates of one deletion.
+     */
+    public function test_the_same_event_twice_queues_one_task(): void {
+        $sink = $this->redirectEvents();
+        $this->delete_account($this->candidate, false);
+        $this->setUser($this->bystander);
+        $this->delete_core_evidence((int) $this->bystanderclaim->userevidenceid, false);
+        $events = $sink->get_events();
+        $sink->close();
+
+        foreach ($events as $event) {
+            if ($event instanceof \core\event\user_deleted) {
+                observer::user_deleted($event);
+                observer::user_deleted($event);
+            }
+            if ($event instanceof \core\event\competency_user_evidence_deleted) {
+                observer::user_evidence_deleted($event);
+                observer::user_evidence_deleted($event);
+            }
+        }
+
+        $this->assertCount(1, $this->followups(\tool_vae\task\purge_deleted_account::class));
+        $this->assertCount(1, $this->followups(\tool_vae\task\purge_deleted_evidence::class));
+    }
+
+    /**
+     * Until cron runs the task, the dossier is still there; once it has, it is gone as it always went.
+     */
+    public function test_the_dossier_stays_until_the_task_runs_and_then_goes(): void {
+        global $DB;
+
+        $this->delete_account($this->candidate, false);
+
+        $this->assertTrue($this->claim_exists($this->claim), 'The purge ran during the deletion: the observer is not light.');
+        $this->assertTrue($DB->record_exists('tool_vae_identity', ['itemtype' => 'user', 'itemid' => $this->candidate->id]));
+
+        $output = $this->run_queued_tasks();
+
+        $this->assertStringContainsString('tool_vae: dossier of the deleted account ' . $this->candidate->id, $output);
+        $this->assertFalse($this->claim_exists($this->claim), 'A narrative outlived its owner.');
+        $this->assertFalse($this->claim_exists($this->otherclaim), 'A second narrative outlived its owner.');
+        $this->assertSame(0, $DB->count_records('tool_vae_attest', ['evidenceid' => $this->claim->id]));
+        $this->assertFalse($DB->record_exists('tool_vae_identity', ['itemtype' => 'user', 'itemid' => $this->candidate->id]));
+        $this->assertTrue($this->claim_exists($this->bystanderclaim), 'Another candidate lost their dossier.');
+        $this->assertSame([], $this->followups(\tool_vae\task\purge_deleted_account::class), 'The task did not complete.');
+    }
+
+    /**
+     * A task run a second time - a duplicate, or a retry after the work was done - finds nothing and announces nothing.
+     */
+    public function test_a_second_run_of_each_task_finds_nothing(): void {
+        global $DB;
+
+        $this->delete_account($this->candidate, false);
+        $this->run_queued_tasks();
+        $after = $this->plugin_rows();
+
+        $tasks = [
+            new \tool_vae\task\purge_deleted_account(),
+            new \tool_vae\task\purge_deleted_evidence(),
+            new \tool_vae\task\check_changed_evidence(),
+            new \tool_vae\task\release_deleted_framework(),
+        ];
+        $tasks[0]->set_custom_data(['userid' => (int) $this->candidate->id]);
+        $tasks[1]->set_custom_data(['userevidenceid' => (int) $this->claim->userevidenceid]);
+        $tasks[2]->set_custom_data(['userevidenceid' => (int) $this->claim->userevidenceid]);
+        $tasks[3]->set_custom_data(['frameworkid' => 987654, 'userid' => (int) get_admin()->id]);
+
+        $sink = $this->redirectEvents();
+        ob_start();
+        foreach ($tasks as $task) {
+            $task->execute();
+        }
+        ob_end_clean();
+        $events = array_filter($sink->get_events(), fn($e) => str_starts_with(get_class($e), 'tool_vae\\'));
+        $sink->close();
+
+        $this->assertSame([], array_values($events), 'A second run announced a purge that had already happened.');
+        $this->assertSame($after, $this->plugin_rows(), 'A second run changed something.');
+        $this->assertFalse($DB->record_exists('tool_vae_evidence', ['candidateid' => $this->candidate->id]));
+    }
+
+    /**
+     * A task that finds the schema of the plugin incomplete stops without an error, says so, and touches nothing.
+     *
+     * The observers are notified during installation and upgrade, before the schema exists; the task, which may run in
+     * that window on a site where cron runs alongside an upgrade, asks first. The guard is tested through the list of
+     * tables each task needs, with one table that does not exist.
+     */
+    public function test_a_task_that_finds_the_schema_incomplete_stops_without_an_error(): void {
+        $before = $this->plugin_rows();
+
+        $task = new class extends \tool_vae\task\purge_deleted_account {
+            /**
+             * One table of the list does not exist.
+             *
+             * @return string[]
+             */
+            protected function required_tables(): array {
+                return ['tool_vae_evidence', 'tool_vae_notinstalled'];
+            }
+        };
+        $task->set_custom_data(['userid' => (int) $this->candidate->id]);
+
+        ob_start();
+        $task->execute();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('tables of the plugin are not all installed', $output);
+        $this->assertSame($before, $this->plugin_rows(), 'The task wrote with a schema it had found incomplete.');
+        $this->assertTrue($this->claim_exists($this->claim));
+    }
+
+    /**
+     * A purge that fails throws out of the task, which the task manager then keeps and retries.
+     *
+     * The failure is a real one, in the database: a trigger refuses any deletion from a table purge::dossier() always
+     * deletes from. The task is run by the core's own cron runner, which catches the failure and records it on the task:
+     * the row stays in the queue with a fail delay. The purge stood in its transaction: nothing of the dossier is lost
+     * halfway. Once the cause is gone, the same task is run again and the dossier goes.
+     */
+    public function test_a_task_that_fails_throws_and_stays_in_the_queue_to_be_retried(): void {
+        global $DB;
+
+        if ($DB->get_dbfamily() !== 'postgres') {
+            $this->markTestSkipped('The failure is provoked by a PostgreSQL trigger.');
+        }
+        $this->preventResetByRollback();
+
+        $this->delete_account($this->candidate, false);
+        $table = $DB->get_prefix() . 'tool_vae_scope';
+        // Written through change_database_structure(): execute() refuses the semicolons of a function body.
+        $DB->change_database_structure([
+            "CREATE FUNCTION tool_vae_l4_refuse() RETURNS trigger AS \$\$ BEGIN RAISE EXCEPTION 'refused by the test'; END; \$\$"
+                . " LANGUAGE plpgsql",
+            "CREATE TRIGGER tool_vae_l4_refuse BEFORE DELETE ON $table FOR EACH STATEMENT EXECUTE FUNCTION tool_vae_l4_refuse()",
+        ]);
+        $tasks = $this->followups(\tool_vae\task\purge_deleted_account::class);
+        $this->assertCount(1, $tasks);
+        $taskid = (int) $tasks[0]->get_id();
+        try {
+            // The core's runner of one task, as the cron and the task screen run it: it takes the locks and records the result.
+            ob_start();
+            \core\cron::run_adhoc_task($taskid);
+            $output = ob_get_clean();
+
+            $this->assertStringContainsString('Adhoc task failed: tool_vae\task\purge_deleted_account', $output);
+            $this->assertStringContainsString('refused by the test', $output);
+            $row = $DB->get_record('task_adhoc', ['id' => $taskid]);
+            $this->assertNotFalse($row, 'A failed task left the queue: nothing would retry it.');
+            $this->assertGreaterThan(0, (int) $row->faildelay, 'The failure is not recorded on the task.');
+            $this->assertTrue($this->claim_exists($this->claim), 'A purge that failed was left half done.');
+            $this->assertTrue($DB->record_exists('tool_vae_identity', ['itemtype' => 'user', 'itemid' => $this->candidate->id]));
+        } finally {
+            $DB->change_database_structure([
+                "DROP TRIGGER IF EXISTS tool_vae_l4_refuse ON $table",
+                'DROP FUNCTION IF EXISTS tool_vae_l4_refuse()',
+            ]);
+        }
+
+        ob_start();
+        \core\cron::run_adhoc_task($taskid);
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Adhoc task complete: tool_vae\task\purge_deleted_account', $output);
+        $this->assertFalse($DB->record_exists('task_adhoc', ['id' => $taskid]));
+        $this->assertFalse($this->claim_exists($this->claim), 'The retry did not purge the dossier.');
+    }
+
+    /**
+     * An account whose user context the core has already cleaned up: the purge is logged in the system context.
+     *
+     * delete_user() keeps the user context; the core's context clean-up task deletes it later. When cron reaches the purge
+     * after that, the trace falls back to the system context, and never recreates the context of a deleted account. The
+     * task runs by the core's cron runner, as the cron user: the trace names who ran it, and the account it is about.
+     */
+    public function test_a_deleted_account_whose_context_is_gone_is_logged_in_the_system_context(): void {
+        global $DB;
+
+        $this->delete_account($this->candidate, false);
+        $contextid = (int) \context_user::instance((int) $this->candidate->id)->id;
+        $this->assertTrue($DB->record_exists('context', ['id' => $contextid]), 'delete_user() keeps the user context.');
+
+        \context_helper::cleanup_instances();
+        $this->assertFalse($DB->record_exists('context', ['id' => $contextid]), 'The core did not clean up the context.');
+
+        $tasks = $this->followups(\tool_vae\task\purge_deleted_account::class);
+        $this->assertCount(1, $tasks);
+        $sink = $this->redirectEvents();
+        ob_start();
+        \core\cron::run_adhoc_task((int) $tasks[0]->get_id());
+        ob_end_clean();
+        $purges = array_values(array_filter($sink->get_events(), fn($e) => $e instanceof \tool_vae\event\dossier_purged));
+        $sink->close();
+
+        $this->assertCount(1, $purges);
+        $this->assertSame((int) \context_system::instance()->id, (int) $purges[0]->contextid);
+        $this->assertSame((int) $this->candidate->id, (int) $purges[0]->relateduserid);
+        $this->assertSame((int) get_admin()->id, (int) $purges[0]->userid, 'The cron user is the one who ran it.');
+        $this->assertSame(2, $purges[0]->other['declarations']);
+        $this->assertFalse($DB->record_exists('context', ['id' => $contextid]), 'The context of a deleted account came back.');
+        $this->assertFalse($this->claim_exists($this->claim));
+    }
+
+    // ----------------------------------------------------------------------
+    // The scheduled catch-up: what the task of a deletion did, for an account whose task never ran.
+
+    /**
+     * Delete an account and lose the task that should have followed: the state the catch-up exists for.
      *
      * @param \stdClass $user
      */
-    private function delete_account(\stdClass $user): void {
+    private function delete_account_without_its_task(\stdClass $user): void {
+        global $DB;
+
+        $this->delete_account($user, false);
+        $DB->delete_records('task_adhoc', ['classname' => '\\' . \tool_vae\task\purge_deleted_account::class]);
+        $this->assertSame([], $this->followups(\tool_vae\task\purge_deleted_account::class));
+    }
+
+    /**
+     * Run the scheduled catch-up and return what it printed.
+     *
+     * @return string
+     */
+    private function reconcile(): string {
+        ob_start();
+        (new \tool_vae\task\reconcile_orphans())->execute();
+
+        return ob_get_clean();
+    }
+
+    /**
+     * The catch-up removes the pieces opened, the referents, the authorisations of an account whose task never ran -
+     * deleted, or no longer in the user table at all - and leaves those of a living account.
+     */
+    public function test_the_catch_up_removes_the_traces_of_an_account_whose_task_never_ran(): void {
+        global $DB;
+
+        $living = $this->getDataGenerator()->create_user();
+        $absent = 987654;
+        $now = time();
+        foreach ([$this->attestant->id, $absent, $living->id] as $userid) {
+            $DB->insert_record('tool_vae_piece_open', (object) ['pieceid' => 1, 'userid' => $userid, 'timeopened' => $now]);
+            $DB->insert_record('tool_vae_referent', (object) [
+                'fichecode' => 'RNCP36832', 'ficherang' => 'C03', 'userid' => $userid, 'timecreated' => $now,
+                'createdby' => $living->id,
+            ]);
+            $DB->insert_record('tool_vae_booklet_auth', (object) [
+                'managerid' => $userid, 'grantedby' => $living->id, 'status' => 'granted', 'timecreated' => $now,
+            ]);
+        }
+        $this->delete_account_without_its_task($this->attestant);
+
+        $output = $this->reconcile();
+
+        $columns = ['tool_vae_piece_open' => 'userid', 'tool_vae_referent' => 'userid', 'tool_vae_booklet_auth' => 'managerid'];
+        foreach ($columns as $table => $column) {
+            $this->assertSame(
+                [(int) $living->id],
+                array_map('intval', $DB->get_fieldset_select($table, $column, '1 = 1')),
+                "$table still holds a line of an account that is gone, or lost one of a living account."
+            );
+        }
+        $this->assertStringContainsString('traces of deleted accounts', $output);
+        $this->assertSame('', $this->reconcile_changes_nothing(), 'A second run of the catch-up changed something.');
+    }
+
+    /**
+     * The catch-up takes the name of an account that is gone off the lines it wrote, and leaves the lines.
+     */
+    public function test_the_catch_up_takes_the_name_of_an_account_whose_task_never_ran_off_what_it_wrote(): void {
+        global $DB;
+
+        $living = $this->getDataGenerator()->create_user();
+        $now = time();
+        $lines = [];
+        foreach ([$this->attestant->id, $living->id] as $writer) {
+            $lines[$writer] = [
+                $DB->insert_record('tool_vae_referent', (object) [
+                    'fichecode' => 'RNCP36832', 'ficherang' => 'C0' . count($lines), 'userid' => $living->id,
+                    'timecreated' => $now, 'createdby' => $writer,
+                ]),
+                $DB->insert_record('tool_vae_booklet_auth', (object) [
+                    'managerid' => $living->id, 'grantedby' => $writer, 'status' => 'granted', 'timecreated' => $now,
+                ]),
+            ];
+        }
+        $this->delete_account_without_its_task($this->attestant);
+
+        $this->reconcile();
+
+        [$referent, $authorisation] = $lines[$this->attestant->id];
+        $this->assertSame(0, (int) $DB->get_field('tool_vae_referent', 'createdby', ['id' => $referent], MUST_EXIST));
+        $this->assertNull($DB->get_field('tool_vae_booklet_auth', 'grantedby', ['id' => $authorisation], MUST_EXIST));
+        [$referent, $authorisation] = $lines[$living->id];
+        $this->assertSame((int) $living->id, (int) $DB->get_field('tool_vae_referent', 'createdby', ['id' => $referent]));
+        $this->assertSame((int) $living->id, (int) $DB->get_field('tool_vae_booklet_auth', 'grantedby', ['id' => $authorisation]));
+        $this->assertSame('', $this->reconcile_changes_nothing());
+    }
+
+    /**
+     * The catch-up clears the requests to withdraw made by, or addressed to, an account whose task never ran, and keeps
+     * the signature; the request of a living requester to a living signatory stays.
+     */
+    public function test_the_catch_up_clears_the_requests_of_an_account_whose_task_never_ran(): void {
+        global $DB;
+
+        $requester = $this->getDataGenerator()->create_user();
+        $leaver = $this->getDataGenerator()->create_user();
+        $signatory = $this->getDataGenerator()->create_user();
+        $now = time();
+        // A signature of a living signatory, written directly: who may attest is not what this test is about.
+        $sign = function (int $evidenceid) use ($DB, $signatory, $now) {
+            $DB->insert_record('tool_vae_attest', (object) [
+                'uuid' => identity_map::generate_ulid(), 'evidenceid' => $evidenceid, 'attestantid' => $signatory->id,
+                'attestantrole' => 'Cadre de santé', 'statement' => 'J\'atteste.', 'attestedat' => $now,
+                'timecreated' => $now, 'timemodified' => $now, 'usermodified' => $signatory->id,
+            ]);
+        };
+        $sign((int) $this->otherclaim->id);
+        $sign((int) $this->bystanderclaim->id);
+        $ask = function (int $evidenceid, int $by) use ($DB, $now) {
+            $DB->execute(
+                'UPDATE {tool_vae_attest} SET withdrawreqby = :by, withdrawreqat = :at WHERE evidenceid = :evidenceid',
+                ['by' => $by, 'at' => $now, 'evidenceid' => $evidenceid]
+            );
+        };
+        // Addressed to a signatory who will be gone; made by a requester who will be gone; between two living people.
+        $ask((int) $this->claim->id, (int) $requester->id);
+        $ask((int) $this->otherclaim->id, (int) $leaver->id);
+        $ask((int) $this->bystanderclaim->id, (int) $requester->id);
+
+        $this->delete_account_without_its_task($this->attestant);
+        $this->delete_account_without_its_task($leaver);
+        $this->reconcile();
+
+        $signatories = [(int) $this->claim->id => (int) $this->attestant->id, (int) $this->otherclaim->id => (int) $signatory->id];
+        foreach ($signatories as $evidenceid => $signatoryid) {
+            $attestation = $DB->get_record('tool_vae_attest', ['evidenceid' => $evidenceid], '*', MUST_EXIST);
+            $this->assertNull($attestation->withdrawreqby, 'A request nobody can answer, or nobody asks any more, stayed.');
+            $this->assertNull($attestation->withdrawreqat);
+            $this->assertSame($signatoryid, (int) $attestation->attestantid, 'The signature is not the request\'s to take.');
+            $this->assertNull($attestation->withdrawnat);
+        }
+        $living = $DB->get_record('tool_vae_attest', ['evidenceid' => $this->bystanderclaim->id], '*', MUST_EXIST);
+        $this->assertSame((int) $requester->id, (int) $living->withdrawreqby, 'The request of two living people was cleared.');
+        $this->assertSame($now, (int) $living->withdrawreqat);
+        $this->assertSame('', $this->reconcile_changes_nothing());
+    }
+
+    /**
+     * What a second run of the catch-up changes in the tables of this plugin: nothing, said as an empty string.
+     *
+     * @return string The tables whose count changed, or an empty string.
+     */
+    private function reconcile_changes_nothing(): string {
+        $before = $this->plugin_rows();
+        $this->reconcile();
+        $after = $this->plugin_rows();
+
+        return implode(', ', array_keys(array_diff_assoc($after, $before)));
+    }
+
+    /**
+     * The catch-up gives the provenance row of a framework the core no longer holds what the observer gave it.
+     *
+     * The framework is removed by a direct write: no event, so no task, the state an observer that never ran leaves.
+     */
+    public function test_the_catch_up_releases_the_provenance_row_of_a_framework_that_is_gone(): void {
+        global $DB;
+
+        $lpg = $this->getDataGenerator()->get_plugin_generator(competency_gateway::SUBSYSTEM);
+        $framework = $lpg->create_framework(['shortname' => 'RS00001', 'idnumber' => 'RS00001']);
+        $now = time();
+        $secondid = (int) $DB->insert_record('tool_vae_source', (object) [
+            'frameworkid' => (int) $framework->get('id'), 'fichecode' => 'RS00001', 'fichetype' => 'rs',
+            'licence' => 'LO-2.0', 'attribution' => 'France compétences', 'lastimportstatus' => 'ok',
+            'timecreated' => $now, 'timemodified' => $now, 'usermodified' => 2,
+        ]);
+        $first = $DB->get_record('tool_vae_source', ['fichecode' => 'RNCP36832'], '*', MUST_EXIST);
+        foreach ([$secondid, (int) $first->id] as $sourceid) {
+            $DB->insert_record('tool_vae_obsolete', (object) [
+                'competencyid' => $this->competencyid, 'sourceid' => $sourceid, 'detectedat' => $now, 'kind' => 'missing',
+            ]);
+        }
+        $DB->delete_records('competency_framework', ['id' => $framework->get('id')]);
+
+        $output = $this->reconcile();
+
+        $second = $DB->get_record('tool_vae_source', ['id' => $secondid], '*', MUST_EXIST);
+        $this->assertSame(0, (int) $second->frameworkid);
+        $this->assertSame('deleted', $second->lastimportstatus);
+        $this->assertSame(0, (int) $second->usermodified, 'Nobody known deleted it: no account is named.');
+        $this->assertSame(0, $DB->count_records('tool_vae_obsolete', ['sourceid' => $secondid]));
+        $untouched = $DB->get_record('tool_vae_source', ['id' => $first->id], '*', MUST_EXIST);
+        $this->assertSame((int) $first->frameworkid, (int) $untouched->frameworkid, 'Another record lost its framework.');
+        $this->assertSame('ok', $untouched->lastimportstatus);
+        $this->assertSame(1, $DB->count_records('tool_vae_obsolete', ['sourceid' => $first->id]));
+        $this->assertStringContainsString('1 provenance row(s) of a deleted framework released', $output);
+        $this->assertStringContainsString('0 provenance row(s) of a deleted framework released', $this->reconcile());
+    }
+
+    /**
+     * Delete an account the way an administrator does.
+     *
+     * The observer queues the purge; it is run right after, as cron would, unless the test asks for the state before.
+     *
+     * @param \stdClass $user
+     * @param bool $followup Whether to run the purge the observer queued.
+     */
+    private function delete_account(\stdClass $user, bool $followup = true): void {
         global $DB;
 
         $this->setAdminUser();
         delete_user($DB->get_record('user', ['id' => $user->id], '*', MUST_EXIST));
+        if ($followup) {
+            $this->run_followup(\tool_vae\task\purge_deleted_account::class);
+        }
+    }
+
+    /**
+     * Run the follow-ups of one class waiting in the queue, as cron would, and only them.
+     *
+     * Since ticket 3 of review MMR-520 the observer only queues the follow-up of a deletion; the tests that assert its effect
+     * run it here, at the point where the effect is expected. Only that class runs: the messages already queued stay in the
+     * queue for the tests that count them.
+     *
+     * @param string $class A task class of this plugin.
+     */
+    private function run_followup(string $class): void {
+        ob_start();
+        $this->runAdhocTasks($class);
+        ob_end_clean();
     }
 }

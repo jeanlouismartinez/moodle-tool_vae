@@ -1,0 +1,126 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/deposit_page
+
+    The page of the deposits of a dossier, below its heading: one deposit as it was fixed (its note, its digest, the sentence
+    of the labelling or the engagement, its sections, the fields left out, the opinions and the form of an opinion), or the
+    list of the deposits (the sentence of the labelling, the form of a deposit, the table or "none"); then the way back.
+
+    Every text comes from the context, worded by tool_vae\output\deposit_page. The template holds no logic: the states
+    exclude one another before. The texts are escaped (double braces). Seven keys are HTML (triple braces): recordhtml and
+    headinghtml, headings of the core ($output->heading(), text escaped by tool_vae\output\deposit_page); texthtml, a text
+    deposited or an opinion (format_text() of the core, plain text); omittedhtml, a notification of the core
+    ($output->notification()); formhtml and opinionformhtml, forms of the core (moodleform::render()), drawn once; tablehtml,
+    the table drawn by the template tool_vae/table.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * note - false, or an object {label}: the note of the deposit
+    * digest - false, or an object {text}: the digest of the deposit
+    * labelling - false, or an object {text}: the sentence of the labelling of the validation dossier
+    * engagement - false, or an object {text}: the engagement was confirmed
+    * intro - false, or an object {text}: the sentence above the form of a deposit
+    * formhtml - false, or HTML: the form of a deposit
+    * sections - array of objects {recordhtml, headinghtml, version, texthtml}: recordhtml is false or HTML
+    * omittedhtml - false, or HTML: the fields of the identity are left out
+    * opinions - false, or an object {headinghtml, none, items, intro, opinionformhtml}: none and intro are false or an
+      object {text}; items is an array of objects {by, texthtml}; opinionformhtml is false or HTML
+    * none - false, or an object {text}: no deposit yet
+    * tablehtml - false, or HTML: the table of the deposits
+    * back - an object {url, label}: the way back
+
+    Example context (json):
+    {
+        "note": {"label": "Second deposit."},
+        "digest": {"text": "Digest: 3f2a9c41b07e"},
+        "labelling": false,
+        "engagement": {"text": "The engagement was confirmed."},
+        "intro": false,
+        "formhtml": false,
+        "sections": [{"recordhtml": false, "headinghtml": "<h3>Identity</h3>", "version": "Version 2",
+            "texthtml": "<div class=\"text_to_html\">My text.</div>"}],
+        "omittedhtml": false,
+        "opinions": {"headinghtml": "<h3>Opinions</h3>", "none": {"text": "No opinion yet."}, "items": [], "intro": false,
+            "opinionformhtml": false},
+        "none": false,
+        "tablehtml": false,
+        "back": {"url": "https://example.com/admin/tool/vae/deposit.php?userid=7", "label": "Back to the deposits"}
+    }
+}}
+{{#note}}
+<p>{{label}}</p>
+{{/note}}
+{{#digest}}
+<p>{{text}}</p>
+{{/digest}}
+{{#labelling}}
+<div class="alert alert-info tool-vae-labelling" role="note">{{text}}</div>
+{{/labelling}}
+{{#engagement}}
+<p>{{text}}</p>
+{{/engagement}}
+{{#intro}}
+<p>{{text}}</p>
+{{/intro}}
+{{#formhtml}}
+{{{formhtml}}}
+{{/formhtml}}
+{{#sections}}
+{{#recordhtml}}
+{{{recordhtml}}}
+{{/recordhtml}}
+{{{headinghtml}}}
+<p class="text-muted small">{{version}}</p>
+{{{texthtml}}}
+{{/sections}}
+{{#omittedhtml}}
+{{{omittedhtml}}}
+{{/omittedhtml}}
+{{#opinions}}
+{{{headinghtml}}}
+{{#none}}
+<p>{{text}}</p>
+{{/none}}
+{{#items}}
+<p class="text-muted small">{{by}}</p>
+{{{texthtml}}}
+{{/items}}
+{{#intro}}
+<p>{{text}}</p>
+{{/intro}}
+{{#opinionformhtml}}
+{{{opinionformhtml}}}
+{{/opinionformhtml}}
+{{/opinions}}
+{{#none}}
+<p>{{text}}</p>
+{{/none}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}
+{{#back}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/back}}

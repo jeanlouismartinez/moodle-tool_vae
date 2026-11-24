@@ -1,111 +1,120 @@
-# tool_vae — boucles de validation
+# tool_vae: validation loops
 #
-# Regime 2. En l'absence du depot jlm-socle, ce Makefile porte les controles executables
-# hors ligne et sans installation. `make valider` distingue trois issues : ✓ reussi,
-# ✗ echoue, ○ NON EXECUTE (prerequis absent) — un rapport qui affiche « tout est vert »
-# alors qu'il a saute des controles est pire que pas de rapport.
+# Level 2. Without the jlm-socle repository, this Makefile carries the checks that run offline and without an
+# installed Moodle. `make validate` tells three outcomes apart: ✓ passed, ✗ failed, ○ NOT RUN (missing prerequisite):
+# a report that says "all green" when it skipped checks is worse than no report.
+#
+# Development files: none of them is in the package of the plugin (.gitattributes, export-ignore).
 
 PLUGIN  := tool_vae
-RACINE  := .
+ROOT    := .
 PHP     := php
-SOURCES := $(shell find $(RACINE) -name '*.php' -not -path './vendor/*' -not -path './node_modules/*' 2>/dev/null)
-# Dossier node_modules contenant ajv 8 et ajv-formats 3, pour `make schema`.
+SOURCES := $(shell find $(ROOT) -name '*.php' -not -path './vendor/*' -not -path './node_modules/*' 2>/dev/null)
+# Folder node_modules holding ajv 8 and ajv-formats 3, for `make schema`.
 AJV_MODULES ?=
 
-.DEFAULT_GOAL := aide
+.DEFAULT_GOAL := help
 
-.PHONY: aide valider doctor lint codestyle mc5 sortie langue privacy secrets schema ci
+.PHONY: help validate doctor lint codestyle gateway core-writes network-door secrets schema doc-links english ci
 
-aide:
-	@echo "tool_vae — cibles disponibles"
+help:
+	@echo "tool_vae: available targets"
 	@echo
-	@echo "  make valider   tout ce qui est exigible au regime declare"
-	@echo "  make doctor    ce qui manque, et ce que ca empeche"
-	@echo "  make lint      syntaxe PHP de tous les fichiers"
-	@echo "  make codestyle standard de codage Moodle (phpcs + moodlehq/moodle-cs)"
-	@echo "  make mc5       MC-5 : aucun appel au coeur hors de la passerelle"
-	@echo "  make sortie    MC-30 : une seule porte sortante, jamais planifiee"
-	@echo "  make langue    chaines de capability et parite entre langues"
-	@echo "  make privacy   chaque table est declaree au provider RGPD, ou exemptee"
-	@echo "  make secrets   secrets dans le diff indexe"
-	@echo "  make schema    schema pivot : exemples acceptes, contre-exemples refuses"
+	@echo "  make validate     everything required at the declared level"
+	@echo "  make doctor       what is missing, and what it prevents"
+	@echo "  make lint         PHP syntax of every file"
+	@echo "  make codestyle    Moodle coding standard (phpcs + moodlehq/moodle-cs)"
+	@echo "  make gateway      MC-5: no call to the core outside the gateway"
+	@echo "  make core-writes  MC-2: no direct write into the tables of the core"
+	@echo "  make network-door MC-30: one outgoing door, never scheduled (and the self-test of the guard)"
+	@echo "  make secrets      secrets in the staged diff"
+	@echo "  make schema       pivot schema: examples accepted, counter-examples refused"
+	@echo "  make doc-links    no published file points to a missing or unpublished document"
+	@echo "  make english      no code comment written in French"
 	@echo
-	@echo "  Non couvert ici, exige avant fusion : moodle-plugin-ci"
+	@echo "  Not covered here, required before merging: moodle-plugin-ci"
 	@echo "  (codechecker, validate, savepoints, mustache, grunt, phpunit, behat)"
 
 schema:
-	@echo "── Schema pivot (docs/schema)"
+	@echo "── Pivot schema (docs/schema)"
 	@if ! command -v node > /dev/null 2>&1; then \
-	  echo "  ○ NON EXECUTE — node absent."; \
+	  echo "  ○ NOT RUN: node missing."; \
 	elif ! AJV_MODULES="$(AJV_MODULES)" node -e "const m = process.env.AJV_MODULES; require(m ? require('path').join(m, 'ajv/dist/2020') : 'ajv/dist/2020')" > /dev/null 2>&1; then \
-	  echo "  ○ NON EXECUTE — ajv 8 introuvable."; \
-	  echo "     make schema AJV_MODULES=<dossier node_modules contenant ajv et ajv-formats>"; \
+	  echo "  ○ NOT RUN: ajv 8 not found."; \
+	  echo "     make schema AJV_MODULES=<node_modules folder holding ajv and ajv-formats>"; \
 	else \
-	  AJV_MODULES="$(AJV_MODULES)" node scripts/verifier-schema.mjs $(RACINE); \
+	  AJV_MODULES="$(AJV_MODULES)" node scripts/check-schema.mjs $(ROOT); \
 	fi
 
-valider: doctor lint codestyle mc5 sortie langue privacy secrets schema
+validate: doctor lint codestyle gateway core-writes network-door secrets schema doc-links english
 	@echo
 	@echo "══════════════════════════════════════════════"
-	@echo "  ✓ Controles hors ligne : tous verts"
+	@echo "  ✓ Offline checks: all green"
 	@echo
-	@echo "  ○ NON EXECUTE ici — exige un Moodle installe (voir docs/BANC-ESSAI.md) :"
-	@echo "     phpunit           165 tests verts en CI le 11 octobre 2026 (v0.8.0)"
-	@echo "     conformite RGPD   1628 tests du coeur, verts le 28 aout 2026"
-	@echo "     behat             5 scenarios verts en CI le 11 octobre 2026, dont axe-core"
+	@echo "  ○ NOT RUN here: needs an installed Moodle:"
+	@echo "     phpunit           tests of the plugin (tests/), including the language strings"
+	@echo "                       (lang_strings_test) and the privacy coverage (privacy_coverage_test)"
+	@echo "     privacy           tests of the Privacy API of the core"
+	@echo "     behat             scenarios of the plugin (tests/behat/), including axe-core with JavaScript"
+	@echo "     Last figures read: section Verified of the top entry of CHANGELOG.md"
 	@echo
-	@echo "  ○ NON EXECUTE — sans outil :"
-	@echo "     test manuel au clavier et au lecteur d ecran"
-	@echo "     revue humaine tierce : habilitations, donnees personnelles, licence"
+	@echo "  ○ NOT RUN: no tool for it:"
+	@echo "     manual test with the keyboard and a screen reader"
+	@echo "     third-party human review: rights, personal data, licence"
 	@echo "══════════════════════════════════════════════"
 
 doctor:
-	@bash scripts/doctor.sh $(RACINE)
+	@bash scripts/doctor.sh $(ROOT)
 
 lint:
-	@echo "── Syntaxe PHP"
-	@erreurs=0; \
+	@echo "── PHP syntax"
+	@errors=0; \
 	for f in $(SOURCES); do \
-	  $(PHP) -l $$f > /dev/null 2>&1 || { echo "  ✗ $$f"; $(PHP) -l $$f; erreurs=1; }; \
+	  $(PHP) -l $$f > /dev/null 2>&1 || { echo "  ✗ $$f"; $(PHP) -l $$f; errors=1; }; \
 	done; \
-	if [ $$erreurs -eq 0 ]; then \
-	  echo "  ✓ $(words $(SOURCES)) fichiers sans erreur de syntaxe"; \
+	if [ $$errors -eq 0 ]; then \
+	  echo "  ✓ $(words $(SOURCES)) files without a syntax error"; \
 	else exit 1; fi
 
 codestyle:
-	@echo "── Standard de codage Moodle"
+	@echo "── Moodle coding standard"
 	@PHPCS=$$(command -v phpcs || echo /opt/moodle-cs/vendor/bin/phpcs); \
 	if [ -x "$$PHPCS" ]; then \
-	  $$PHPCS --report=summary --no-colors $(RACINE) && echo "  ✓ aucune violation"; \
+	  $$PHPCS --report=summary --no-colors $(ROOT) && echo "  ✓ no violation"; \
 	else \
-	  echo "  ○ NON EXECUTE — phpcs absent."; \
-	  echo "     composer require moodlehq/moodle-cs, puis phpcs --report=summary ."; \
-	  echo "     Les regles du plugin sont dans phpcs.xml.dist."; \
+	  echo "  ○ NOT RUN: phpcs missing."; \
+	  echo "     composer require moodlehq/moodle-cs, then phpcs --report=summary ."; \
+	  echo "     The rules of the plugin are in phpcs.xml.dist."; \
 	fi
 
-mc5:
+gateway:
 	@echo "── MC-5"
-	@bash scripts/mc5-passerelle.sh $(RACINE)
+	@bash scripts/check-gateway.sh $(ROOT)
 
-sortie:
+core-writes:
+	@echo "── MC-2"
+	@bash scripts/check-core-writes.sh $(ROOT)
+
+network-door:
 	@echo "── MC-30"
-	@bash scripts/sortie-reseau.sh $(RACINE)
-
-langue:
-	@echo "── Chaines de langue"
-	@$(PHP) scripts/verifier-langue.php $(RACINE)
-
-privacy:
-	@echo "── Couverture RGPD"
-	@$(PHP) scripts/verifier-privacy.php $(RACINE)
+	@bash scripts/check-network-door.sh $(ROOT)
+	@bash scripts/test-check-network-door.sh
 
 secrets:
 	@echo "── Secrets"
-	@bash scripts/verifier-secrets.sh
+	@bash scripts/check-secrets.sh
 
-# Cible d'integration continue : ajoute ce qui exige une installation.
-ci: valider
+doc-links:
+	@echo "── References to docs/"
+	@node scripts/check-doc-links.mjs $(ROOT)
+
+english:
+	@echo "── English comments"
+	@node scripts/check-english-comments.mjs $(ROOT)
+
+# Target of the continuous integration: adds what needs an installation.
+ci: validate
 	@echo "── moodle-plugin-ci"
 	@command -v moodle-plugin-ci > /dev/null 2>&1 \
 	  && moodle-plugin-ci validate \
-	  || echo "  ○ NON EXECUTE — moodle-plugin-ci absent de cette machine"
+	  || echo "  ○ NOT RUN: moodle-plugin-ci missing from this machine"

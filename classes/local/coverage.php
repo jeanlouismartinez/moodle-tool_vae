@@ -22,7 +22,8 @@ namespace tool_vae\local;
  * COUNTS, NEVER A VERDICT. mod_referentiel turned the same figures into a gauge and the gauge
  * into "validable"; this class stops at the counts on purpose. No percentage, no total, no
  * threshold, no weight: the moment a figure is set against a target it becomes an opinion on
- * the outcome, and the outcome belongs to the panel (README, docs/INVENTAIRE-mod_referentiel.md).
+ * the outcome, and the outcome belongs to the panel (README; the inventory of what mod_referentiel offered is kept in the
+ * maintainer's working repository).
  *
  * THE COMPETENCIES WITHOUT A DECLARATION ARE THE POINT. A list of what was declared repeats the
  * dossier; what the candidate cannot see anywhere else is what the record holds and they have

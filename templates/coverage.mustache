@@ -1,0 +1,84 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/coverage
+
+    The coverage of a dossier: ahead of it, the box of the addresses where the certifiers publish their rule (when the
+    site opened them), then the section: its heading, a sentence, and for each record its heading, its provenance line,
+    the note that it has blocs, and its table. Nothing when there is no record. Inside the box the parts touch, with
+    nothing between them but the spaces of before: a comment carries each line break there.
+
+    Every text comes from the context, already worded by tool_vae\output\coverage. The template holds no logic. Every text
+    and address is escaped (double braces). Four keys are HTML (triple braces): headinghtml and titlehtml, headings made by
+    the core ($output->heading(), the title of a record escaped by the class); provenancehtml, drawn by the template
+    tool_vae/provenance; tablehtml, a table drawn by the template tool_vae/table (its cells by tool_vae/coverage_label and
+    tool_vae/cell_content).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * show - bool, whether there is a coverage to draw
+    * rulerefs - false, or {label, lines, sentence}: lines - array of {code, links}; links - array of {first (bool), url,
+      title, tip, checked (false or {text})}
+    * headinghtml - HTML, the heading of the section
+    * intro - string, the sentence under it
+    * fiches - array of {titlehtml, provenancehtml (false or HTML), blocnote (false or a string), tablehtml}
+
+    Example context (json):
+    {
+        "show": true,
+        "rulerefs": {"label": "Rule of validation", "sentence": "The plugin applies no rule.", "lines": [
+            {"code": "RS00000", "links": [{"first": true, "url": "https://example.org/a", "title": "Rule", "tip":
+                "https://example.org/a", "checked": {"text": "checked on 20 October 2026"} }] }
+        ]},
+        "headinghtml": "<h3>Coverage</h3>",
+        "intro": "Counts, nothing else.",
+        "fiches": [
+            {"titlehtml": "<h4>RS00000 — RS</h4>", "provenancehtml": false, "blocnote": "This record has blocs.",
+                "tablehtml": "<table class=\"generaltable tool-vae-coverage-table\"><tbody><tr><td>0</td></tr></tbody></table>"}
+        ]
+    }
+}}
+{{#show}}
+{{#rulerefs}}
+<div class="small border rounded p-2 my-2 tool-vae-rule-refs"><strong>{{label}}</strong><ul class="mb-1">{{!
+}}{{#lines}}<li><strong>{{code}}</strong> : {{#links}}{{^first}} ; {{/first}}{{!
+}}<a href="{{url}}" target="_blank" rel="noopener noreferrer" title="{{tip}}">{{title}}</a>{{!
+}}{{#checked}} {{text}}{{/checked}}{{/links}}</li>{{/lines}}</ul><p class="mb-0">{{sentence}}</p></div>
+{{/rulerefs}}
+<section class="tool-vae-coverage mb-4">
+{{{headinghtml}}}
+<p>{{intro}}</p>
+{{#fiches}}
+{{{titlehtml}}}
+{{#provenancehtml}}
+{{{provenancehtml}}}
+{{/provenancehtml}}
+{{#blocnote}}
+<p class="small text-muted">{{blocnote}}</p>
+{{/blocnote}}
+{{{tablehtml}}}
+{{/fiches}}
+</section>
+{{/show}}

@@ -17,6 +17,7 @@
 namespace tool_vae;
 
 use tool_vae\local\text_diff;
+use tool_vae\output\compare_diff;
 
 /**
  * The comparison of two versions of a text (T-81, lot 2).
@@ -30,6 +31,7 @@ use tool_vae\local\text_diff;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\text_diff::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(compare_diff::class)]
 final class text_diff_test extends \advanced_testcase {
     /**
      * Rebuild both texts from the operations and compare them to the originals.
@@ -146,8 +148,10 @@ final class text_diff_test extends \advanced_testcase {
     }
 
     public function test_the_html_marks_additions_and_removals_without_colour(): void {
+        global $PAGE;
         $ops = text_diff::diff('Je prépare', 'Je range');
-        $html = text_diff::html($ops);
+        // Since lot 7 (wave 4c) the HTML is drawn by the piece compare_diff and its template.
+        $html = $PAGE->get_renderer('tool_vae')->render(new compare_diff($ops));
 
         $this->assertStringContainsString('<ins class="tool-vae-ins">', $html);
         $this->assertStringContainsString('<del class="tool-vae-del">', $html);
@@ -157,7 +161,8 @@ final class text_diff_test extends \advanced_testcase {
     }
 
     public function test_the_html_escapes_the_text(): void {
-        $html = text_diff::html(text_diff::diff('a', 'a <script>alert(1)</script>'));
+        global $PAGE;
+        $html = $PAGE->get_renderer('tool_vae')->render(new compare_diff(text_diff::diff('a', 'a <script>alert(1)</script>')));
 
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringContainsString('&lt;script&gt;', $html);

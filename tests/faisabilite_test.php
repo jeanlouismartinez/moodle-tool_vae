@@ -17,8 +17,8 @@
 namespace tool_vae;
 
 use tool_vae\local\draft_manager;
-use tool_vae\local\faisabilite_catalog;
-use tool_vae\local\faisabilite_overview;
+use tool_vae\local\feasibility_catalog;
+use tool_vae\local\feasibility_overview;
 
 /**
  * The catalogue of the sections of the dossier de faisabilité and the overview built on it
@@ -32,8 +32,8 @@ use tool_vae\local\faisabilite_overview;
  * @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\faisabilite_catalog::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\faisabilite_overview::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\feasibility_catalog::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\feasibility_overview::class)]
 final class faisabilite_test extends \advanced_testcase {
     /** @var \stdClass A candidate who may write. */
     private $candidate;
@@ -61,9 +61,9 @@ final class faisabilite_test extends \advanced_testcase {
         $this->assertSame([
             'certification', 'prerequis', 'identite', 'contact', 'statut',
             'objectifs', 'experiences', 'blocs', 'parcours', 'engagement',
-        ], array_keys(faisabilite_catalog::sections()));
+        ], array_keys(feasibility_catalog::sections()));
 
-        foreach (array_keys(faisabilite_catalog::sections()) as $code) {
+        foreach (array_keys(feasibility_catalog::sections()) as $code) {
             $this->assertTrue(get_string_manager()->string_exists('faisabsection:' . $code, 'tool_vae'), $code);
         }
     }
@@ -72,31 +72,31 @@ final class faisabilite_test extends \advanced_testcase {
      * Every section is open, and each has its kind: identity and status are fields, contact is read.
      */
     public function test_every_section_is_open_and_has_its_kind(): void {
-        foreach (array_keys(faisabilite_catalog::sections()) as $code) {
-            $this->assertTrue(faisabilite_catalog::is_open($code), $code);
+        foreach (array_keys(feasibility_catalog::sections()) as $code) {
+            $this->assertTrue(feasibility_catalog::is_open($code), $code);
         }
-        $this->assertFalse(faisabilite_catalog::is_open('nonexistent'));
+        $this->assertFalse(feasibility_catalog::is_open('nonexistent'));
 
-        $this->assertSame(faisabilite_catalog::KIND_FIELDS, faisabilite_catalog::kind('identite'));
-        $this->assertSame(faisabilite_catalog::KIND_FIELDS, faisabilite_catalog::kind('statut'));
-        $this->assertSame(faisabilite_catalog::KIND_ACCOUNT, faisabilite_catalog::kind('contact'));
-        $this->assertSame(faisabilite_catalog::KIND_TEXT, faisabilite_catalog::kind('objectifs'));
-        $this->assertNull(faisabilite_catalog::kind('nonexistent'));
+        $this->assertSame(feasibility_catalog::KIND_FIELDS, feasibility_catalog::kind('identite'));
+        $this->assertSame(feasibility_catalog::KIND_FIELDS, feasibility_catalog::kind('statut'));
+        $this->assertSame(feasibility_catalog::KIND_ACCOUNT, feasibility_catalog::kind('contact'));
+        $this->assertSame(feasibility_catalog::KIND_TEXT, feasibility_catalog::kind('objectifs'));
+        $this->assertNull(feasibility_catalog::kind('nonexistent'));
     }
 
     /**
      * A single section has the place 0 and a repeated one has 1 up to its limit.
      */
     public function test_addresses_are_checked_against_the_catalogue(): void {
-        $this->assertTrue(faisabilite_catalog::valid_address('objectifs', 0));
-        $this->assertFalse(faisabilite_catalog::valid_address('objectifs', 1));
+        $this->assertTrue(feasibility_catalog::valid_address('objectifs', 0));
+        $this->assertFalse(feasibility_catalog::valid_address('objectifs', 1));
 
-        $this->assertFalse(faisabilite_catalog::valid_address('experiences', 0));
-        $this->assertTrue(faisabilite_catalog::valid_address('experiences', 1));
-        $this->assertTrue(faisabilite_catalog::valid_address('experiences', faisabilite_catalog::MAX_EXPERIENCES));
-        $this->assertFalse(faisabilite_catalog::valid_address('experiences', faisabilite_catalog::MAX_EXPERIENCES + 1));
+        $this->assertFalse(feasibility_catalog::valid_address('experiences', 0));
+        $this->assertTrue(feasibility_catalog::valid_address('experiences', 1));
+        $this->assertTrue(feasibility_catalog::valid_address('experiences', feasibility_catalog::MAX_EXPERIENCES));
+        $this->assertFalse(feasibility_catalog::valid_address('experiences', feasibility_catalog::MAX_EXPERIENCES + 1));
 
-        $this->assertFalse(faisabilite_catalog::valid_address('nonexistent', 0));
+        $this->assertFalse(feasibility_catalog::valid_address('nonexistent', 0));
     }
 
     /**
@@ -125,16 +125,16 @@ final class faisabilite_test extends \advanced_testcase {
     public function test_the_overview_of_a_new_candidate_is_empty_and_creates_nothing(): void {
         global $DB;
 
-        $overview = faisabilite_overview::for_candidate((int) $this->candidate->id);
+        $overview = feasibility_overview::for_candidate((int) $this->candidate->id);
 
         $this->assertSame(0, $DB->count_records('tool_vae_draft'));
-        $this->assertSame(array_keys(faisabilite_catalog::sections()), array_keys($overview));
-        $this->assertSame(faisabilite_overview::STATE_EMPTY, $overview['objectifs']['places'][0]['state']);
+        $this->assertSame(array_keys(feasibility_catalog::sections()), array_keys($overview));
+        $this->assertSame(feasibility_overview::STATE_EMPTY, $overview['objectifs']['places'][0]['state']);
         $this->assertSame([], $overview['experiences']['places']);
         $this->assertSame(1, $overview['experiences']['nextslot']);
         $this->assertNull($overview['objectifs']['nextslot']);
-        $this->assertSame(faisabilite_overview::STATE_ACCOUNT, $overview['contact']['places'][0]['state']);
-        $this->assertSame(faisabilite_overview::STATE_EMPTY, $overview['identite']['places'][0]['state']);
+        $this->assertSame(feasibility_overview::STATE_ACCOUNT, $overview['contact']['places'][0]['state']);
+        $this->assertSame(feasibility_overview::STATE_EMPTY, $overview['identite']['places'][0]['state']);
     }
 
     /**
@@ -145,35 +145,35 @@ final class faisabilite_test extends \advanced_testcase {
         $id = (int) $this->candidate->id;
         $type = draft_manager::DOCTYPE_FAISABILITE;
 
-        $objectifs = $manager->section($id, $type, 'objectifs');
-        $manager->save_working((int) $objectifs->id, 'Un premier jet.');
+        $objectives = $manager->section($id, $type, 'objectifs');
+        $manager->save_working((int) $objectives->id, 'Un premier jet.');
 
-        $parcours = $manager->section($id, $type, 'parcours');
-        $manager->save_version((int) $parcours->id, 'Une version.');
+        $pathway = $manager->section($id, $type, 'parcours');
+        $manager->save_version((int) $pathway->id, 'Une version.');
 
-        $prerequis = $manager->section($id, $type, 'prerequis');
-        $manager->save_version((int) $prerequis->id, 'Une version.');
-        $manager->save_working((int) $prerequis->id, 'Un brouillon plus récent.');
+        $prerequisites = $manager->section($id, $type, 'prerequis');
+        $manager->save_version((int) $prerequisites->id, 'Une version.');
+        $manager->save_working((int) $prerequisites->id, 'Un brouillon plus récent.');
 
         $first = $manager->section($id, $type, 'experiences', 1);
         $manager->save_version((int) $first->id, 'Première expérience.');
         $manager->section($id, $type, 'experiences', 2);
 
-        $overview = faisabilite_overview::for_candidate($id);
+        $overview = feasibility_overview::for_candidate($id);
 
-        $this->assertSame(faisabilite_overview::STATE_DRAFT, $overview['objectifs']['places'][0]['state']);
-        $this->assertSame(faisabilite_overview::STATE_VERSION, $overview['parcours']['places'][0]['state']);
+        $this->assertSame(feasibility_overview::STATE_DRAFT, $overview['objectifs']['places'][0]['state']);
+        $this->assertSame(feasibility_overview::STATE_VERSION, $overview['parcours']['places'][0]['state']);
         $this->assertSame(1, $overview['parcours']['places'][0]['version']);
-        $this->assertSame(faisabilite_overview::STATE_VERSION_DRAFT, $overview['prerequis']['places'][0]['state']);
-        $this->assertSame(faisabilite_overview::STATE_VERSION, $overview['experiences']['places'][1]['state']);
+        $this->assertSame(feasibility_overview::STATE_VERSION_DRAFT, $overview['prerequis']['places'][0]['state']);
+        $this->assertSame(feasibility_overview::STATE_VERSION, $overview['experiences']['places'][1]['state']);
         $this->assertSame(
-            faisabilite_overview::STATE_EMPTY,
+            feasibility_overview::STATE_EMPTY,
             $overview['experiences']['places'][2]['state'],
             'Opened, not written.'
         );
         $this->assertSame(3, $overview['experiences']['nextslot']);
         $this->assertSame(
-            (int) $objectifs->id,
+            (int) $objectives->id,
             $overview['objectifs']['places'][0]['draftid']
         );
     }
@@ -184,26 +184,26 @@ final class faisabilite_test extends \advanced_testcase {
     public function test_a_place_is_named_for_the_candidate(): void {
         $this->assertSame(
             get_string('faisabsection:objectifs', 'tool_vae'),
-            faisabilite_catalog::label('objectifs', 0)
+            feasibility_catalog::label('objectifs', 0)
         );
         $this->assertSame(
             get_string('faisabslot', 'tool_vae', (object) [
                 'section' => get_string('faisabsection:experiences', 'tool_vae'),
                 'slot' => 2,
             ]),
-            faisabilite_catalog::label('experiences', 2)
+            feasibility_catalog::label('experiences', 2)
         );
-        $this->assertSame('unknown_code', faisabilite_catalog::label('unknown_code', 0));
+        $this->assertSame('unknown_code', feasibility_catalog::label('unknown_code', 0));
     }
 
     /**
      * Every section has a help sentence, in English and in French.
      */
     public function test_every_section_has_its_help(): void {
-        foreach (array_keys(faisabilite_catalog::sections()) as $code) {
-            $this->assertNotEmpty(faisabilite_catalog::help($code), $code);
+        foreach (array_keys(feasibility_catalog::sections()) as $code) {
+            $this->assertNotEmpty(feasibility_catalog::help($code), $code);
         }
-        $this->assertNull(faisabilite_catalog::help('unknown_code'));
+        $this->assertNull(feasibility_catalog::help('unknown_code'));
     }
 
     /**
@@ -214,11 +214,11 @@ final class faisabilite_test extends \advanced_testcase {
         $id = (int) $this->candidate->id;
         $type = draft_manager::DOCTYPE_FAISABILITE;
 
-        $objectifs = $manager->section($id, $type, 'objectifs');
-        $manager->save_working((int) $objectifs->id, 'Un premier jet.');
+        $objectives = $manager->section($id, $type, 'objectifs');
+        $manager->save_working((int) $objectives->id, 'Un premier jet.');
         $manager->section($id, $type, 'experiences', 1);
 
-        $overview = faisabilite_overview::for_candidate($id);
+        $overview = feasibility_overview::for_candidate($id);
 
         $this->assertGreaterThan(0, $overview['objectifs']['places'][0]['modified']);
         $this->assertSame(0, $overview['experiences']['places'][1]['modified'], 'Opened, never written.');
@@ -237,8 +237,8 @@ final class faisabilite_test extends \advanced_testcase {
         );
 
         $other = $this->getDataGenerator()->create_user();
-        $overview = faisabilite_overview::for_candidate((int) $other->id);
+        $overview = feasibility_overview::for_candidate((int) $other->id);
 
-        $this->assertSame(faisabilite_overview::STATE_EMPTY, $overview['objectifs']['places'][0]['state']);
+        $this->assertSame(feasibility_overview::STATE_EMPTY, $overview['objectifs']['places'][0]['state']);
     }
 }

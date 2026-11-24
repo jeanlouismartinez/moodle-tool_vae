@@ -30,6 +30,8 @@ require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use tool_vae\local\role_installer;
+use tool_vae\output\roles_install_confirm_page;
+use tool_vae\output\roles_install_page;
 
 admin_externalpage_setup('toolvae_roles');
 require_capability('moodle/role:manage', context_system::instance());
@@ -53,18 +55,15 @@ if ($shortname !== '' && isset($presets[$shortname]) && optional_param('confirm'
     }
 }
 
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('rolesheading', 'tool_vae'));
 
 if ($shortname !== '' && isset($presets[$shortname])) {
     // The confirmation: what will be created, with which rights, and that nothing existing is changed.
     $preset = $presets[$shortname];
-    $rights = array_map(
-        fn($capability) => html_writer::tag('li', s(get_capability_string($capability)) . ' (' . s($capability) . ')'),
-        $preset->rights
-    );
-    echo html_writer::tag('p', s(get_string('rolesconfirmwhat', 'tool_vae', $preset->name)));
-    echo html_writer::tag('ul', implode('', $rights));
+    echo $renderer->render(new roles_install_confirm_page($preset));
     echo $OUTPUT->confirm(
         get_string('rolesconfirm', 'tool_vae', $preset->name),
         new single_button(
@@ -79,42 +78,11 @@ if ($shortname !== '' && isset($presets[$shortname])) {
     die();
 }
 
-echo html_writer::tag('p', s(get_string('rolesintro', 'tool_vae')));
-
-foreach ([false, true] as $optional) {
-    $subset = array_filter($presets, fn($preset) => $preset->optional === $optional);
-    if (!$subset) {
-        continue;
-    }
-    echo $OUTPUT->heading(get_string($optional ? 'rolesoptional' : 'rolesbase', 'tool_vae'), 3);
-    if ($optional) {
-        echo html_writer::tag('p', s(get_string('rolesoptionalwarning', 'tool_vae')), ['class' => 'text-muted small']);
-    }
-    $table = new html_table();
-    $table->attributes['class'] = 'generaltable tool-vae-roles';
-    $table->head = [
-        get_string('rolescolrole', 'tool_vae'),
-        get_string('rolescolrights', 'tool_vae'),
-        get_string('rolescolstate', 'tool_vae'),
-    ];
-    foreach ($subset as $preset) {
-        $rights = implode(', ', array_map(fn($capability) => s(get_capability_string($capability)), $preset->rights));
-        if (role_installer::exists($preset->shortname)) {
-            $state = html_writer::tag('span', s(get_string('rolesexists', 'tool_vae')), ['class' => 'small text-muted']);
-        } else {
-            $state = $OUTPUT->single_button(
-                new moodle_url($url, ['shortname' => $preset->shortname]),
-                get_string('rolescreatenamed', 'tool_vae', $preset->name),
-                'get'
-            );
-        }
-        $table->data[] = [
-            s($preset->name) . html_writer::div(s($preset->description), 'small text-muted'),
-            $rights,
-            $state,
-        ];
-    }
-    echo html_writer::table($table);
+// A role that already exists is shown as such and never touched.
+$exists = [];
+foreach ($presets as $preset) {
+    $exists[$preset->shortname] = role_installer::exists($preset->shortname);
 }
+echo $renderer->render(new roles_install_page($presets, $exists, $url));
 
 echo $OUTPUT->footer();

@@ -1,0 +1,88 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/correspondence_decision_form
+
+    The form that decides the equivalent of one competency of a replaced record, or takes the decision back: the parameters
+    of the page and the session key, hidden; the list of the competencies of the record that replaces and the note, each
+    with its label hidden to the eye and read by a screen reader; the button that decides, and the one that takes back once
+    a decision stands. A comment carries each line break of the template, so that no space is drawn where the page wrote
+    none; the spaces drawn are those the page wrote (a line break after each hidden parameter, one space before the label of
+    the note and before each button).
+
+    Every value comes from the context, given by tool_vae\output\correspondence_decision_form. The template holds no logic beyond
+    its sections. Every value is escaped (double braces), except one key of HTML (triple braces): labelhtml, the label of a
+    competency as format_string() of the core gives it.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * url - string, the address of the page without its parameters, not escaped
+    * params - array of {name, value}: the parameters of the page
+    * sesskey - string, the session key
+    * fromid - int, the competency of the replaced record
+    * tolabel - string, the label of the list, for a screen reader
+    * options - array of {value, text, labelhtml, selected}: the choices, the text drawn before the label of a competency
+    * notelabel - string, the label of the note, for a screen reader
+    * maxlength - int, the length a note may have
+    * placeholder - string, the words shown in the empty note
+    * decide - string, the words of the button that decides
+    * undo - bool, whether a decision stands
+    * undolabel - string, the words of the button that takes back
+
+    Example context (json):
+    {
+        "url": "https://example.com/admin/tool/vae/passage.php",
+        "params": [{"name": "fiche", "value": "DEMO-GRAND-AGE"}],
+        "sesskey": "abcdef1234",
+        "fromid": 1,
+        "tolabel": "Decide DEMO-GRAND-AGE-BC01",
+        "options": [
+            {"value": "", "text": "No equivalent decided", "labelhtml": "", "selected": false},
+            {"value": "10", "text": "DEMO-GRAND-AGE2-BC01 — ", "labelhtml": "Accompagner la personne", "selected": true}
+        ],
+        "notelabel": "Note (why) DEMO-GRAND-AGE-BC01",
+        "maxlength": 500,
+        "placeholder": "Note (why)",
+        "decide": "Confirm this equivalent",
+        "undo": true,
+        "undolabel": "Take back"
+    }
+}}
+<form method="post" action="{{url}}">{{#params}}<input type="hidden" name="{{name}}" value="{{value}}">
+{{/params}}{{!
+}}<input type="hidden" name="sesskey" value="{{sesskey}}">{{!
+}}<input type="hidden" name="fromid" value="{{fromid}}">{{!
+}}<label for="tool_vae_to_{{fromid}}" class="visually-hidden">{{tolabel}}</label>{{!
+}}<select id="tool_vae_to_{{fromid}}" class="select form-select menutoid" name="toid">{{!
+}}{{#options}}<option {{#selected}}selected="selected" {{/selected}}value="{{value}}">{{!
+}}{{text}}{{{labelhtml}}}</option>{{/options}}{{!
+}}</select> {{!
+}}<label for="tool_vae_note_{{fromid}}" class="visually-hidden">{{notelabel}}</label>{{!
+}}<input type="text" name="note" id="tool_vae_note_{{fromid}}" maxlength="{{maxlength}}" size="30"{{!
+}} placeholder="{{placeholder}}"> {{!
+}}<button type="submit" name="action" value="decide" class="btn btn-primary btn-sm">{{decide}}</button>{{!
+}}{{#undo}} <button type="submit" name="action" value="undo" class="btn btn-secondary btn-sm">{{!
+}}{{undolabel}}</button>{{/undo}}{{!
+}}</form>

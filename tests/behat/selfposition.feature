@@ -135,6 +135,24 @@ Feature: The vaeiste positions themselves on every level of their record, the ma
     Then I should see "Help the person to wash" in the ".tool-vae-selfpos-tree" "css_element"
     And I should not see "Position myself on this element"
 
+  # Lot 7 (MMR-520, wave 3a): the page of a record hidden under the vaeiste, which no other scenario opened. With a send of the
+  # vaeiste, the message is an alarm and the text typed is given back; without one, the message is an information.
+  Scenario: A record hidden since the node was opened gives back its message and the text typed, never lost
+    Given I log in as "candidat"
+    And I am on the "candidat RNCP400-C11" "tool_vae > Selfposition" page
+    And I set the following fields to these values:
+      | Step          | I act on my own          |
+      | Justification | Kept through the hiding. |
+    And the framework of the record "RNCP400" is hidden
+    When I press "Record"
+    Then I should see "The record Aide-soignant (RNCP400) is hidden" in the ".alert-danger" "css_element"
+    And I should see "Your text was not recorded"
+    And I should see "Kept through the hiding." in the "textarea[readonly]" "css_element"
+    When I am on the "candidat RNCP400-C11" "tool_vae > Selfposition" page
+    Then I should see "The record Aide-soignant (RNCP400) is hidden" in the ".alert-info" "css_element"
+    And I should not see "Your text was not recorded"
+    And "textarea[readonly]" "css_element" should not exist
+
   Scenario: The manager who does not follow is refused
     Given I log in as "autre"
     Then the "candidat RNCP400" "Selfposition" page should be refused with "Sorry, but you do not currently have permissions to do that"
@@ -147,3 +165,65 @@ Feature: The vaeiste positions themselves on every level of their record, the ma
     When I am on the "candidat RNCP400" "tool_vae > Selfposition" page
     Then I should see "Odd coded skill" in the ".tool-vae-selfpos-tree" "css_element"
     And I should see "cannot be positioned on" in the ".tool-vae-selfpos-tree" "css_element"
+
+  # Lot 7 (MMR-520, wave 3a, pilot): the list of the records with a hidden record, which no scenario opened.
+  Scenario: The list of the records says which record is hidden and offers the others only
+    Given I log in as "candidat"
+    And I am on the "candidat" "tool_vae > Organisation" page
+    And I press "Position myself"
+    And I should see "Choose a certification record"
+    And the framework of the record "RNCP400" is hidden
+    When I reload the page
+    Then I should see "The record Aide-soignant (RNCP400) is hidden" in the ".alert-info" "css_element"
+    And I should see "No certification record is offered on this site yet."
+    And I should not see "Choose a certification record"
+
+  # Lot 7 (MMR-520, wave 4a): two states of the page that the tool of equivalence does not serve - the competencies switched
+  # off, an annotation of a node refused - drawn by a class of output now.
+  Scenario: With the competencies switched off, the self-positioning says so and nothing else
+    Given the following config values are set as admin:
+      | enabled | 0 | core_competency |
+    And I log in as "candidat"
+    When I am on the "candidat RNCP400" "tool_vae > Selfposition" page
+    Then I should see "Position myself"
+    And I should see "The competency subsystem is switched off on this site."
+    And I should not see "Help with daily care"
+    And I should not see "Choose a certification record"
+
+  Scenario: The same annotation of a node twice is refused, and said above the node
+    Given the following "permission overrides" exist:
+      | capability        | permission | role     | contextlevel | reference |
+      | tool/vae:annotate | Allow      | follower | System       |           |
+    And the following "tool_vae > consents" exist:
+      | candidate | manager     | state |
+      | candidat  | responsable | given |
+    And I log in as "responsable"
+    And I am on the "candidat RNCP400-C11" "tool_vae > Selfposition" page
+    And I set the field "Your annotation" to "Say what you do alone."
+    And I press "Save the annotation"
+    When I set the field "Your annotation" to "Say what you do alone."
+    And I press "Save the annotation"
+    Then I should see "This annotation is the same as your latest annotation on the same item."
+    And I should see "Say what you do alone." in the ".tool-vae-note" "css_element"
+
+  # Lot 7 (MMR-520, wave 3a, pilot): the page of a node gives, in reading, the level the vaeiste gave on the equivalent node
+  # of the record this one replaces, which no scenario read.
+  Scenario: The node of a record that replaces another shows the level given on the old record
+    Given the following "tool_vae > sources" exist:
+      | fichecode | ficherang | name       | shortname  |
+      | RNCP300   | D1        | Old record | Old domain |
+    And the following "tool_vae > competencies" exist:
+      | fichecode | ficherang | shortname      | parent |
+      | RNCP300   | C11       | Old daily care | D1     |
+    And the following "tool_vae > replacements" exist:
+      | fichecode | successorcode |
+      | RNCP300   | RNCP400       |
+    And the following "tool_vae > correspondences" exist:
+      | from        | to          |
+      | RNCP300-C11 | RNCP400-C11 |
+    And the following "tool_vae > selfpositions" exist:
+      | candidate | fichecode | ficherang | level | justification      |
+      | candidat  | RNCP300   | C11       | 2     | On the old record. |
+    When I log in as "candidat"
+    And I am on the "candidat RNCP400-C11" "tool_vae > Selfposition" page
+    Then I should see "On the earlier record RNCP300 (C11):" in the ".tool-vae-selfpos" "css_element"

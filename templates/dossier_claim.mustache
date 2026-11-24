@@ -1,0 +1,68 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/dossier_claim
+
+    One declaration of the dossier, in its block: the warning of its anchor, its state, the notes of a carry-over, the
+    declaration, the attestations under their heading, the chronology, the ways on the attestation and the carry-over, the
+    link of the questions, the link of the pieces with the badge of those added after the signature. On logical lines: a
+    comment carries each line break of the template, so that no space is drawn where the old code wrote none.
+
+    Every text comes from the context, worded by tool_vae\output\dossier_claim. The template holds no logic beyond its
+    sections. Every text, label and address is escaped (double braces). Keys placed as they are (triple braces):
+    warninghtml, statehtml, noteshtml, declarationhtml, attestationshtml, chronologyhtml, drawn by the templates of
+    tool_vae (anchor_warning, state_label, carry_notes, declaration, attestations, chronology); acthtml, a notification or a
+    button of the core.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * warninghtml, statehtml, noteshtml, declarationhtml, attestationshtml, chronologyhtml - string, HTML of the pieces
+    * heading - string, the heading of the attestations
+    * acts - array, each {acthtml}: a notification or a button, in their order
+    * precision - {url, label}: the link of the questions
+    * pieces - null, or {url, label, late}: the link of the pieces, late null or {label}
+
+    Example context (json):
+    {
+        "warninghtml": "",
+        "statehtml": "<span class=\"badge bg-secondary\">Declared</span>",
+        "noteshtml": "",
+        "declarationhtml": "<div class=\"tool-vae-declaration\">RNCP100-C01</div>",
+        "heading": "Attestation",
+        "attestationshtml": "<p>No attestation yet.</p>",
+        "chronologyhtml": "<ol><li>Declared</li></ol>",
+        "acts": [{"acthtml": "<div class=\"singlebutton\"><button type=\"submit\">Attest</button></div>"}],
+        "precision": {"url": "https://example.com/admin/tool/vae/precision.php?evidenceid=4",
+            "label": "Questions on this declaration"},
+        "pieces": {"url": "https://example.com/admin/tool/vae/piece.php?evidenceid=4", "label": "Supporting pieces (2)",
+            "late": {"label": "1 added after the signature"} }
+    }
+}}
+<section class="tool-vae-claim-block mb-4">{{{warninghtml}}}<p>{{{statehtml}}}</p>{{{noteshtml}}}{{{declarationhtml}}}{{!
+}}<h3>{{heading}}</h3>{{{attestationshtml}}}{{{chronologyhtml}}}{{#acts}}{{{acthtml}}}{{/acts}}{{!
+}}{{#precision}}<p><a href="{{url}}">{{label}}</a></p>{{/precision}}{{!
+}}{{#pieces}}<p><a href="{{url}}">{{label}}</a>{{!
+}}{{#late}} <span class="badge bg-warning text-dark">{{label}}</span>{{/late}}</p>{{/pieces}}{{!
+}}</section>

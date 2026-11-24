@@ -19,7 +19,8 @@ namespace tool_vae\form;
 defined('MOODLE_INTERNAL') || die();
 
 use tool_vae\local\draft_manager;
-use tool_vae\local\faisabilite_fields;
+use tool_vae\local\feasibility_fields;
+use tool_vae\output\form_link;
 
 // The parent class is not autoloaded - see declare_form for the story. The require goes here.
 require_once($CFG->libdir . '/formslib.php');
@@ -28,7 +29,7 @@ require_once($CFG->libdir . '/formslib.php');
  * The form of a section of separate fields: identity, status (T-10, lot 3).
  *
  * What is read from the account is shown first, as text, with the way to change it. The fields are
- * built from faisabilite_fields, so that the form, the check and the stored text cannot disagree.
+ * built from feasibility_fields, so that the form, the check and the stored text cannot disagree.
  * The asterisk is the annex's: it says what the official form demands, and the form still saves a
  * partial section - nothing here judges a dossier complete (D-1).
  *
@@ -41,7 +42,7 @@ class fields_form extends \moodleform {
      * Build the form.
      */
     protected function definition() {
-        global $USER;
+        global $PAGE, $USER;
 
         $mform = $this->_form;
         $section = (string) $this->_customdata['section'];
@@ -49,7 +50,7 @@ class fields_form extends \moodleform {
         $mform->addElement('hidden', 'draftid');
         $mform->setType('draftid', PARAM_INT);
 
-        $shown = faisabilite_fields::account_values($section, $USER);
+        $shown = feasibility_fields::account_values($section, $USER);
         if ($shown) {
             $mform->addElement('header', 'accounthdr', get_string('faisabfromaccount', 'tool_vae'));
             foreach ($shown as $key => $value) {
@@ -59,10 +60,7 @@ class fields_form extends \moodleform {
                 'static',
                 'accountedit',
                 '',
-                \html_writer::link(
-                    new \moodle_url('/user/edit.php', ['id' => $USER->id]),
-                    get_string('faisabeditprofile', 'tool_vae')
-                )
+                $PAGE->get_renderer('tool_vae')->render(form_link::profile((int) $USER->id))
             );
         }
 
@@ -70,14 +68,14 @@ class fields_form extends \moodleform {
         $mform->addElement('static', 'requiredlegend', '', s(get_string('faisabrequiredlegend', 'tool_vae')));
 
         $countries = get_string_manager()->get_list_of_countries();
-        foreach (faisabilite_fields::fields($section) as $field) {
+        foreach (feasibility_fields::fields($section) as $field) {
             $key = $field['key'];
             $label = get_string('faisabfield:' . $key, 'tool_vae') . ($field['required'] ? ' *' : '');
 
             switch ($field['type']) {
                 case 'text':
                     $mform->addElement('text', $key, $label, [
-                        'maxlength' => faisabilite_fields::TEXT_MAX, 'size' => 50,
+                        'maxlength' => feasibility_fields::TEXT_MAX, 'size' => 50,
                     ]);
                     $mform->setType($key, PARAM_TEXT);
                     break;
@@ -142,13 +140,13 @@ class fields_form extends \moodleform {
         $section = (string) $this->_customdata['section'];
 
         $values = self::values($section, (object) $data);
-        foreach (faisabilite_fields::fields($section) as $field) {
+        foreach (feasibility_fields::fields($section) as $field) {
             $key = $field['key'];
             if (!isset($values[$key])) {
                 continue;
             }
             try {
-                faisabilite_fields::clean($section, [$key => $values[$key]]);
+                feasibility_fields::clean($section, [$key => $values[$key]]);
             } catch (\moodle_exception $e) {
                 $errors[$field['type'] === 'multi' ? $key . '_group' : $key] = get_string('errordraftfields', 'tool_vae');
             }
@@ -158,7 +156,7 @@ class fields_form extends \moodleform {
     }
 
     /**
-     * The values of the fields, as faisabilite_fields keeps them, from what the form returned.
+     * The values of the fields, as feasibility_fields keeps them, from what the form returned.
      *
      * @param string $section
      * @param \stdClass $data
@@ -166,7 +164,7 @@ class fields_form extends \moodleform {
      */
     public static function values(string $section, \stdClass $data): array {
         $values = [];
-        foreach (faisabilite_fields::fields($section) as $field) {
+        foreach (feasibility_fields::fields($section) as $field) {
             $key = $field['key'];
             switch ($field['type']) {
                 case 'date':
@@ -201,12 +199,12 @@ class fields_form extends \moodleform {
      * The form's initial data from the values kept.
      *
      * @param string $section
-     * @param array $values As faisabilite_fields::decode() returns them.
+     * @param array $values As feasibility_fields::decode() returns them.
      * @return array
      */
     public static function data_from_values(string $section, array $values): array {
         $data = [];
-        foreach (faisabilite_fields::fields($section) as $field) {
+        foreach (feasibility_fields::fields($section) as $field) {
             $key = $field['key'];
             if (!isset($values[$key])) {
                 continue;

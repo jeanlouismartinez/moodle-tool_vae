@@ -1,0 +1,123 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/whereami_tree
+
+    The panel "where am I" of one record: its title, the way to the self-positioning, then each node of the tree, set in by
+    its level, with its level name and its label (in the label of a box tags[] when the page asks for boxes), then either the
+    reason it cannot be positioned on or the vaeiste's own level, and the counts of its own with the way to what carries it;
+    then, apart, the ranks that carry something but left the record. The parts of a line touch: the template holds on one
+    logical line, each break carried by a comment. Nothing at all when panel is null.
+
+    Every text comes from the context, already worded by tool_vae\output\whereami_tree. The template holds no logic.
+    Every value is escaped (double braces) except one key:
+    * labelhtml - the label of a node, given by format_string() of the core (already HTML, as before)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * panel - object or null:
+      * title - object or null: text, the title of the panel
+      * selfposlink - object or null: url and text, the way to the self-positioning
+      * nodes - array of {level, style, rank, node, gone}: node is an object (levelname, labelhtml, box: object (id, value,
+        checked) or null, explain: object (text) or null, selfpos: object (words) or null, count: object (words, inverse:
+        object (url, text) or null) or null); gone is null
+      * gone - object or null: heading, and items, an array of {level, style, rank, node, gone}: node is null, gone is an
+        object (rank, count as above)
+
+    Example context (json):
+    {
+        "panel": {
+            "title": {"text": "Where I stand"},
+            "selfposlink": {
+                "url": "https://example.com/admin/tool/vae/selfposition.php?userid=7&fiche=RNCP400",
+                "text": "Position myself"
+            },
+            "nodes": [
+                {
+                    "level": "1", "style": "margin-left: 0rem", "rank": "",
+                    "node": {
+                        "levelname": "Record", "labelhtml": "Accompany the person", "box": null, "explain": null,
+                        "selfpos": {"words": "No level given yet"},
+                        "count": {"words": "0 situation(s), 0 declaration(s)", "inverse": null}
+                    },
+                    "gone": null
+                },
+                {
+                    "level": "2", "style": "margin-left: 1.5rem", "rank": "D1",
+                    "node": {
+                        "levelname": "Level 2", "labelhtml": "Domain 1",
+                        "box": {"id": "tool-vae-whereami-tag-D1", "value": "D1", "checked": true}, "explain": null,
+                        "selfpos": {"words": "No level given yet"},
+                        "count": {
+                            "words": "1 situation(s), 0 declaration(s)",
+                            "inverse": {
+                                "url": "https://example.com/admin/tool/vae/situations.php?userid=7&fiche=RNCP400&rank=D1",
+                                "text": "See"
+                            }
+                        }
+                    },
+                    "gone": null
+                },
+                {
+                    "level": "2", "style": "margin-left: 1.5rem", "rank": "AS-1-1",
+                    "node": {
+                        "levelname": "Level 2", "labelhtml": "Odd coded skill", "box": null,
+                        "explain": {"text": "This element cannot be positioned on."}, "selfpos": null, "count": null
+                    },
+                    "gone": null
+                }
+            ],
+            "gone": {
+                "heading": "Written on elements that left the record",
+                "items": [
+                    {
+                        "level": "1", "style": "margin-left: 0rem", "rank": "C99", "node": null,
+                        "gone": {"rank": "C99", "count": {"words": "0 situation(s), 1 declaration(s)", "inverse": null} }
+                    }
+                ]
+            }
+        }
+    }
+}}
+{{#panel}}<section class="tool-vae-whereami">{{#title}}<h4 class="h5">{{text}}</h4>{{/title}}{{!
+}}{{#selfposlink}}<p><a href="{{url}}">{{text}}</a></p>{{/selfposlink}}{{!
+}}<ul class="list-unstyled tool-vae-whereami-tree">{{#nodes}}{{!
+}}<li class="tool-vae-whereami-node level-{{level}}" style="{{style}}" data-level="{{level}}" data-rank="{{rank}}">{{!
+}}{{#node}}{{#box}}{{!
+}}<input type="checkbox" name="tags[]" value="{{value}}" id="{{id}}" class="me-2"{{!
+}}{{#checked}} checked="checked"{{/checked}} />{{!
+}}<label for="{{id}}">{{/box}}{{!
+}}<span class="small text-muted me-2">{{levelname}}</span><strong>{{{labelhtml}}}</strong>{{#box}}</label>{{/box}}{{!
+}}{{#explain}} <span class="small text-muted">{{text}}</span>{{/explain}}{{!
+}}{{#selfpos}} - {{words}}{{/selfpos}}{{!
+}}{{#count}} - <span class="small">{{words}}</span>{{!
+}}{{#inverse}} <a class="small" href="{{url}}">{{text}}</a>{{/inverse}}{{/count}}{{!
+}}{{/node}}</li>{{/nodes}}</ul>{{!
+}}{{#gone}}<h5 class="h6">{{heading}}</h5><ul class="list-unstyled tool-vae-whereami-gone">{{#items}}{{!
+}}<li class="tool-vae-whereami-node level-{{level}}" style="{{style}}" data-level="{{level}}" data-rank="{{rank}}">{{!
+}}{{#gone}}<strong>{{rank}}</strong>{{!
+}}{{#count}} - <span class="small">{{words}}</span>{{!
+}}{{#inverse}} <a class="small" href="{{url}}">{{text}}</a>{{/inverse}}{{/count}}{{!
+}}{{/gone}}</li>{{/items}}</ul>{{/gone}}</section>{{/panel}}

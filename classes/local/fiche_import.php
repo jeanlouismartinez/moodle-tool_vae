@@ -257,30 +257,31 @@ final class fiche_import {
     }
 
     /**
-     * The path of an uploaded file, once PHP has said it arrived whole.
+     * The export the administrator chose in the file picker, copied out of their draft area to a file of the request.
      *
-     * @param array|null $upload An entry of $_FILES.
-     * @param bool $checkuploaded Whether to ask PHP that the file is one that was uploaded (not in a test).
-     * @return string
+     * The file comes from draft_upload::file(). A file the core refused for its size never reached the draft area: the file
+     * picker said it, and the message of the import says the largest size already.
+     *
+     * @param \stored_file|null $file The file of the draft area; null when none was chosen.
+     * @return \stdClass path (the copy: what fiche_archive reads) and name (the name the area holds, from which the day of the
+     *         export is read, and which the preview and a refusal show: without its characters of format).
      * @throws fiche_refusal ZIP_MISSING, UPLOAD.
      */
-    public static function upload_path(?array $upload, bool $checkuploaded = true): string {
-        if ($upload === null) {
+    public static function upload_path(?\stored_file $file): \stdClass {
+        if ($file === null) {
             throw new fiche_refusal(fiche_refusal::ZIP_MISSING, [], 'No file was chosen.');
         }
-        $error = $upload['error'] ?? UPLOAD_ERR_NO_FILE;
-        if (is_array($error)) {
-            throw new fiche_refusal(fiche_refusal::UPLOAD, [], 'The file did not arrive whole.');
-        }
-        if ($error === UPLOAD_ERR_NO_FILE) {
-            throw new fiche_refusal(fiche_refusal::ZIP_MISSING, [], 'No file was chosen.');
-        }
-        $path = $upload['tmp_name'] ?? '';
-        if ($error !== UPLOAD_ERR_OK || !is_string($path) || $path === '' || ($checkuploaded && !is_uploaded_file($path))) {
-            throw new fiche_refusal(fiche_refusal::UPLOAD, [], 'The file did not arrive whole.');
+        try {
+            $copy = draft_upload::copy($file);
+        } catch (\moodle_exception $e) {
+            throw new fiche_refusal(fiche_refusal::UPLOAD, [], 'The file could not be copied out of the draft area.');
         }
 
-        return $path;
+        // The name is shown (preview, refusal). PARAM_FILE takes the control characters out, not the characters of format: the
+        // override of the writing direction (U+202E) would make the name read otherwise than it is written. They go.
+        $name = (string) preg_replace('/\p{Cf}+/u', '', clean_param($copy->name, PARAM_FILE));
+
+        return (object) ['path' => $copy->path, 'name' => $name];
     }
 
     /**

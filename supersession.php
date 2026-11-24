@@ -30,6 +30,7 @@ require_once($CFG->libdir . '/adminlib.php');
 
 use tool_vae\form\supersession_form;
 use tool_vae\local\supersession;
+use tool_vae\output\supersession_page;
 
 admin_externalpage_setup('toolvae_supersession');
 
@@ -65,55 +66,9 @@ if ($data = $form->get_data()) {
     }
 }
 
+// The table of the records, and below it the form, drawn only when there is a record: worded by the class of output.
+$renderer = $PAGE->get_renderer('tool_vae');
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('supersessionheading', 'tool_vae'));
-echo html_writer::tag('p', get_string('supersessionintro', 'tool_vae'));
-
-if ($error !== null) {
-    echo $OUTPUT->notification(s($error), \core\output\notification::NOTIFY_ERROR);
-}
-
-if (!$rows) {
-    echo $OUTPUT->notification(get_string('supersessionnone', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-} else {
-    $table = new html_table();
-    $table->head = [
-        get_string('supersessioncolfiche', 'tool_vae'),
-        get_string('supersessioncolupdated', 'tool_vae'),
-        get_string('supersessioncolsuccessor', 'tool_vae'),
-        get_string('supersessioncoldeclarations', 'tool_vae'),
-        get_string('supersessioncolcandidates', 'tool_vae'),
-        get_string('supersessioncolcarried', 'tool_vae'),
-        get_string('supersessioncolobsolete', 'tool_vae'),
-        '',
-    ];
-    foreach ($rows as $row) {
-        $successor = $row->successorcode === ''
-            ? get_string('supersessionnosuccessor', 'tool_vae')
-            : s($row->successorcode) . ($row->successorlabel === '' ? '' : ' — ' . format_string($row->successorlabel));
-        $action = $row->successorcode === '' ? '' : html_writer::link(
-            new moodle_url('/admin/tool/vae/passage.php', ['fiche' => $row->fichecode]),
-            get_string('supersessionpassages', 'tool_vae')
-        ) . $OUTPUT->single_button(
-            new moodle_url($self, ['clear' => $row->fichecode]),
-            get_string('supersessionclear', 'tool_vae'),
-            'post'
-        );
-        $table->data[] = [
-            s($row->fichecode) . ($row->label === '' ? '' : ' — ' . format_string($row->label)),
-            $row->sourceupdated ? userdate($row->sourceupdated, get_string('strftimedate', 'langconfig')) : '',
-            $successor,
-            $row->declarations,
-            $row->candidates,
-            $row->carried,
-            $row->gone,
-            $action,
-        ];
-    }
-    echo html_writer::table($table);
-
-    echo $OUTPUT->heading(get_string('supersessiondeclareheading', 'tool_vae'), 3);
-    $form->display();
-}
-
+echo $renderer->render(new supersession_page($rows, $error, $form, $self));
 echo $OUTPUT->footer();

@@ -1,0 +1,67 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/roles_install_page
+
+    The page of the VAE roles, below its heading, when no role is asked for: what the page does, then each group of
+    presets (the base ones, the optional ones) under its heading, with its warning and its table.
+
+    Every text comes from the context, already worded by tool_vae\output\roles_install_page. The template holds no logic.
+    Every text is escaped (double braces), except two keys of HTML (triple braces): headinghtml, a heading of the core
+    ($output->heading()); tablehtml, the table drawn by the template tool_vae/table.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, what the page does
+    * groups - array of groups, each with:
+        * headinghtml - HTML, the heading of the group
+        * warning - false, or a string: the warning of the optional roles
+        * tablehtml - HTML, the table of the presets of the group
+
+    Example context (json):
+    {
+        "intro": "Creates the roles of the plugin from the presets shipped with it. Nothing is created by opening this page.",
+        "groups": [
+            {
+                "headinghtml": "<h3>The three base roles</h3>",
+                "warning": false,
+                "tablehtml": "<table class=\"generaltable tool-vae-roles\"><tbody><tr><td>Vaeiste</td></tr></tbody></table>"
+            },
+            {
+                "headinghtml": "<h3>Two optional roles</h3>",
+                "warning": "These roles add the right to write a positioning of the structure.",
+                "tablehtml": "<table class=\"generaltable tool-vae-roles\"><tbody><tr><td>VAE manager</td></tr></tbody></table>"
+            }
+        ]
+    }
+}}
+<p>{{intro}}</p>
+{{#groups}}
+{{{headinghtml}}}
+{{#warning}}
+<p class="text-muted small">{{warning}}</p>
+{{/warning}}
+{{{tablehtml}}}
+{{/groups}}

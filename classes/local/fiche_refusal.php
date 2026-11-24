@@ -19,8 +19,8 @@ namespace tool_vae\local;
 /**
  * A refusal with a name: why an export, or a record of it, was not read (T-31, 0.47.0).
  *
- * NO MOODLE IN HERE. This class is thrown by fiche_converter, which scripts/convertir-fiche-rncp.php also runs on a
- * workstation with no site: it loads this file before the converter, by its path.
+ * NO MOODLE API IN HERE. This class is thrown by fiche_converter, which the import screen and the command line script
+ * cli/convert_fiche.php call; both find it by the class loader of Moodle.
  *
  * A RUNTIME EXCEPTION, SO THAT NOTHING THAT EXISTED CHANGES. The converter threw a RuntimeException with an English
  * sentence; that sentence is still the message of the refusal (it is what the script prints and what the older tests read),
@@ -129,7 +129,10 @@ final class fiche_refusal extends \RuntimeException {
     /** @var string A record that is not in force (or whose state is not said) has no bloc in the export. */
     public const NO_BLOC = 'nobloc';
 
-    /** @var string A record that IS in force has no bloc in the export: 236 RNCP records and every RS record, on 19 October 2026. */
+    /**
+     * @var string A record that IS in force has no bloc in the export: 236 RNCP records and every RS record, on 19 October
+     *      2026.
+     */
     public const NO_BLOC_ACTIVE = 'noblocactive';
 
     /** @var string A bloc code is not of the expected form. */

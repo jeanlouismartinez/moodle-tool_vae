@@ -22,6 +22,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 use tool_vae\local\scope_manager;
+use tool_vae\output\form_note;
 
 /**
  * Saying that a competency is outside one's activity (T-42).
@@ -37,15 +38,19 @@ class scope_form extends \moodleform {
      * Build the form. Custom data: `options` (the code and rank of a competency, joined by a hyphen => label to show).
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
         $options = (array) ($this->_customdata['options'] ?? []);
 
         $mform->addElement('select', 'competency', get_string('scopecompetency', 'tool_vae'), $options);
         $mform->addRule('competency', null, 'required', null, 'client');
+        // Not PARAM_ALPHANUMEXT: the key is the idnumber of a competency, which tool_lp lets an administrator change into any text
+        // (RNCP36832-C7.1, RNCP36832-BC 1: evidence_manager::validate()). The select only returns one of its own keys.
         $mform->setType('competency', PARAM_RAW_TRIMMED);
 
         // The note is free text: the reminder is on it, as on every free field.
-        $mform->addElement('html', \html_writer::div(s(get_string('anonymiseshort', 'tool_vae')), 'small text-muted mb-2'));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::short()));
         $mform->addElement('text', 'note', get_string('scopenote', 'tool_vae'), [
             'maxlength' => scope_manager::NOTE_MAXLENGTH,
             'size' => 60,

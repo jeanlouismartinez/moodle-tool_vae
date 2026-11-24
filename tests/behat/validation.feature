@@ -69,6 +69,48 @@ Feature: A candidate prepares their validation dossier, bloc by bloc
     Then I should see "Writing aid proposed by this plugin"
     And I should see "I lead the morning care with a care assistant, as the referent of the pair."
     And I should see "SHA-256 digest of this deposit"
+    When I follow "Back to the deposits"
+    Then I should see "Deposits of the preparation of the validation dossier"
+    And "Read deposit 1" "link" should exist
     When I visit "/admin/tool/vae/deposit.php?doctype=validation"
     And I press "Deposit the dossier"
     Then I should see "Nothing has changed since deposit number 1"
+    # Lot 7, wave 4b: the button of the dossier that leads to these deposits, which the tool of equivalence does not serve.
+    When I am on the "candidat" "tool_vae > Dossier" page
+    And I press "Deposits of the preparation of the validation dossier"
+    Then "Read deposit 1" "link" should exist
+
+  # Lot 7 (wave 3b): the part "link" of a bloc lists the work situations tagged on the bloc or under it, each a way to it;
+  # no scenario played it in HTTP.
+  Scenario: The part "link" of a bloc lists the work situations tagged on it, each a way to the situation
+    Given the following "tool_vae > situations" exist:
+      | candidate | fichecode | title                      | text                    | tags |
+      | candidat  | RNCP100   | Morning care with the pair | I led the morning care. | C01  |
+    And I log in as "candidat"
+    When I visit "/admin/tool/vae/section.php?doctype=validation&fiche=RNCP100&section=bc01_lier"
+    Then I should see "Work situations tagged on this bloc"
+    And I should see "Morning care with the pair"
+    When I follow "Morning care with the pair"
+    Then the field "id_content" matches value "I led the morning care."
+
+  # Lot 7 (wave 3b, pilot): a record with no bloc is prepared as a whole, and no scenario asked the page for one. The page
+  # reads the declarations of the whole record itself now, in the order they were made, and only a request for the page
+  # proves that it hands them over, and in that order.
+  Scenario: A record with no bloc is prepared as a whole, with my declarations beside, in the order I made them
+    Given the following "tool_vae > sources" exist:
+      | fichecode | ficherang | name         | shortname         |
+      | RS200     | C21       | Short record | Lead a group walk |
+    And the following "tool_vae > declarations" exist:
+      | candidate | fichecode | ficherang | situation                       |
+      | candidat  | RS200     | C21       | Walks with the residents in May |
+      | candidat  | RS200     | C21       | Evening rounds in June          |
+    And I log in as "candidat"
+    When I am on the "tool_vae > Validation" page
+    And I follow "RS200"
+    Then I should see "This record has no blocs: the preparation covers it as a whole."
+    And I should see "My declarations"
+    And I should see "Walks with the residents in May"
+    And I should see "Evening rounds in June"
+    And "Walks with the residents in May" "text" should appear before "Evening rounds in June" "text"
+    And I should see "Describe my activities"
+    And I should not see "No declaration yet."

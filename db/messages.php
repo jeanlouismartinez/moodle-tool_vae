@@ -81,8 +81,6 @@ $messageproviders = [
         ],
     ],
 
-    // To the managers who follow a candidate and may attest: a declaration has waited for an attestation
-    // for the number of days the administrator chose (T-22). The candidate's name and a count, no text.
     // To the candidate: a line of positioning of the structure was written about them (T-84). Only that a line was
     // added: neither the status, nor the reason, nor the author.
     'positioningrecorded' => [
@@ -93,6 +91,8 @@ $messageproviders = [
         ],
     ],
 
+    // To the managers who follow a candidate and may attest: a declaration has waited for an attestation
+    // for the number of days the administrator chose (T-22). The candidate's name and a count, no text.
     'declarationoverdue' => [
         'capability' => 'tool/vae:attest',
         'defaults' => [

@@ -1,0 +1,93 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/setup_page
+
+    The page "Mise en route" (lot S1), below its heading: the steps of the setup, in their order.
+
+    Every text comes from the context, already worded by tool_vae\output\setup_page. The template holds no logic: the right
+    that a link asks is checked before, and a step gets either its link or the name of its screen and the right it asks.
+    Every value is escaped (double braces): none of them is HTML.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, the sentence above the steps
+    * steps - array of steps, each with:
+        * key - string, the key of the step, part of the id of its item
+        * title - string, the title of the step
+        * state - string, its state in words
+        * details - array of strings, its sentences
+        * guide - string, the parts of the installation guide it refers to
+        * link - false, or an object {url, label}: the link to the screen of the step
+        * needs - false, or a string: the name of the screen and the right it asks
+    * footer - string, the sentence below the steps
+
+    Example context (json):
+    {
+        "intro": "The steps of putting the plugin into service, in the order of the installation guide. This page changes nothing.",
+        "steps": [
+            {
+                "key": "competencies",
+                "title": "Competencies enabled",
+                "state": "Done",
+                "details": [],
+                "guide": "Installation guide, part 4.",
+                "link": {
+                    "url": "https://example.com/admin/settings.php?section=optionalsubsystems",
+                    "label": "Advanced features"
+                },
+                "needs": false
+            },
+            {
+                "key": "cron",
+                "title": "Cron running",
+                "state": "To do",
+                "details": ["The cron has never run."],
+                "guide": "Installation guide, part 4.",
+                "link": false,
+                "needs": "Screen \"Scheduled tasks\": it needs the right moodle/site:config, which you do not have."
+            }
+        ],
+        "footer": "The plugin does not know who holds a role nor which cohorts are attached: this is done in Moodle."
+    }
+}}
+<p>{{intro}}</p>
+<ol class="tool-vae-setup">
+    {{#steps}}
+    <li id="tool-vae-setup-{{key}}" class="mb-3"><strong>{{title}}</strong> <span class="tool-vae-setup-state">{{state}}</span>
+        {{#details}}
+        <p class="mb-0">{{.}}</p>
+        {{/details}}
+        <p class="mb-0 small text-muted">{{guide}}</p>
+        {{#link}}
+        <p class="mb-0"><a href="{{url}}">{{label}}</a></p>
+        {{/link}}
+        {{#needs}}
+        <p class="mb-0">{{needs}}</p>
+        {{/needs}}
+    </li>
+    {{/steps}}
+</ol>
+<p class="text-muted">{{footer}}</p>

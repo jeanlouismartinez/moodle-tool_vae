@@ -1,0 +1,73 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/situation_pieces
+
+    The pieces of a situation: a heading, then the sentence that there is none, or one line per piece - its nature, its
+    title for whoever may open it, the part concerned, its size and date, "removed" or the way to open it (the whole address,
+    its host and the link that opens a new tab; or the file), and the buttons of the vaeiste.
+
+    Every text comes from the context, already worded by tool_vae\output\situation_pieces. The template holds no logic.
+    Every value is escaped (double braces) except one key:
+    * actionshtml - the buttons "detach" and "remove", drawn by the renderer of the core ('' for a reader)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * heading - string
+    * none - object or null: text
+    * items - array: nature; title (object: text) or null; part (object: label, text) or null; details; removed (object:
+      text) or null; link (object: url, host, open) or null; file (object: url, open) or null; actionshtml
+
+    Example context (json):
+    {
+        "heading": "Pieces of the situation",
+        "none": null,
+        "items": [
+            {
+                "nature": "Professional writing", "title": {"text": "Protocol"},
+                "part": {"label": "Part concerned", "text": "The beginning"}, "details": "9 November 2026, 04:23",
+                "removed": null,
+                "link": {"url": "https://example.org/a", "host": "example.org", "open": "Open the link"},
+                "file": null, "actionshtml": ""
+            },
+            {
+                "nature": "Contract", "title": null, "part": null, "details": "PDF, 12 KB - 9 November 2026, 04:23",
+                "removed": null, "link": null,
+                "file": {"url": "https://example.com/pluginfile.php/5/tool_vae/spiece/2/a.pdf", "open": "Open the file"},
+                "actionshtml": ""
+            }
+        ]
+    }
+}}
+<h3 class="h5 mt-4">{{heading}}</h3>{{#none}}<p class="text-muted">{{text}}</p>{{/none}}{{!
+}}{{^none}}<ul class="list-unstyled tool-vae-pieces">{{#items}}<li class="mb-3 tool-vae-piece"><strong>{{nature}}</strong>{{!
+}}{{#title}} - {{text}}{{/title}}{{!
+}}{{#part}}<div class="small"><span class="text-muted me-2">{{label}}</span>{{text}}</div>{{/part}}{{!
+}}<div class="text-muted small">{{details}}</div>{{!
+}}{{#removed}}<div class="text-muted">{{text}}</div>{{/removed}}{{!
+}}{{#link}}<div>{{url}}</div><div class="text-muted small">{{host}}</div>{{!
+}}<div><a href="{{url}}" rel="noopener noreferrer" target="_blank">{{open}}</a></div>{{/link}}{{!
+}}{{#file}}<div><a href="{{url}}">{{open}}</a></div>{{/file}}{{!
+}}{{{actionshtml}}}</li>{{/items}}</ul>{{/none}}

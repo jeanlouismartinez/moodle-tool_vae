@@ -16,17 +16,25 @@
 
 namespace tool_vae;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/output/forms_before.php');
+
 use tool_vae\local\attestation_manager;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\importer;
+use tool_vae\task\queue_notifications;
 use tool_vae\task\send_notification;
 
 /**
  * Lot 7 ter: who is told what - and that nobody is told what the dossier says.
  *
- * TWO MOMENTS, AS IN PRODUCTION. The observers queue one ad hoc task per recipient; deliver_all()
- * runs them, as cron would. A test that reads the messages before running the tasks reads
- * nothing, and several below do exactly that on purpose.
+ * THE MOMENTS OF PRODUCTION. The observers queue one ad hoc task: the message itself when the event
+ * names its recipient, otherwise a task that finds the recipients from cron (lot 9, ticket 3 of
+ * review MMR-520), which resolve_recipients() runs; deliver_all() runs both, as cron would. A test
+ * that reads the messages before running the tasks reads nothing, and several below do exactly that
+ * on purpose; a test that changes a right between the event and cron finds the recipients first, as
+ * the first run of cron after the event would have.
  *
  * THE MESSAGES ARE CAUGHT, NOT SENT. redirectMessages() takes each one where message_send()
  * would hand it to the processors, AFTER the checks that decide whether it may go at all: the
@@ -48,7 +56,11 @@ use tool_vae\task\send_notification;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\notifier::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\send_notification::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\task\queue_notifications::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\message_body::class)]
 final class notifier_test extends \advanced_testcase {
+    use \tool_vae\output\forms_before;
+
     /** @var string A narrative no message may carry. The name in it is the point. */
     private const SITUATION = 'Toilette de Mme Lambert, chambre 12, au lever.';
 
@@ -181,9 +193,32 @@ final class notifier_test extends \advanced_testcase {
 
     /**
      * Run every queued notification, as cron would - whatever its scheduled time.
+     *
+     * The tasks that find the recipients of a declaration, a deposit, a piece, a withdrawal or a departure run first
+     * (ticket 3 of review MMR-520), then the messages they queued with the others.
      */
     private function deliver_all(): void {
+        $this->resolve_recipients();
         $this->runAdhocTasks(send_notification::class);
+    }
+
+    /**
+     * Run the tasks that find the recipients of an event and queue their messages, as cron would.
+     */
+    private function resolve_recipients(): void {
+        $this->runAdhocTasks(queue_notifications::class);
+    }
+
+    /**
+     * Delete a core evidence record the way tool_lp does, then run the purge its observer queued, as cron would.
+     *
+     * @param int $userevidenceid
+     */
+    private function delete_core_evidence(int $userevidenceid): void {
+        (new \tool_vae\local\competency_gateway())->delete_evidence($userevidenceid);
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\purge_deleted_evidence::class);
+        ob_end_clean();
     }
 
     /**
@@ -236,8 +271,8 @@ final class notifier_test extends \advanced_testcase {
         $this->setAdminUser();
 
         $lines = [];
-        foreach ($rows as $rang => $intitule) {
-            $lines[] = (object) ['rang' => $rang, 'intitule' => $intitule, 'description' => ''];
+        foreach ($rows as $rank => $label) {
+            $lines[] = (object) ['rang' => $rank, 'intitule' => $label, 'description' => ''];
         }
 
         (new importer())->import((object) [
@@ -312,6 +347,40 @@ final class notifier_test extends \advanced_testcase {
     }
 
     /**
+     * The body in HTML of a message SENT is, byte for byte, what notifier::send() wrote before lot 7 (wave 4c).
+     *
+     * The message is read in the sink of PHPUnit after the tasks ran, as cron runs them; the old code (kept in the trait
+     * forms_before) is given the sentence, the address and the words of the link the message itself carries, so that it is
+     * the HTML that is compared, not the words. The name of the vaeiste carries an ampersand, quotes and a tag.
+     */
+    public function test_the_html_body_of_a_message_sent_is_written_as_before(): void {
+        global $DB;
+
+        $DB->set_field('user', 'firstname', 'Zoé & "<i>0</i>"', ['id' => $this->candidate->id]);
+        $this->candidate = \core_user::get_user($this->candidate->id);
+        $this->declare_as($this->candidate, $this->competencyid);
+        $this->deliver_all();
+
+        $messages = $this->caught(notifier::DECLARATION_PENDING);
+        $this->assertCount(1, $messages);
+        $message = reset($messages);
+        $body = substr((string) $message->fullmessage, 0, (int) strpos((string) $message->fullmessage, "\n\n"));
+        $this->assertStringContainsString('Zoé & "<i>0</i>"', $body, 'The sentence carries the name as it stands.');
+
+        $this->assertSame(
+            self::before_notifier_send_html($body, new \moodle_url($message->contexturl), (string) $message->contexturlname),
+            (string) $message->fullmessagehtml
+        );
+        $this->assertStringNotContainsString('<i>', (string) $message->fullmessagehtml);
+        $this->assertStringContainsString(s('Zoé & "<i>0</i>"'), (string) $message->fullmessagehtml);
+        $dossier = new \moodle_url('/admin/tool/vae/dossier.php', ['userid' => $this->candidate->id]);
+        $this->assertStringContainsString(
+            '<a href="' . s($dossier->out(false)) . '">',
+            (string) $message->fullmessagehtml
+        );
+    }
+
+    /**
      * The three messages to managers that used to go out in the candidate's name are sent by the site, like the others.
      *
      * A declaration pending, a deposit made, a piece added after a signature. Sent "from" the candidate they carried their
@@ -323,6 +392,7 @@ final class notifier_test extends \advanced_testcase {
         set_config('piecenoantivirus', 1, 'tool_vae');
 
         $claim = $this->declare_as($this->candidate, $this->competencyid);
+        $this->resolve_recipients();
         $pending = $this->queued(notifier::DECLARATION_PENDING);
         $this->assertCount(1, $pending);
         $this->assertTrue(notifier::deliver($pending[0]->get_custom_data()));
@@ -330,8 +400,11 @@ final class notifier_test extends \advanced_testcase {
         $this->attest($claim);
         $this->setUser($this->candidate);
         (new \tool_vae\local\piece_manager())->add_link((int) $claim->id, 'diploma', '', 'https://exemple.test/a');
+        // The managers of the piece are found as cron would find them before deposit_rights() adds a second follower.
+        $this->resolve_recipients();
         $this->deposit_rights();
         $this->deposit_as_candidate();
+        $this->resolve_recipients();
 
         foreach ([notifier::PIECE_AFTER_ATTEST, notifier::DEPOSIT_MADE] as $provider) {
             $tasks = $this->queued($provider);
@@ -390,6 +463,7 @@ final class notifier_test extends \advanced_testcase {
      */
     public function test_a_manager_no_longer_following_by_delivery_is_not_told(): void {
         $this->declare_as($this->candidate, $this->competencyid);
+        $this->resolve_recipients();
         $this->assertCount(1, $this->queued(notifier::DECLARATION_PENDING));
 
         role_unassign($this->managerrole, $this->manager->id, \context_user::instance($this->candidate->id)->id);
@@ -408,12 +482,52 @@ final class notifier_test extends \advanced_testcase {
         global $DB;
 
         $this->declare_as($this->candidate, $this->competencyid);
+        $this->resolve_recipients();
         $DB->set_field('user', 'suspended', 1, ['id' => $this->manager->id]);
 
         $this->expectOutputRegex(self::NOT_SENT);
         $this->deliver_all();
 
         $this->assertSame([], $this->caught(notifier::DECLARATION_PENDING));
+    }
+
+    /**
+     * A declaration of an account deleted after its recipients were found is not sent, even by a process that read the rights
+     * of the manager before the deletion (the case found in lot 9 of review MMR-520, then corrected in lot 10).
+     *
+     * ONE process, as one run of cron: the task that finds the recipients reads the manager's rights, which accesslib keeps for
+     * the rest of the process; the candidate's account is then deleted in that same process, as a scheduled task that deletes
+     * accounts would; then the rest of the queue runs, the caches of rights NOT cleared, since cron does not clear them between
+     * two tasks. delete_user() removes the manager's role assignment in the candidate's context by a query and marks nobody else
+     * as changed: the cached rights still say "follows, and may attest", while message_send() reads the database again before
+     * sending (message_get_providers_for_user()) and refused the provider with a debugging() call. The account is now refused
+     * before any of that, as every other kind of message refuses it.
+     */
+    public function test_a_declaration_of_an_account_deleted_after_its_recipients_were_found_is_not_sent(): void {
+        global $DB;
+
+        $this->declare_as($this->candidate, $this->competencyid);
+        $this->resolve_recipients();
+        $this->assertCount(1, $this->queued(notifier::DECLARATION_PENDING), 'The premise: the manager was found.');
+
+        delete_user($DB->get_record('user', ['id' => $this->candidate->id], '*', MUST_EXIST));
+        $this->assertSame(
+            0,
+            $DB->count_records('role_assignments', ['userid' => $this->manager->id]),
+            'The premise: the assignment of the manager is gone from the database.'
+        );
+        $this->assertTrue(
+            \tool_vae\local\access::can_attest((int) $this->candidate->id, (int) $this->manager->id),
+            'The premise: the rights cached in this process still say that the manager may attest.'
+        );
+
+        ob_start();
+        $this->run_all_adhoc_tasks();
+        $output = ob_get_clean();
+
+        $this->assertDebuggingNotCalled();
+        $this->assertSame([], $this->caught(notifier::DECLARATION_PENDING));
+        $this->assertMatchesRegularExpression(self::NOT_SENT, $output);
     }
 
     /**
@@ -653,7 +767,7 @@ final class notifier_test extends \advanced_testcase {
         $this->attest($claim);
 
         $this->setUser($this->candidate);
-        (new \tool_vae\local\competency_gateway())->delete_evidence((int) $claim->userevidenceid);
+        $this->delete_core_evidence((int) $claim->userevidenceid);
         $this->deliver_all();
 
         $messages = $this->caught(notifier::DECLARATION_PURGED);
@@ -690,7 +804,7 @@ final class notifier_test extends \advanced_testcase {
         $this->attest($claim);
 
         $this->setUser($this->candidate);
-        (new \tool_vae\local\competency_gateway())->delete_evidence((int) $claim->userevidenceid);
+        $this->delete_core_evidence((int) $claim->userevidenceid);
         $this->assertCount(1, $this->queued(notifier::DECLARATION_PURGED), 'The signatory was not queued to be told.');
 
         // Detached from the candidate between the deletion and cron, with the right to attest left in a role of the site.
@@ -735,6 +849,7 @@ final class notifier_test extends \advanced_testcase {
         // France compétences republishes the record without BC01.
         $before = time();
         $this->record(['BC02' => 'Repérer les évolutions']);
+        $this->resolve_recipients();
 
         $tasks = $this->queued(notifier::COMPETENCY_LEFT_RECORD);
         $this->assertCount(2, $tasks, 'One task per candidate who declared against it.');
@@ -762,6 +877,8 @@ final class notifier_test extends \advanced_testcase {
 
         // The same file again: the competency is still gone, and nobody is told twice.
         $this->record(['BC02' => 'Repérer les évolutions']);
+        $this->assertSame([], $this->resolving(), 'A departure was announced twice.');
+        $this->resolve_recipients();
         $this->assertSame([], $this->queued(notifier::COMPETENCY_LEFT_RECORD), 'A departure was announced twice.');
     }
 
@@ -779,6 +896,7 @@ final class notifier_test extends \advanced_testcase {
         $this->declare_as($this->candidate, $bc01);
 
         $this->record(['BC02' => 'Repérer les évolutions']);
+        $this->resolve_recipients();
         $this->assertCount(1, $this->queued(notifier::COMPETENCY_LEFT_RECORD));
 
         $this->record(['BC01' => 'Accompagner la personne', 'BC02' => 'Repérer les évolutions']);
@@ -803,9 +921,12 @@ final class notifier_test extends \advanced_testcase {
         $this->record(['BC01' => 'Accompagner la personne', 'BC02' => 'Repérer les évolutions']);
         $bc01 = (int) $DB->get_field('competency', 'id', ['idnumber' => 'RS00000-BC01'], MUST_EXIST);
         $this->declare_as($this->candidate, $bc01);
+        // The declaration's own task finds its recipients first, as cron would: what follows looks at the departure alone.
+        $this->resolve_recipients();
 
         $transaction = $DB->start_delegated_transaction();
         $this->record(['BC02' => 'Repérer les évolutions']);
+        $this->assertSame([], $this->resolving(), 'Queued before the commit.');
         $this->assertSame([], $this->queued(notifier::COMPETENCY_LEFT_RECORD), 'Queued before the commit.');
 
         try {
@@ -815,6 +936,7 @@ final class notifier_test extends \advanced_testcase {
             $this->assertSame('error', $e->errorcode);
         }
 
+        $this->assertSame([], $this->resolving(), 'Queued although rolled back.');
         $this->assertSame([], $this->queued(notifier::COMPETENCY_LEFT_RECORD), 'Queued although rolled back.');
         $this->assertFalse(
             $DB->record_exists('tool_vae_obsolete', ['competencyid' => $bc01]),
@@ -867,12 +989,91 @@ final class notifier_test extends \advanced_testcase {
         $this->record(['BC02' => 'Repérer les évolutions']);
         $this->record(['BC01' => 'Accompagner la personne', 'BC02' => 'Repérer les évolutions']);
         $this->record(['BC02' => 'Repérer les évolutions']);
+        $this->resolve_recipients();
         $this->assertCount(2, $this->queued(notifier::COMPETENCY_LEFT_RECORD), 'This test needs both tasks queued.');
 
         $this->expectOutputRegex(self::NOT_SENT);
         $this->deliver_all();
 
         $this->assertCount(1, $this->caught(notifier::COMPETENCY_LEFT_RECORD), 'One departure was announced twice.');
+    }
+
+    /**
+     * The tasks that resolve the recipients of one event, waiting in the queue (ticket 3 of review MMR-520).
+     *
+     * @return \core\task\adhoc_task[]
+     */
+    private function resolving(): array {
+        return array_values(\core\task\manager::get_adhoc_tasks(queue_notifications::class));
+    }
+
+    /**
+     * A withdrawal queues one task with the identifiers of the event; the recipients are found from cron.
+     *
+     * The callback used to read the followers of the candidate and loop on them in the request. It now queues one task; the
+     * messages it then queues are the very ones the callback queued.
+     */
+    public function test_a_withdrawal_queues_one_task_and_the_recipients_are_found_from_cron(): void {
+        $this->expectOutputRegex(self::NOT_SENT);
+        $attestation = $this->attest($this->declare_as($this->candidate, $this->competencyid));
+        $this->deliver_all();
+
+        $this->setAdminUser();
+        (new attestation_manager())->withdraw((int) $attestation->id, 'erreur');
+
+        $tasks = $this->resolving();
+        $this->assertCount(1, $tasks, 'One task for the event, whatever the number of recipients.');
+        $data = $tasks[0]->get_custom_data();
+        $this->assertSame(notifier::ATTESTATION_WITHDRAWN, $data->kind);
+        $this->assertSame(
+            ['candidateid' => (int) $this->candidate->id, 'evidenceid' => (int) $attestation->evidenceid],
+            ['candidateid' => $data->candidateid, 'evidenceid' => $data->evidenceid]
+        );
+        $this->assertSame([], $this->queued(notifier::ATTESTATION_WITHDRAWN), 'The recipients were resolved in the request.');
+        $this->assertSame([], $this->queued(notifier::DECLARATION_PENDING));
+
+        $this->resolve_recipients();
+
+        $this->assertSame([], $this->resolving());
+        $withdrawn = $this->queued(notifier::ATTESTATION_WITHDRAWN);
+        $this->assertCount(1, $withdrawn);
+        $this->assertEquals($this->candidate->id, $withdrawn[0]->get_custom_data()->recipientid);
+        $pending = $this->queued(notifier::DECLARATION_PENDING);
+        $this->assertCount(1, $pending);
+        $this->assertEquals($this->manager->id, $pending[0]->get_custom_data()->recipientid);
+    }
+
+    /**
+     * A departure queues one task with the identifiers of the event; the candidates are found from cron, and their
+     * messages still wait for the grace period counted from the departure.
+     */
+    public function test_a_departure_queues_one_task_and_the_candidates_are_found_from_cron(): void {
+        global $DB;
+
+        $this->record(['BC01' => 'Accompagner la personne', 'BC02' => 'Repérer les évolutions']);
+        $bc01 = (int) $DB->get_field('competency', 'id', ['idnumber' => 'RS00000-BC01'], MUST_EXIST);
+        $this->declare_as($this->candidate, $bc01);
+        // The declaration's own task finds its recipients first, as cron would: what follows looks at the departure alone.
+        $this->resolve_recipients();
+
+        $before = time();
+        $this->record(['BC02' => 'Repérer les évolutions']);
+
+        $tasks = $this->resolving();
+        $this->assertCount(1, $tasks);
+        $data = $tasks[0]->get_custom_data();
+        $this->assertSame(notifier::COMPETENCY_LEFT_RECORD, $data->kind);
+        $this->assertSame($bc01, $data->competencyid);
+        $this->assertGreaterThan(0, $data->markid);
+        $this->assertSame([], $this->queued(notifier::COMPETENCY_LEFT_RECORD), 'The candidates were read in the request.');
+
+        $this->resolve_recipients();
+
+        $queued = $this->queued(notifier::COMPETENCY_LEFT_RECORD);
+        $this->assertCount(1, $queued);
+        $this->assertEquals($this->candidate->id, $queued[0]->get_custom_data()->recipientid);
+        $this->assertGreaterThanOrEqual($before + notifier::DEPARTURE_GRACE, $queued[0]->get_next_run_time());
+        $this->assertLessThanOrEqual(time() + notifier::DEPARTURE_GRACE, $queued[0]->get_next_run_time());
     }
 
     /**
@@ -885,6 +1086,7 @@ final class notifier_test extends \advanced_testcase {
         $bc01 = (int) $DB->get_field('competency', 'id', ['idnumber' => 'RS00000-BC01'], MUST_EXIST);
         $this->declare_as($this->candidate, $bc01);
         $this->record(['BC02' => 'Repérer les évolutions']);
+        $this->resolve_recipients();
 
         $tasks = $this->queued(notifier::COMPETENCY_LEFT_RECORD);
         $this->assertCount(1, $tasks);
@@ -946,6 +1148,7 @@ final class notifier_test extends \advanced_testcase {
 
         $this->deposit_as_candidate();
         $this->assertSame([], $this->caught(notifier::DEPOSIT_MADE), 'Sent from the request, not from cron.');
+        $this->resolve_recipients();
         $this->assertCount(1, $this->queued(notifier::DEPOSIT_MADE));
 
         $this->deliver_all();
@@ -971,6 +1174,7 @@ final class notifier_test extends \advanced_testcase {
 
         $this->deposit_rights();
         $this->deposit_as_candidate();
+        $this->resolve_recipients();
         $this->assertCount(1, $this->queued(notifier::DEPOSIT_MADE));
 
         $DB->delete_records('role_capabilities', ['capability' => 'tool/vae:readdeposit']);

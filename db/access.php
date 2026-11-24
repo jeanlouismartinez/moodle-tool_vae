@@ -282,5 +282,5 @@ $capabilities = [
 // They are declared again with the lot that reads them, never before. Moodle removes a
 // capability that leaves this file at the next upgrade, so nothing has to be cleaned up by
 // hand; and re-declaring them later is one block each. Their language strings went with them,
-// in both languages: `make langue` fails on a capability without a string, so the pair cannot
-// come back by halves.
+// in both languages: tests/lang_strings_test.php fails on a capability without a string, so the
+// pair cannot come back by halves.

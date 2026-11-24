@@ -82,7 +82,7 @@ class note_recorded extends \core\event\base {
     /**
      * Map the object id for restore from a backup. Not restorable.
      *
-     * @return bool
+     * @return false
      */
     public static function get_objectid_mapping() {
         return false;
@@ -91,7 +91,7 @@ class note_recorded extends \core\event\base {
     /**
      * Map the other fields for restore from a backup. Nothing to map: no id in other.
      *
-     * @return bool
+     * @return false
      */
     public static function get_other_mapping() {
         return false;

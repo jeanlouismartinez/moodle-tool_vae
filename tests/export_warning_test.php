@@ -25,6 +25,7 @@ use tool_vae\local\identity_map;
 use tool_vae\local\pdf_renderer;
 use tool_vae\local\piece_manager;
 use tool_vae\local\purge;
+use tool_vae\output\export_warnings;
 
 /**
  * A line the schema refuses no longer refuses the archive: it is produced, and the person is warned (decision of the
@@ -53,6 +54,7 @@ use tool_vae\local\purge;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\exporter::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\backup::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(export_warnings::class)]
 final class export_warning_test extends \advanced_testcase {
     /** @var int 1 September 2025, 00:00 UTC. */
     private const PERIODSTART = 1756684800;
@@ -476,11 +478,13 @@ final class export_warning_test extends \advanced_testcase {
      *
      * The rank `<b>x` is one of the three the tests of the scope already use for what the core's screen lets through. The
      * warning does not clean it, and does not interpret it: describe_warnings() and the notice give it as it stands, and the
-     * one helper both pages use, warnings_html(), escapes the lead and every line. The export page and the backup page are
-     * not run from here, so what makes the escaping stand is that they call that helper and nothing else (see the test of
-     * the pages below), and that the helper is tested here.
+     * one helper both pages use, the piece export_warnings (exporter::warnings_html() until lot 7, wave 4c), escapes the lead
+     * and every line. The export page and the backup page are not run from here, so what makes the escaping stand is that
+     * they call that helper and nothing else (see the test of the pages below), and that the helper is tested here.
      */
     public function test_a_value_with_markup_is_given_as_plain_text(): void {
+        global $PAGE;
+
         $faulty = $this->declare_as($this->candidate, 'RNCP36832-C03', 'Accompagnement au lever, recherche de son accord.');
         $this->write_rank($faulty, '<b>x');
 
@@ -495,7 +499,7 @@ final class export_warning_test extends \advanced_testcase {
         $this->assertStringContainsString('<b>x', $files['LISEZMOI.txt'], 'The notice is plain text.');
 
         // What the pages show: the same lines in HTML, with nothing a browser would read as markup. The lead is escaped too.
-        $html = exporter::warnings_html($exporter->warnings(), 'Lead with <i>markup</i>');
+        $html = $PAGE->get_renderer('tool_vae')->render(new export_warnings($exporter->warnings(), 'Lead with <i>markup</i>'));
         $this->assertStringContainsString(s('<b>x'), $html, 'The value is shown as text.');
         $this->assertStringNotContainsString('<b>', $html, 'The value was read as markup.');
         $this->assertStringContainsString(s('Lead with <i>markup</i>'), $html, 'The lead is shown as text.');
@@ -505,7 +509,8 @@ final class export_warning_test extends \advanced_testcase {
     }
 
     /**
-     * Both pages give the lines through exporter::warnings_html(), and the page of the backup ends in a redirect.
+     * Both pages give the lines through the piece export_warnings (exporter::warnings_html() until lot 7, wave 4c), and the
+     * page of the backup ends in a redirect.
      *
      * The pages cannot be run from here (the export page has a Behat scenario; the backup page has no page name in Behat), so
      * what is asserted is what they ask for, as the test of the page after an import does. A page that formats the lines itself
@@ -517,9 +522,16 @@ final class export_warning_test extends \advanced_testcase {
     public function test_the_pages_give_the_lines_through_the_one_helper_and_the_backup_page_redirects(): void {
         global $CFG;
 
-        foreach (['export.php', 'backup.php'] as $name) {
+        // Since lot 7 the export page hands the lines to its class of output, which draws them: the code that formats them is
+        // there, and the page only passes them on.
+        $page = file_get_contents($CFG->dirroot . '/admin/tool/vae/export.php');
+        $this->assertStringContainsString('export_page::done($candidateid === (int) $USER->id, $registered, $warnings,', $page);
+        $this->assertStringNotContainsString('describe_warnings(', $page, 'export.php formats the lines itself.');
+        $this->assertStringNotContainsString("array_map('s'", $page, 'export.php escapes the lines itself.');
+        foreach (['classes/output/export_page.php', 'backup.php'] as $name) {
             $page = file_get_contents($CFG->dirroot . '/admin/tool/vae/' . $name);
-            $this->assertStringContainsString('exporter::warnings_html(', $page, $name);
+            // In the code, not in a comment.
+            $this->assertMatchesRegularExpression('#^(?!\s*//).*new export_warnings\(#m', $page, $name);
             $this->assertStringNotContainsString('describe_warnings(', $page, $name . ' formats the lines itself.');
             $this->assertStringNotContainsString("array_map('s'", $page, $name . ' escapes the lines itself.');
         }
@@ -537,7 +549,7 @@ final class export_warning_test extends \advanced_testcase {
         $this->assertStringContainsString('\core\notification::success(', $code);
         $this->assertStringContainsString("'backupdossierdonewarned'", $code);
         $this->assertStringContainsString('\core\notification::warning(', $code);
-        $this->assertStringContainsString('exporter::warnings_html(', $code);
+        $this->assertStringContainsString('new export_warnings(', $code);
         $this->assertStringNotContainsString('echo ', $code, 'A page is shown after the POST: reloading it makes another backup.');
         $this->assertStringNotContainsString('die(', $code, 'A page is shown after the POST: reloading it makes another backup.');
     }
@@ -619,8 +631,8 @@ final class export_warning_test extends \advanced_testcase {
      * @return string[] Identifier => text.
      */
     private static function strings_of(string $lang): array {
-        $string = [];
-        include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
 
         return $string;
     }
@@ -646,7 +658,9 @@ final class export_warning_test extends \advanced_testcase {
             'fr' => ['doit corriger', 'Corrigez le numéro', 'corriger le numéro', 'le plus souvent', 'candidat'],
         ];
 
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             $strings = self::strings_of($lang);
             foreach (['exportwarning', 'backupdossierwarning', 'exportreadmewarning'] as $identifier) {
                 $this->assertArrayHasKey($identifier, $strings);

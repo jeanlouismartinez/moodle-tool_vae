@@ -1,0 +1,97 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/organisation_cell
+
+    What a cell of the tables of the organisation holds: a row of inline parts, the fold of a count of activities over its
+    list, a list of items made of parts, the sentence that says a list of plans may be incomplete, or the label of a
+    competency line. Side by side with no space between them: a comment carries each line break of the template.
+
+    Every text comes from the context, worded by tool_vae\output\organisation_cell; the template holds no logic beyond its
+    sections. Every text, label, address and class is escaped (double braces). Two keys are HTML, placed as they are (triple
+    braces): texthtml and labelhtml, made by the core (format_string() of the name of a template or a course, the names of
+    the roles given by role_get_names(), the names of a course and an activity formatted by the core in the data, and the
+    sentence "forbidden by" whose parameter is those names).
+
+    Each kind of part is an object, never a bare string: a section that tested the string itself would draw nothing for
+    the text "0", which Mustache holds for empty. isbloc is a boolean, never written.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * parts - array of parts, each with the seven keys below, one of them set and the others false:
+        * text - false, or {label}: a text
+        * html - false, or {texthtml}: HTML made by the core
+        * link - false, or {url, label}: a link
+        * linkhtml - false, or {url, labelhtml}: a link whose words are HTML made by the core
+        * span - false, or {class, label}: a span with its classes
+        * strong - false, or {label}: a text in bold
+        * code - false, or {label}: a name of the code, small
+    * details - null, or {title, label, fichecode}: the fold over the list, its summary and the record said to a screen reader
+    * list - null, or {class, items}: each item a row of parts as above
+    * partial - null, or {label}: the sentence under a list of plans that may be incomplete
+    * competency - null, or {label, gone, isbloc, tag}: the label of a competency line, gone null or {label}
+
+    Example context (json):
+    {
+        "parts": [
+            {"text": false, "html": false, "link": false, "linkhtml": false,
+                "span": {"class": "badge bg-warning text-dark", "label": "Missing"}, "strong": false, "code": false},
+            {"text": {"label": " Nobody gives it."}, "html": false, "link": false, "linkhtml": false, "span": false,
+                "strong": false, "code": false},
+            {"text": false, "html": false, "link": false, "linkhtml": false, "span": false, "strong": {"label": "RNCP100"},
+                "code": false},
+            {"text": false, "html": {"texthtml": "Direction"}, "link": false, "linkhtml": false, "span": false,
+                "strong": false, "code": {"label": "tool/vae:viewany"} }
+        ],
+        "details": {"title": "List of the activities", "label": "2 activities", "fichecode": "RNCP100"},
+        "list": {"class": "list-unstyled mb-0", "items": [
+            {"parts": [
+                {"text": false, "html": false, "link": false,
+                    "linkhtml": {"url": "https://example.com/course/view.php?id=2", "labelhtml": "Cours AES"},
+                    "span": false, "strong": false, "code": false},
+                {"text": {"label": " › "}, "html": false,
+                    "link": {"url": "https://example.com/mod/quiz/view.php?id=7", "label": "Quiz"},
+                    "linkhtml": false, "span": false, "strong": false, "code": false}
+            ]}
+        ]},
+        "partial": {"label": "The list may be incomplete."},
+        "competency": {"label": "RNCP100-BC01 — Bloc 1", "gone": null, "isbloc": true, "tag": "(bloc)"}
+    }
+}}
+{{#parts}}{{#text}}{{label}}{{/text}}{{#html}}{{{texthtml}}}{{/html}}{{!
+}}{{#link}}<a href="{{url}}">{{label}}</a>{{/link}}{{#linkhtml}}<a href="{{url}}">{{{labelhtml}}}</a>{{/linkhtml}}{{!
+}}{{#span}}<span class="{{class}}">{{label}}</span>{{/span}}{{#strong}}<strong>{{label}}</strong>{{/strong}}{{!
+}}{{#code}}<code class="small">{{label}}</code>{{/code}}{{/parts}}{{!
+}}{{#details}}<details><summary title="{{title}}">{{label}}{{!
+}}<span class="visually-hidden"> {{fichecode}}</span></summary>{{/details}}{{!
+}}{{#list}}<ul class="{{class}}">{{#items}}<li>{{#parts}}{{#text}}{{label}}{{/text}}{{#html}}{{{texthtml}}}{{/html}}{{!
+}}{{#link}}<a href="{{url}}">{{label}}</a>{{/link}}{{#linkhtml}}<a href="{{url}}">{{{labelhtml}}}</a>{{/linkhtml}}{{!
+}}{{#span}}<span class="{{class}}">{{label}}</span>{{/span}}{{#strong}}<strong>{{label}}</strong>{{/strong}}{{!
+}}{{#code}}<code class="small">{{label}}</code>{{/code}}{{/parts}}</li>{{/items}}</ul>{{/list}}{{!
+}}{{#details}}</details>{{/details}}{{!
+}}{{#partial}}<p class="mb-0 text-muted">{{label}}</p>{{/partial}}{{!
+}}{{#competency}}{{#isbloc}}<strong>{{label}}{{#gone}}<div class="small">{{label}}</div>{{/gone}}</strong> {{!
+}}<span class="small text-muted">{{tag}}</span>{{/isbloc}}{{!
+}}{{^isbloc}}{{label}}{{#gone}}<div class="small">{{label}}</div>{{/gone}}{{/isbloc}}{{/competency}}

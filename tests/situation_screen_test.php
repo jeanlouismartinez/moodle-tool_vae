@@ -139,7 +139,8 @@ final class situation_screen_test extends \advanced_testcase {
         $PAGE = new \moodle_page();
         ob_start();
         try {
-            include(__DIR__ . '/../' . $script);
+            require_once(__DIR__ . '/fixtures/plugin_pages.php');
+            \tool_vae\fixtures\plugin_pages::run($script);
         } finally {
             $out = ob_get_clean();
             $_GET = [];
@@ -550,6 +551,25 @@ final class situation_screen_test extends \advanced_testcase {
         }
     }
 
+    public function test_the_file_of_a_piece_is_opened_in_the_area_of_the_vaeiste_whoever_reads(): void {
+        set_config('piecenoantivirus', 1, 'tool_vae');
+        $situation = $this->situation('Avec un fichier', 'C01');
+        $this->setUser($this->vaeiste);
+        $path = make_request_directory() . '/upload';
+        file_put_contents($path, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
+        (new spiece_manager())->add_file((int) $situation->id, 'contract', 'Un contrat', $path, '');
+        // The address of the file names the context of the VAEISTE, never the one of the reader: the page gives the pieces
+        // the context of the vaeiste (lot 7, wave 4a: the argument of the page, played as the site plays it).
+        $area = '/pluginfile.php/' . \context_user::instance((int) $this->vaeiste->id)->id . '/tool_vae/';
+        foreach (['vaeiste' => $this->vaeiste, 'manager' => $this->manager] as $who => $reader) {
+            $this->setUser($reader);
+            $html = $this->page('situation.php', $this->at($situation));
+            $this->assertStringContainsString($area, $html, $who);
+        }
+        $theirs = '/pluginfile.php/' . \context_user::instance((int) $this->manager->id)->id . '/tool_vae/';
+        $this->assertNotSame($area, $theirs, 'Premise: the reader has a context of their own.');
+    }
+
     public function test_the_title_of_a_piece_to_attach_is_escaped(): void {
         $first = $this->situation('Accueil du matin', 'C01');
         $second = $this->situation('Nuit agitee', 'C01');
@@ -658,16 +678,25 @@ final class situation_screen_test extends \advanced_testcase {
         $this->assertNotEmpty((new situation_manager())->find((int) $this->vaeiste->id, 'RNCP100', (int) $situation->slot));
     }
 
-    public function test_the_file_field_points_at_the_anonymisation_reminder(): void {
+    public function test_the_free_fields_of_the_file_point_at_the_anonymisation_reminder(): void {
         $situation = $this->situation('Accueil du matin', 'C01');
         $this->setUser($this->vaeiste);
 
         $html = $this->page('situation.php', $this->at($situation));
 
-        $this->assertMatchesRegularExpression(
-            '~<input[^>]*name="piecefile"[^>]*aria-describedby="tool_vae_anonymise_spiece"~',
-            $html
-        );
+        // The file is chosen in the file picker of the core, which takes no attribute of its own: the reminder is tied to the
+        // two fields the vaeiste types in, the title and the part concerned, as on the page of a declaration.
+        $this->assertMatchesRegularExpression('~<input type="hidden" name="piecefile" id="id_piecefile" value="\d+"'
+            . ' class="filepickerhidden"/>~', $html);
+        foreach (['id_filetitle', 'id_filepart'] as $id) {
+            $this->assertMatchesRegularExpression(
+                '~<input[^>]*id="' . $id . '"[^>]*aria-describedby="tool_vae_anonymise_spiece"|<input[^>]*aria-describedby='
+                    . '"tool_vae_anonymise_spiece"[^>]*id="' . $id . '"~',
+                $html,
+                $id
+            );
+        }
+        $this->assertStringContainsString('id="tool_vae_anonymise_spiece"', $html);
     }
 
     public function test_attach_detach_and_remove_go_through_the_page_with_the_key_only(): void {

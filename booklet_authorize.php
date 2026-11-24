@@ -30,6 +30,7 @@ require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use tool_vae\local\booklet_authorization;
+use tool_vae\output\booklet_authorize_page;
 
 admin_externalpage_setup('toolvae_bookletauth');
 $system = context_system::instance();
@@ -54,41 +55,18 @@ if ($action !== '' && $managerid) {
     }
 }
 
-echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('bookletauthheading', 'tool_vae'));
-echo html_writer::tag('p', s(get_string('bookletauthintro', 'tool_vae')));
-
-$managers = booklet_authorization::managers();
-if (!$managers) {
-    echo html_writer::tag('p', s(get_string('bookletauthnone', 'tool_vae')));
-    echo $OUTPUT->footer();
-    die();
-}
-
-$table = new html_table();
-$table->attributes['class'] = 'generaltable tool-vae-bookletauth';
-$table->head = [
-    get_string('bookletauthcolmanager', 'tool_vae'),
-    get_string('bookletauthcolstatus', 'tool_vae'),
-    get_string('bookletauthcolaction', 'tool_vae'),
-];
-foreach ($managers as $manager) {
-    $stands = booklet_authorization::stands((int) $manager->id);
-    $form = html_writer::start_tag('form', ['method' => 'post', 'action' => $url->out(false), 'class' => 'd-inline'])
-        . html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()])
-        . html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'managerid', 'value' => (int) $manager->id])
-        . html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'action', 'value' => $stands ? 'revoke' : 'grant'])
-        . html_writer::tag(
-            'button',
-            s(get_string($stands ? 'bookletauthrevoke' : 'bookletauthgrant', 'tool_vae')),
-            ['type' => 'submit', 'class' => 'btn btn-secondary btn-sm']
-        )
-        . html_writer::end_tag('form');
-    $table->data[] = [
-        s(fullname($manager)),
-        s(get_string($stands ? 'bookletauthstands' : 'bookletauthnotyet', 'tool_vae')),
-        $form,
+// The names and the state of each manager are read here; the class of output only words them.
+$managers = [];
+foreach (booklet_authorization::managers() as $manager) {
+    $managers[] = [
+        'id' => (int) $manager->id,
+        'name' => fullname($manager),
+        'stands' => booklet_authorization::stands((int) $manager->id),
     ];
 }
-echo html_writer::table($table);
+
+$renderer = $PAGE->get_renderer('tool_vae');
+echo $OUTPUT->header();
+echo $OUTPUT->heading(get_string('bookletauthheading', 'tool_vae'));
+echo $renderer->render(new booklet_authorize_page($managers, $url));
 echo $OUTPUT->footer();

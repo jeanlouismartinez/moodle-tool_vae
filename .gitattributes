@@ -1,0 +1,28 @@
+# Development files: kept in the repository, left out of the package of the plugin (git archive, export-ignore).
+# Never left out: docs/schema (read at run time), tests, lang/en (the only language of the package), amd, templates, db, cli.
+/.forgejo export-ignore
+/.gitattributes export-ignore
+/.github export-ignore
+/.gitignore export-ignore
+/.moodle-plugin-ci.yml export-ignore
+/Makefile export-ignore
+/deploy export-ignore
+/phpcs.xml.dist export-ignore
+/scripts export-ignore
+# The French strings: kept in the repository, left out of the package, which ships English only; the project owner intends the
+# French of the package to come from the translation tool of Moodle (AMOS). Decision of the project owner, 22 November 2026.
+/lang/fr export-ignore
+# Documents of the author: left out of the package, except the schemas read at run time and the documents the README
+# links to (the list PUBLISHED of scripts/check-doc-links.mjs). Decision of the project owner, 22 November 2026.
+/docs/** export-ignore
+/docs/en -export-ignore
+/docs/en/** -export-ignore
+/docs/schema -export-ignore
+/docs/schema/** -export-ignore
+/docs/AIPD-VAE.md -export-ignore
+/docs/BRANCHES.md -export-ignore
+/docs/FAQ.md -export-ignore
+/docs/IMPORT-FICHES-FRANCE-COMPETENCES.md -export-ignore
+/docs/INSTALLATION-PAS-A-PAS.md -export-ignore
+/docs/MODELE-CONTRAT-USAGE-PLATEFORME.md -export-ignore
+/docs/T-84-conformite-rgpd.md -export-ignore

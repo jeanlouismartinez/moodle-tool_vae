@@ -21,7 +21,7 @@ use core_privacy\local\request\writer;
 use tool_vae\event\deposit_created;
 use tool_vae\local\deposit_manager;
 use tool_vae\local\draft_manager;
-use tool_vae\local\faisabilite_fields;
+use tool_vae\local\feasibility_fields;
 use tool_vae\local\purge;
 use tool_vae\privacy\provider;
 
@@ -299,7 +299,7 @@ final class deposit_manager_test extends \advanced_testcase {
 
     public function test_the_direction_reads_every_deposit_with_viewany_and_readdeposit(): void {
         $this->write('objectifs', 0, 'Obtenir le diplome.');
-        $this->write('identite', 0, faisabilite_fields::encode('identite', ['nom_naissance' => 'Dupont']));
+        $this->write('identite', 0, feasibility_fields::encode('identite', ['nom_naissance' => 'Dupont']));
         (new deposit_manager())->deposit((int) $this->candidate->id);
         $id = (int) $this->candidate->id;
 
@@ -345,7 +345,7 @@ final class deposit_manager_test extends \advanced_testcase {
 
     public function test_the_identity_stays_behind_its_own_right(): void {
         $this->write('objectifs', 0, 'Obtenir le diplome.');
-        $this->write('identite', 0, faisabilite_fields::encode('identite', ['nom_naissance' => 'Dupont-Secret']));
+        $this->write('identite', 0, feasibility_fields::encode('identite', ['nom_naissance' => 'Dupont-Secret']));
         $deposit = (new deposit_manager())->deposit((int) $this->candidate->id);
 
         $codes = function (bool $withfields) use ($deposit): array {

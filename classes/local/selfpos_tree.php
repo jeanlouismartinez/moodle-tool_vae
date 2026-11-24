@@ -116,7 +116,7 @@ final class selfpos_tree {
                 // The core numbers the top level of competency 1; here the record is level 1 and that level is 2.
                 $levels[$level] = $taxonomies[$level - 1] ?? get_string('selfposlevelname', 'tool_vae', $level);
             }
-            $rank = passage_manager::rank_of((string) $competency->idnumber, $fichecode);
+            $rank = correspondence_manager::rank_of((string) $competency->idnumber, $fichecode);
             $positionable = $rank !== '' && preg_match(importer::RANK_PATTERN, $rank) === 1;
             // A node with no rank is told by its idnumber, so that two of them are not told apart by nothing.
             $told = $positionable ? $rank : (string) $competency->idnumber;

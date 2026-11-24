@@ -139,7 +139,7 @@ final class positioning_rules {
             }
         }
 
-        $rank = fn(\stdClass $competency): string => passage_manager::rank_of((string) $competency->idnumber, $fichecode);
+        $rank = fn(\stdClass $competency): string => correspondence_manager::rank_of((string) $competency->idnumber, $fichecode);
         $blocs = [];
         $leaves = [];
         $listed = (new competency_gateway())->framework_tree((int) $source->frameworkid);

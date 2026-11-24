@@ -1,0 +1,63 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/selfposition_page
+
+    The page of the self-positioning, under its title, in one of three states: the competencies switched off (a
+    notification); the tree of a record between its code and the way back; one node, with the errors of a send, the node
+    and its annotations.
+
+    Every text comes from the context, already worded by tool_vae\output\selfposition_page. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * noticehtml, errorhtml, noteerrorhtml - notifications drawn by the renderer of the core ('' for none)
+    * treehtml - the tree, drawn by the template tool_vae/selfpos_record_tree
+    * nodehtml - the node, drawn by the template tool_vae/selfpos_node
+    * noteshtml - the annotations, drawn by the template tool_vae/notes_block ('' for none)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * disabled - object or null: noticehtml
+    * tree - object or null: code (the code of the record), treehtml, back (url, text)
+    * node - object or null: errorhtml, noteerrorhtml, nodehtml, noteshtml
+
+    Example context (json):
+    {
+        "disabled": {"noticehtml": "<div class=\"alert alert-danger\">The competencies are switched off.</div>"},
+        "tree": {
+            "code": "RNCP100",
+            "treehtml": "<ul class=\"list-unstyled\"><li>BC01</li></ul>",
+            "back": {"url": "https://example.com/admin/tool/vae/organisation.php?tab=mine", "text": "Back to my pathway"}
+        },
+        "node": {
+            "errorhtml": "",
+            "noteerrorhtml": "<div class=\"alert alert-danger\">Too long.</div>",
+            "nodehtml": "<div class=\"tool-vae-selfpos\">C01</div>",
+            "noteshtml": "<section class=\"tool-vae-notes mt-4\"></section>"
+        }
+    }
+}}
+{{#disabled}}{{{noticehtml}}}{{/disabled}}{{!
+}}{{#tree}}<p><strong>{{code}}</strong></p>{{{treehtml}}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}{{/tree}}{{!
+}}{{#node}}{{{errorhtml}}}{{{noteerrorhtml}}}{{{nodehtml}}}{{{noteshtml}}}{{/node}}

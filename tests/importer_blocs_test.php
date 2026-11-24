@@ -377,7 +377,7 @@ final class importer_blocs_test extends \advanced_testcase {
     }
 
     public function test_the_example_file_with_blocs_reads_and_imports_as_a_tree(): void {
-        $rows = importer::rows_from_csv(file_get_contents(__DIR__ . '/fixtures/fiche-exemple-blocs.csv'));
+        $rows = importer::rows_from_csv(file_get_contents(__DIR__ . '/fixtures/fiche-example-blocs.csv'));
         $this->assertCount(5, $rows);
 
         $result = (new importer())->import($this->meta(), $rows);

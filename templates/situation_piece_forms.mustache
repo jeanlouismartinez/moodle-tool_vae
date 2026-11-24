@@ -1,0 +1,89 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/situation_piece_forms
+
+    The three ways the vaeiste adds a piece to a situation: the reminder to anonymise, which the free fields point at; the
+    form of a file (a form of the core); the form of a link (nature, title, address, part concerned); the form of a piece
+    already there (the piece, the part concerned), only when there is one. Both plain forms are sent by POST with the
+    session key to the page of the situation.
+
+    Every text comes from the context, already worded by tool_vae\output\situation_piece_forms. The template holds no
+    logic. Every value is escaped (double braces) except one key:
+    * filehtml - the form of a file, drawn by moodleform::render()
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * anonymise - string, the reminder
+    * filehtml - string, the form of a file
+    * action - string, the address of the page of the situation
+    * sesskey - string, the session key
+    * link - object: heading, help, naturelabel, natures (array of {value, selected (bool), label}), titlelabel, titlemax
+      (int), urllabel, urlmax (int), part (object: label, maxlength (int)), submit
+    * attach - object or null: heading, choices (array of {value, label}), part (object: label, maxlength (int)), submit
+
+    Example context (json):
+    {
+        "anonymise": "Name nobody in a title.",
+        "filehtml": "<form action=\"#\" class=\"mb-4 tool-vae-spiece-file\"></form>",
+        "action": "https://example.com/admin/tool/vae/situation.php?userid=7&fiche=RNCP100&slot=1",
+        "sesskey": "abc123",
+        "link": {
+            "heading": "A link", "help": "An address on the web.", "naturelabel": "Nature",
+            "natures": [{"value": "", "selected": true, "label": "Choose..."}, {"value": "other", "selected": false,
+                "label": "Other"}],
+            "titlelabel": "Title", "titlemax": 255, "urllabel": "Address", "urlmax": 2048,
+            "part": {"label": "Part concerned", "maxlength": 255}, "submit": "Add the link"
+        },
+        "attach": {
+            "heading": "Attach a piece I already have",
+            "choices": [{"value": 12, "label": "Other - A & B (9 November 2026)"}],
+            "part": {"label": "Part concerned", "maxlength": 255}, "submit": "Attach a piece I already have"
+        }
+    }
+}}
+<div class="alert alert-info tool-vae-anonymise" id="tool_vae_anonymise_spiece">{{anonymise}}</div>{{{filehtml}}}{{!
+}}{{#link}}<form method="post" action="{{action}}" class="mb-4 tool-vae-spiece-link"><h4 class="h6">{{heading}}</h4>{{!
+}}<p class="small">{{help}}</p><input type="hidden" name="sesskey" value="{{sesskey}}" />{{!
+}}<input type="hidden" name="action" value="link" /><div class="mb-2"><label for="id_linknature">{{naturelabel}}</label>{{!
+}}<select id="id_linknature" required="required" class="select form-select form-select" name="nature">{{!
+}}{{#natures}}<option{{#selected}} selected="selected"{{/selected}} value="{{value}}">{{label}}</option>{{/natures}}{{!
+}}</select></div><div class="mb-2"><label for="id_linktitle">{{titlelabel}}</label>{{!
+}}<input type="text" name="title" id="id_linktitle" size="60" maxlength="{{titlemax}}" {{!
+}}aria-describedby="tool_vae_anonymise_spiece" class="form-control" /></div>{{!
+}}<div class="mb-2"><label for="id_url">{{urllabel}}</label><input type="text" name="url" id="id_url" size="60" {{!
+}}required="required" maxlength="{{urlmax}}" aria-describedby="tool_vae_anonymise_spiece" class="form-control" /></div>{{!
+}}{{#part}}<div class="mb-2"><label for="id_linkpart">{{label}}</label><input type="text" name="part" id="id_linkpart" {{!
+}}size="60" maxlength="{{maxlength}}" aria-describedby="tool_vae_anonymise_spiece" class="form-control" /></div>{{/part}}{{!
+}}<input type="submit" value="{{submit}}" class="btn btn-secondary" /></form>{{/link}}{{!
+}}{{#attach}}<form method="post" action="{{action}}" class="mb-4 tool-vae-spiece-attach"><h4 class="h6">{{heading}}</h4>{{!
+}}<input type="hidden" name="sesskey" value="{{sesskey}}" /><input type="hidden" name="action" value="attach" />{{!
+}}<div class="mb-2"><label for="id_attachpiece">{{heading}}</label>{{!
+}}<select id="id_attachpiece" class="select form-select form-select" name="piece">{{!
+}}{{#choices}}<option value="{{value}}">{{label}}</option>{{/choices}}</select></div>{{!
+}}{{#part}}<div class="mb-2"><label for="id_attachpart">{{label}}</label><input type="text" name="part" {{!
+}}id="id_attachpart" size="60" maxlength="{{maxlength}}" aria-describedby="tool_vae_anonymise_spiece" {{!
+}}class="form-control" /></div>{{/part}}{{!
+}}<input type="submit" value="{{submit}}" class="btn btn-secondary" /></form>{{/attach}}

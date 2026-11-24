@@ -19,6 +19,8 @@ namespace tool_vae;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\organisation;
 use tool_vae\local\referent_manager;
+use tool_vae\output\organisation_cell;
+use tool_vae\output\organisation_site;
 
 /**
  * The configuration of the scheme, read by who may view any dossier (T-90 lot 4).
@@ -33,7 +35,22 @@ use tool_vae\local\referent_manager;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\organisation::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(organisation_site::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(organisation_cell::class)]
 final class organisation_site_test extends \advanced_testcase {
+    /**
+     * A piece drawn by the renderer of the plugin, as the old screen organisation_screen was drawn under PHPUnit (its calls
+     * ported here by lot 7, MMR-520 ticket 4, wave 4b; no assertion changed).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function draw(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     /** @var \tool_vae_generator */
     private $plugingenerator;
 
@@ -382,11 +399,11 @@ final class organisation_site_test extends \advanced_testcase {
         $this->setAdminUser();
         $drafter = $this->getDataGenerator()->create_user();
         $feasibility = $this->getDataGenerator()->create_user();
-        $reflexion = $this->getDataGenerator()->create_user();
+        $reflectionwriter = $this->getDataGenerator()->create_user();
         $types = [
             [$drafter, \tool_vae\local\draft_manager::DOCTYPE_VALIDATION],
             [$feasibility, \tool_vae\local\draft_manager::DOCTYPE_FAISABILITE],
-            [$reflexion, \tool_vae\local\draft_manager::DOCTYPE_REFLEXION],
+            [$reflectionwriter, \tool_vae\local\draft_manager::DOCTYPE_REFLEXION],
         ];
         foreach ($types as $n => [$user, $doctype]) {
             $now = time();
@@ -563,7 +580,7 @@ final class organisation_site_test extends \advanced_testcase {
         ]);
 
         $site = $this->site();
-        $html = \tool_vae\local\organisation_screen::site($site);
+        $html = self::draw(new organisation_site($site));
 
         $this->assertSame('Suivi R&amp;D', $site->powers->cohorts[0]->rolename, 'format_string() has already escaped it.');
         $this->assertStringContainsString('Suivi R&amp;D', $html);
@@ -1006,7 +1023,7 @@ final class organisation_site_test extends \advanced_testcase {
         set_config('refopen', 0, 'tool_vae');
 
         $this->assertNull($this->site()->fiches['RNCP100']->rules);
-        $html = \tool_vae\local\organisation_screen::site($this->site());
+        $html = self::draw(new organisation_site($this->site()));
         $this->assertStringContainsString(get_string('orgrulesclosed', 'tool_vae'), $html);
 
         set_config('refopen', 1, 'tool_vae');
@@ -1087,5 +1104,43 @@ final class organisation_site_test extends \advanced_testcase {
             $site->powers->actors,
             \tool_vae\local\actors::grid($site->powers->capabilities, $site->powers->settings)
         );
+    }
+
+    public function test_the_rights_given_by_the_roles_are_read_without_the_right_to_view_any_dossier(): void {
+        $this->resetAfterTest();
+        $this->setUser($this->getDataGenerator()->create_user());
+
+        $rights = organisation::role_rights();
+
+        $names = array_column($rights->capabilities, 'name');
+        $this->assertContains('tool/vae:declare', $names);
+        $this->assertSame(['name', 'label', 'allow', 'prevent', 'prohibit'], array_keys((array) $rights->capabilities[0]));
+        $this->assertContains('aiopen', array_column($rights->settings, 'name'));
+        $this->assertIsArray($rights->givingroles);
+    }
+
+    public function test_the_roles_giving_a_right_are_the_ones_that_allow_one(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $before = organisation::role_rights()->givingroles;
+
+        \tool_vae\local\role_installer::create('vaeiste');
+        $roleid = (int) $DB->get_field('role', 'id', ['shortname' => 'vaeiste'], MUST_EXIST);
+
+        $this->assertNotContains($roleid, $before);
+        $this->assertContains($roleid, organisation::role_rights()->givingroles);
+    }
+
+    public function test_the_configuration_carries_exactly_what_the_shared_reading_gives(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        \tool_vae\local\role_installer::create('vaeiste');
+        $powers = (new \ReflectionMethod(organisation::class, 'site_powers'))->invoke(null, false);
+        $rights = organisation::role_rights();
+
+        $this->assertEquals($rights->capabilities, $powers->capabilities);
+        $this->assertEquals($rights->settings, $powers->settings);
+        $this->assertEquals(\tool_vae\local\actors::grid($rights->capabilities, $rights->settings), $powers->actors);
     }
 }

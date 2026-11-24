@@ -267,35 +267,29 @@ final class fiche_import_test extends \advanced_testcase {
         );
     }
 
-    public function test_an_upload_is_read_where_php_put_it(): void {
-        $ok = ['name' => 'a.zip', 'tmp_name' => '/tmp/phpXYZ', 'error' => UPLOAD_ERR_OK, 'size' => 10];
+    public function test_an_upload_is_read_from_the_draft_area_of_the_person(): void {
+        global $USER;
 
-        $this->assertSame('/tmp/phpXYZ', fiche_import::upload_path($ok, false));
+        $this->setAdminUser();
         $this->assertSame(fiche_refusal::ZIP_MISSING, $this->refused(fn() => fiche_import::upload_path(null))->reason());
-        $this->assertSame(
-            fiche_refusal::ZIP_MISSING,
-            $this->refused(fn() => fiche_import::upload_path(['error' => UPLOAD_ERR_NO_FILE] + $ok))->reason()
-        );
-        $failures = [
-            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE, UPLOAD_ERR_PARTIAL, UPLOAD_ERR_NO_TMP_DIR,
-            UPLOAD_ERR_CANT_WRITE,
-        ];
-        foreach ($failures as $error) {
-            $this->assertSame(
-                fiche_refusal::UPLOAD,
-                $this->refused(fn() => fiche_import::upload_path(['error' => $error] + $ok, false))->reason(),
-                "Error $error"
-            );
-        }
-        $this->assertSame(
-            fiche_refusal::UPLOAD,
-            $this->refused(fn() => fiche_import::upload_path(['error' => [UPLOAD_ERR_OK]] + $ok, false))->reason(),
-            'An array of errors is somebody playing.'
-        );
+
+        $itemid = file_get_unused_draft_itemid();
+        $zip = $this->zip();
+        get_file_storage()->create_file_from_pathname([
+            'contextid' => \context_user::instance($USER->id)->id, 'component' => 'user', 'filearea' => 'draft',
+            'itemid' => $itemid, 'filepath' => '/', 'filename' => 'export-fiches-csv-2026-10-19.zip',
+        ], $zip);
+        $upload = fiche_import::upload_path(\tool_vae\local\draft_upload::file($itemid));
+        $this->assertSame('export-fiches-csv-2026-10-19.zip', $upload->name, 'The day is read from it.');
+        $this->assertSame(file_get_contents($zip), file_get_contents($upload->path));
+
+        $broken = $this->createMock(\stored_file::class);
+        $broken->method('copy_content_to')->willReturn(false);
+        $broken->method('get_filename')->willReturn('export-fiches-csv-2026-10-19.zip');
         $this->assertSame(
             fiche_refusal::UPLOAD,
-            $this->refused(fn() => fiche_import::upload_path($ok, true))->reason(),
-            'A path that PHP did not put there is refused.'
+            $this->refused(fn() => fiche_import::upload_path($broken))->reason(),
+            'A file that cannot be copied out did not arrive whole.'
         );
     }
 
@@ -725,7 +719,7 @@ final class fiche_import_test extends \advanced_testcase {
         // connections, but a test is one. The lock by records of the database is exclusive within a process too.
         $CFG->lock_factory = '\core\lock\db_record_lock_factory';
         $history = [];
-        $client = $this->get_mocked_http_client($history);
+        $this->get_mocked_http_client($history);
         $factory = \core\lock\lock_config::get_lock_factory('tool_vae_fiche_import');
         $import = new fiche_import();
 

@@ -1,0 +1,63 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/declare_page
+
+    The page that declares an activity, under its title: the notifications (a refusal, the records hidden, the competencies
+    off...), the sentence that says the text is kept, the way to position oneself, a fold per record declared on with the
+    panel "where am I", the text given back when there is no form, and the form. Each part only when the state has it.
+
+    Every text comes from the context, already worded by tool_vae\output\declare_page. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * noticehtml - a notification drawn by the renderer of the core
+    * panelhtml - the panel drawn by the template tool_vae/whereami_tree
+    * kepthtml - the text given back, drawn by the template tool_vae/kept_text ('' when nothing)
+    * formhtml - the form of the declaration, drawn by moodleform::render() ('' when no form)
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * notices - array of {noticehtml}
+    * keptnote - object or null: text, the sentence that says what was written is kept
+    * others - array of {noticehtml}, the records hidden, after that sentence
+    * selfpos - object or null: url and text, the way to position oneself
+    * panels - array of {summary, panelhtml}
+    * kepthtml - string, HTML of a template
+    * formhtml - string, HTML of the core
+
+    Example context (json):
+    {
+        "notices": [{"noticehtml": "<div class=\"alert alert-danger\">The record is hidden.</div>"}],
+        "keptnote": {"text": "What you wrote is kept in the form below."},
+        "others": [{"noticehtml": "<div class=\"alert alert-info\">Another record is hidden.</div>"}],
+        "selfpos": {"url": "https://example.com/admin/tool/vae/selfposition.php?userid=7", "text": "Position myself"},
+        "panels": [{"summary": "Where I stand on RNCP100", "panelhtml": "<section class=\"tool-vae-whereami\"></section>"}],
+        "kepthtml": "",
+        "formhtml": "<form action=\"#\"></form>"
+    }
+}}
+{{#notices}}{{{noticehtml}}}{{/notices}}{{#keptnote}}<p>{{text}}</p>{{/keptnote}}{{#others}}{{{noticehtml}}}{{/others}}{{!
+}}{{#selfpos}}<p><a href="{{url}}">{{text}}</a></p>{{/selfpos}}{{!
+}}{{#panels}}<details class="mb-3"><summary>{{summary}}</summary>{{{panelhtml}}}</details>{{/panels}}{{!
+}}{{{kepthtml}}}{{{formhtml}}}

@@ -605,15 +605,15 @@ final class privacy_provider_test extends \advanced_testcase {
         // The mark ties a backup to its candidate (the name no longer does), so a stand-in content is enough: a refresh
         // would replace it whatever it holds. Without the mark no refresh would ever find this file, and the assertion
         // below would hold whatever the provider did.
-        $personne = local\identity_map::uuid_for(local\identity_map::TYPE_USER, (int) $this->candidate->id);
+        $personuuid = local\identity_map::uuid_for(local\identity_map::TYPE_USER, (int) $this->candidate->id);
         $backup = get_file_storage()->create_file_from_string([
             'contextid' => \context_user::instance((int) get_admin()->id)->id,
             'component' => 'user',
             'filearea' => 'private',
             'itemid' => 0,
             'filepath' => local\backup::FILEPATH,
-            'filename' => 'dossier-' . $personne . '-' . local\identity_map::generate_ulid() . '.zip',
-            'source' => local\backup::SOURCE_PREFIX . $personne,
+            'filename' => 'dossier-' . $personuuid . '-' . local\identity_map::generate_ulid() . '.zip',
+            'source' => local\backup::SOURCE_PREFIX . $personuuid,
         ], 'sauvegarde');
 
         provider::delete_data_for_user($this->approval($reimporter, (int) $this->candidate->id));
@@ -1043,8 +1043,9 @@ final class privacy_provider_test extends \advanced_testcase {
             }
             [$entry, $keys] = $served[$item->get_name()];
             foreach (array_keys($item->get_privacy_fields()) as $field) {
-                // A date: time*, *at, ficheupdated. textformat (lot 1b) ends in "at" and is a format, not a date.
-                if (!preg_match('/^(?!textformat$)(time[a-z]+|[a-z]+at|ficheupdated)$/', $field)) {
+                // A date: time*, *at, ficheupdated. textformat (lot 1b) and situationformat (declared at lot 3 of MMR-520) end in
+                // "at" and are formats, not dates.
+                if (!preg_match('/^(?![a-z]*format$)(time[a-z]+|[a-z]+at|ficheupdated)$/', $field)) {
                     continue;
                 }
                 $this->assertArrayHasKey(

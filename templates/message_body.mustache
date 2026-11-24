@@ -1,0 +1,47 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/message_body
+
+    The body in HTML of a message of the plugin: the sentence, then the link to the dossier, each in a paragraph. On one
+    line: the message carries it as it comes.
+
+    Every text comes from the context, given by tool_vae\output\message_body in the language of the recipient. The
+    template holds no logic. Every value is escaped (double braces): none of them is HTML.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * body - string, the sentence
+    * url - string, the address of the dossier
+    * linkname - string, the words of the link
+
+    Example context (json):
+    {
+        "body": "Your declaration against RNCP36832-C03 has been attested.",
+        "url": "https://example.com/admin/tool/vae/dossier.php?userid=5",
+        "linkname": "Open the dossier"
+    }
+}}
+<p>{{body}}</p><p><a href="{{url}}">{{linkname}}</a></p>

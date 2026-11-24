@@ -33,12 +33,13 @@ use tool_vae\local\access;
 use tool_vae\local\evaluation_manager;
 use tool_vae\local\positioning_rules;
 use tool_vae\local\positioning_screen;
+use tool_vae\output\positioning_page;
 
 require_login();
 
 $candidateid = required_param('userid', PARAM_INT);
-$fichecode = required_param('fichecode', PARAM_RAW_TRIMMED);
-$rank = optional_param('rank', '', PARAM_RAW_TRIMMED);
+$fichecode = required_param('fichecode', PARAM_ALPHANUMEXT);
+$rank = optional_param('rank', '', PARAM_ALPHANUM);
 
 $context = access::require_can_view($candidateid);
 $candidate = core_user::get_user($candidateid, '*', MUST_EXIST);
@@ -79,19 +80,11 @@ if (evaluation_manager::can_write($candidateid)) {
     }
 }
 
+// Read only, before the page is drawn: the lines of the competency.
+$rows = $manager->lines($candidateid, $fichecode, $rank);
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string($heading, 'tool_vae'));
-echo html_writer::tag('p', s(get_string('positioningdisclaimer', 'tool_vae')), ['class' => 'text-muted small']);
-echo html_writer::tag('p', html_writer::tag('strong', s($fichecode)) . ' - ' . s($label));
-if ($error !== null) {
-    echo $OUTPUT->notification(s($error), \core\output\notification::NOTIFY_ERROR);
-}
-
-if ($form) {
-    echo html_writer::tag('p', s(get_string('positioningevaluateintro', 'tool_vae')));
-    $form->display();
-}
-echo $OUTPUT->heading(get_string('positioninghistory', 'tool_vae'), 3);
-echo positioning_screen::history($manager->lines($candidateid, $fichecode, $rank), $context, 'eval');
-echo html_writer::tag('p', html_writer::link($dossier, get_string('positioningback', 'tool_vae')));
+echo $renderer->render(positioning_page::evaluate($fichecode, $label, $error, $form, $rows, $context, $dossier));
 echo $OUTPUT->footer();

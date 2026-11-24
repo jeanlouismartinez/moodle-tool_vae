@@ -1,0 +1,48 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/sources
+
+    The certification records of the site on the administration screen: a heading, then the table of the records (code
+    and provenance, name, register, competencies and divergences, declarations, last import).
+
+    Every text comes from the context, already worded by tool_vae\output\sources. The template holds no logic. Two keys
+    are HTML (triple braces): headinghtml, a heading made by the core ($output->heading()); tablehtml, a table drawn by
+    the template tool_vae/table (its texts are escaped by the templates tool_vae/cell_content, tool_vae/source_code and
+    tool_vae/provenance).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * headinghtml - HTML, the heading of the table
+    * tablehtml - HTML, the table of the records
+
+    Example context (json):
+    {
+        "headinghtml": "<h3>Certification records</h3>",
+        "tablehtml": "<table class=\"generaltable tool-vae-sources\"><tbody><tr><td>RNCP36832</td></tr></tbody></table>"
+    }
+}}
+{{{headinghtml}}}
+{{{tablehtml}}}

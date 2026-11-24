@@ -23,7 +23,7 @@ use Psr\Http\Message\ResponseInterface;
  * The one door of the plugin that opens onto the Internet: the latest export of France compétences (T-31, 0.47.0).
  *
  * UNTIL THIS VERSION THE PLUGIN MADE NO REQUEST OF ITS OWN, and that promise is kept as narrow as it can be. This is the only
- * class that may name an HTTP client (scripts/sortie-reseau.sh and fiche_no_background_test read the source and say so), it
+ * class that may name an HTTP client (scripts/check-network-door.sh and fiche_no_background_test read the source and say so), it
  * is called by one button of the import screen and by nothing that runs on a schedule, and it goes to two hosts written
  * below: www.data.gouv.fr, which tells which file is the latest, and static.data.gouv.fr, which serves it.
  *

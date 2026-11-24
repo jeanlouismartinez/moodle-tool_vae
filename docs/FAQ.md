@@ -1,9 +1,31 @@
 # Questions fréquentes, par rôle
 
-> Ce guide dit ce que le plugin « VAE - cheminement » (`tool_vae`, dépôt `moodle-tool_vae`) fait **à ce jour** (version 2.5.03 (Moodle 5.3),
-> build 2026110404). Il ne remplace pas le certificateur : le plugin aide à **constituer et mettre en forme** un dossier,
+> Ce guide dit ce que le plugin « VAE - cheminement » (`tool_vae` ; dépôt public `moodle-tool_vae` sur GitHub) fait **à ce jour** (version 2.5.03 (Moodle 5.3),
+> build 2026112200, état au 22 novembre 2026 ; les noms des rôles sont ceux de l'écran en français, ils suivent la langue de qui crée le rôle). Il ne remplace pas le certificateur : le plugin aide à **constituer et mettre en forme** un dossier,
 > il ne juge pas, ne calcule aucun verdict et ne dit jamais si un dossier est recevable (D-1).
-> Les mots difficiles sont dans le [glossaire du README](../README.md#glossaire).
+> Les mots difficiles sont dans le [glossaire du README](../README.fr.md#glossaire).
+
+## Pour tous
+
+**Où trouver le plugin ?**
+Par le lien **VAE** de la barre du haut de chaque page, à côté de « Tableau de bord » et « Mes cours » (depuis le build 2026111601).
+Il ouvre la page Organisation sur l'onglet qui vous concerne : « Mon parcours » pour le vaeiste, « Vaeistes suivis » pour le responsable
+qui suit au moins un vaeiste, « Organisation » pour la direction. Il n'est montré qu'à qui peut ouvrir l'un de ces onglets, et jamais en
+session « Se connecter en tant que ». Les liens du profil existent toujours (nom en haut à droite, puis **Profil**, zone « Divers » :
+« Dossier d'acquis de l'expérience », « Mon parcours », « Mes vaeistes », « Organisation », selon vos droits). L'administrateur trouve
+les pages du plugin sous *Administration du site → Compétences → VAE*, la page **Mise en route** en premier.
+
+**Y a-t-il une aide pour mon rôle ?**
+Oui. Sous le titre de chaque onglet, un lien **Aide** (« Aide : le guide du vaeiste », « … du responsable », « … de la direction ») ouvre
+un guide d'une page, servi par le plugin à partir de ses chaînes de langue (l'anglais seul dans le paquet ; le français avec les chaînes
+du dépôt, `lang/fr`). Il décrit ce qui est ouvert sur un site tel qu'il est installé ;
+l'administrateur peut ouvrir d'autres fonctions, qui s'expliquent alors sur leur page. Chacun n'ouvre que le guide d'un onglet qu'il
+peut ouvrir.
+
+**Que dit l'encadré « Ce que vous pouvez faire maintenant » ?**
+En tête de « Mon parcours » et de « Vaeistes suivis », il dit ce qui est possible maintenant, avec un lien : par exemple « Déclarer une
+activité » pour le vaeiste, « 6 déclarations à attester » pour le responsable. C'est un nombre et un lien, jamais une progression, un
+pourcentage ni un verdict ; il n'écrit rien et ne nomme personne.
 
 ## Vous êtes vaeiste
 
@@ -15,8 +37,12 @@ récupérer mon dossier ? »).
 
 **Qui lit ce que j'écris ?**
 Vos **brouillons** et vos **versions** ne sont lus que par vous et par l'administrateur du site ; la direction ou un
-responsable ne les lit que si le site lui a donné le droit `tool/vae:draftview`, que personne n'a par défaut. La préparation
-du dossier de validation et le journal réflexif ne sont lus que par vous. Un responsable qui vous suit lit vos
+responsable ne les lit que si le site lui a donné le droit `tool/vae:draftview`, qu'aucun rôle de Moodle n'a par défaut. Attention :
+le rôle « Direction VAE » que propose le plugin (page Rôles VAE) le porte ; une direction qui a reçu ce rôle lit les versions
+enregistrées de votre dossier de faisabilité, déposées ou non. Le journal réflexif
+n'est lu que par vous. La préparation du dossier de validation et vos situations de travail, là où le site les a
+ouvertes, sont lues par les responsables qui vous suivent et par la direction (la dernière version et le brouillon
+en cours), jamais par l'administrateur du site. Un responsable qui vous suit lit vos
 déclarations (pour les attester) et le **jalon** que vous déposez, et vos brouillons seulement avec ce droit.
 
 **Puis-je écrire le nom d'une personne que j'accompagne, ou d'un résident ?**
@@ -96,10 +122,53 @@ Si l'administrateur a ouvert la fonction, votre dossier montre, dans un seul enc
 Oui, si le site a ouvert la fonction : *Hors de mon activité* sur votre dossier. C'est votre parole, avec une note facultative d'une ligne (sans nom de personne accompagnée). Elle n'exempte de rien : le jury décide si une compétence non exercée compte, et pour certains diplômes elle compte. Vous pouvez la retirer à tout moment.
 
 **Mon employeur peut-il écrire une lettre pour mon dossier ?**
-Oui, et le plugin la prend comme une **pièce justificative** : joignez-la à la déclaration qu'elle éclaire, nature *attestation de l'employeur*. Elle doit **décrire** votre activité, sans évaluer et sans proposer quoi que ce soit au jury, et ne nommer aucune personne accompagnée. Un modèle est dans [docs/MODELE-LETTRE-EMPLOYEUR.md](MODELE-LETTRE-EMPLOYEUR.md) (à faire relire par un accompagnateur VAE avant de le donner).
+Oui, et le plugin la prend comme une **pièce justificative** : joignez-la à la déclaration qu'elle éclaire, nature *attestation de l'employeur*. Elle doit **décrire** votre activité, sans évaluer et sans proposer quoi que ce soit au jury, et ne nommer aucune personne accompagnée. Voici un modèle, à faire relire par un accompagnateur VAE avant de le donner (rédigé le 23 octobre 2026). Le plugin ne produit pas cette lettre, ne la lit pas et ne la juge pas.
+
+*Ce que doit être cette lettre.* Une **description** de votre activité dans l'établissement, par la personne qui l'a vue. Elle **n'évalue pas**, ne dit pas si vous « méritez » le diplôme, ne propose rien au jury (la décision revient au jury). Elle ne nomme **aucune personne accompagnée** (pas de prénom, pas de numéro de chambre, pas de fait qui permette de la reconnaître).
+
+> *[En-tête de l'établissement]*
+> *[Lieu], le [date]*
+>
+> Je soussigné *[nom, fonction]*, atteste que *[nom du vaeiste]* exerce, au sein de *[établissement ou service]*, la fonction de *[intitulé du poste]* depuis le
+> *[date]*, à *[temps plein / temps partiel, quotité]*.
+>
+> Dans ce cadre, il assure, à ma connaissance :
+> - *[activité 1, décrite par ce que la personne fait : par exemple « les toilettes et l'aide au lever d'un groupe de résidents du service du matin »]* ;
+> - *[activité 2]* ;
+> - *[activité 3]*.
+>
+> *[Éventuellement : place dans l'équipe, personnes avec lesquelles il travaille (par fonction, jamais par nom), horaires.]*
+>
+> Cette lettre décrit une activité. Elle ne préjuge pas de la décision du jury.
+>
+> *[Signature, cachet de l'établissement]*
+
+*Conseils.*
+- Demandez une lettre **signée** et enregistrez-la en **PDF** (le plugin accepte aussi ODT, DOCX, JPEG, PNG ; 5 Mo au plus).
+- Relisez-la avant de la joindre : **retirez ou faites retirer** tout nom d'une personne accompagnée ; le plugin ne peut pas le vérifier.
+- Joignez-la à la **déclaration** qu'elle éclaire (écran « Pièces justificatives » de la déclaration), nature **attestation de l'employeur**.
+- Une lettre contenant un jugement (« excellent professionnel ») reste acceptée par le plugin, qui ne lit pas les fichiers ; le jury en tiendra compte comme il l'entend.
 
 **Puis-je échanger avec d'autres vaeistes dans le plugin ?**
-Non, volontairement : un vaeiste ne lit jamais le dossier d'un autre, et le plugin ne propose pas d'échange entre vaeistes. Un site peut créer un forum Moodle d'entraide, **modéré**, hors du plugin ; la consigne à y afficher est dans [docs/CONSIGNE-FORUM-ENTRAIDE.md](CONSIGNE-FORUM-ENTRAIDE.md).
+Non, volontairement : un vaeiste ne lit jamais le dossier d'un autre, et le plugin ne propose pas d'échange entre vaeistes. Un site peut créer un forum Moodle d'entraide, **modéré**, hors du plugin, animé par une personne désignée. Voici la consigne à y afficher, à faire relire par un accompagnateur VAE avant usage (rédigée le 23 octobre 2026).
+
+*Avant d'ouvrir un forum.*
+1. **Désigner une personne qui modère** (un accompagnateur, pas un vaeiste). Sans modération, ne pas ouvrir.
+2. Réserver le forum aux vaeistes d'un même diplôme, dans un cours à part de ce plugin ; **ne pas y relier de dossier**.
+3. Faire écrire à la personne qui modère comment elle retire un message (elle le retire dès qu'un nom apparaît).
+
+*Consigne à afficher en tête du forum.*
+
+> **Ce forum est un lieu d'entraide entre vaeistes. Il n'est pas votre dossier.**
+>
+> - Parlez de **ce que vous faites**, jamais de **qui vous accompagnez**. N'écrivez **aucun nom, prénom, âge, chambre, pathologie** ni aucun fait qui permettrait de
+>   reconnaître une personne accompagnée, un collègue ou votre établissement.
+> - Ne collez pas ici un texte de votre dossier tel quel : reformulez, en retirant tout détail identifiant.
+> - N'écrivez pas ce que « le jury attend » ni si un dossier serait « suffisant » : personne ici ne le sait. La décision revient au jury.
+> - Un message qui contient un nom est retiré par la personne qui modère, sans discussion.
+> - Ce que vous publiez ici est lu par les autres vaeistes et conservé selon la politique du site.
+
+*Ce que cela ne remplace pas.* Le plugin ne vérifie rien de ce qui est écrit dans ce forum et n'en garde aucune trace. La consigne ne vaut que si quelqu'un modère.
 
 **Puis-je demander à une intelligence artificielle de reformuler mon texte ?**
 Seulement si le site a ouvert cette aide et vous en a donné le droit : le bouton *Proposer une autre formulation* paraît alors sous le champ de votre texte (rubriques de texte du dossier de
@@ -237,7 +306,7 @@ C'est le dernier jour où la certification tient, facultatif : **sans date, elle
 calculés à la lecture, au jour de la personne qui lit. La certification reste la ligne qui fait foi, et le plugin ne dit rien d'autre que « une date est passée ».
 
 **Où est la liste des certifications à renouveler, et comment renouveler ?**
-*Administration du site → Compétences → Certifications à renouveler*, visible seulement pour qui détient `viewany` et `certify` (la page redemande les deux). Une ligne par certification qui fait foi et dont le dernier jour est passé : le vaeiste (un lien vers son dossier),
+*Administration du site → Compétences → VAE → Certifications à renouveler*, visible seulement pour qui détient `viewany` et `certify` (la page redemande les deux). Une ligne par certification qui fait foi et dont le dernier jour est passé : le vaeiste (un lien vers son dossier),
 la fiche, le bloc, le dernier jour, le nombre de jours depuis, et le lien « Renouveler la certification ». Les plus anciennes échéances d'abord ; pas de total, pas de pourcentage, pas de couleur ; les comptes suspendus y figurent, les comptes supprimés non. Elle est calculée
 au jour où vous l'ouvrez, et c'est la **seule aide** : aucun message ni aucune tâche planifiée ne vous prévient. Renouveler, c'est **ajouter une ligne** « certifié par la structure », avec un nouveau motif (le formulaire ne le préremplit pas) et, si vous le voulez, une nouvelle date
 de fin : l'ancienne ligne reste dans l'historique et le bloc quitte la liste. Si une compétence du bloc n'est plus suffisante, l'alerte s'applique de nouveau. Pour votre propre dossier, la liste dit « Vous pouvez la lire, pas la renouveler », sans lien ; elle dit aussi quand la fiche n'est plus
@@ -254,7 +323,7 @@ l'ancienne (si ce n'est pas un retrait). Les évaluations se lisent de compéten
 fiche en arrière ; la lecture donne une ligne par décision de correspondance confirmée, avec le code de l'ancienne fiche : plusieurs anciennes fiches vers une nouvelle donnent donc des lignes distinctes, et deux compétences d'une même ancienne fiche confirmées vers la même compétence de la nouvelle en donnent deux sous cette compétence. Cette lecture **ne compte pas pour l'alerte** : elle regarde les seules évaluations écrites sur la nouvelle fiche. Si vous voulez un positionnement sur la nouvelle fiche, écrivez-le.
 
 **Qu'est-ce que l'onglet « Organisation », et qui peut l'ouvrir ?**
-La configuration du dispositif sur ce site, pour qui détient `viewany`. On l'ouvre par *Administration du site → Compétences → Organisation*, ou par le lien « Organisation » de son propre profil ; un détenteur de `viewany` qui n'a rien déclaré y arrive directement. Elle **montre, elle ne règle
+La configuration du dispositif sur ce site, pour qui détient `viewany`. On l'ouvre par le lien « VAE » de la barre du haut, par *Administration du site → Compétences → VAE → Organisation*, ou par le lien « Organisation » de son propre profil ; un détenteur de `viewany` qui n'a rien déclaré y arrive directement. Elle **montre, elle ne règle
 rien**. Pour chaque fiche : le nombre de blocs et de compétences, les cours, les activités (un nombre, « 3 activités » par exemple, qui se déplie en liste d'un clic sur ce nombre, sans JavaScript), les modèles de plans du cœur, le **nombre** de plans de formation, les référents du bloc et les adresses des règles de validation (ou « Réglage fermé »
 quand ce réglage l'est). Puis « Droits, rôles et réglages » : la grille « Acteurs et pouvoirs », les droits du plugin avec les rôles qui les accordent, les retirent ou les interdisent, les cohortes dont les membres sont suivis par un responsable, et l'état de dix réglages. **Aucun vaeiste n'y est nommé** ;
 les seules personnes citées sont les référents d'un bloc. Le nombre de plans compte les plans de tous les comptes qui ont laissé une trace dans le plugin (une déclaration, une marque « Hors de mon activité » ou un brouillon de la préparation du dossier de validation), **brouillons compris** : jamais un nom de plan.
@@ -268,15 +337,17 @@ l'activité applique à la compétence.
 ## Vous êtes administrateur
 
 **Par où commencer ?**
+Le guide d'installation s'ouvre sur un « Démarrage en dix étapes », et la page *Administration du site → Compétences → VAE → Mise en
+route* montre l'état de chaque étape de la mise en service, dans l'ordre de ce guide, sans rien modifier. En bref :
 1. Activer les compétences (*Fonctions avancées*), installer le plugin, *Notifications*.
-2. Importer les fiches de certification depuis France compétences : *Compétences → VAE - cheminement → « Importer des fiches depuis France compétences »* (vous
+2. Importer les fiches de certification depuis France compétences : *Compétences → VAE → VAE - cheminement → « Importer des fiches depuis France compétences »* (vous
    donnez les numéros des fiches, puis le serveur va chercher l'export sur data.gouv.fr, ou vous déposez le fichier zip ; un aperçu précède toute écriture). L'ancien écran du fichier CSV
    reste, pour une fiche préparée à la main : « Importer un fichier CSV (cas particulier) ».
 3. Créer **un rôle par usage** : vaeiste (`declare`, `viewown`, `draftown`, `export` ; modèle de rôle
    « Étudiant » choisi dans le formulaire, sans recopier les droits du modèle ; attribué au niveau du site),
    responsable (`viewassigned`, `attest`, `readdeposit`, `writeopinion` ; et `evaluate` si le site le décide ; attribué **dans le
    contexte utilisateur du vaeiste**, par cohorte). Aucun archétype ne les donne : ce n'est pas un oubli.
-   Pour qui peut gérer les rôles (`moodle/role:manage`), la page *Administration du site → Compétences → Rôles VAE* les crée à partir des préréglages livrés dans le plugin
+   Pour qui peut gérer les rôles (`moodle/role:manage`), la page *Administration du site → Compétences → VAE → Rôles VAE* les crée à partir des préréglages livrés dans le plugin
    (`presets/roles/`) : les trois rôles de base (vaeiste, responsable, direction) et deux rôles facultatifs, « responsable évaluateur » (le responsable avec `evaluate`)
    et « direction certificatrice » (la direction avec `certify`). Elle dit lesquels existent déjà et ne crée un rôle que sur votre demande, après un écran qui liste ses droits ; rien n'est créé en ouvrant la page ni à l'installation.
    Un rôle de même nom court n'est jamais modifié. `evaluate` et `certify` ne sont dans aucun des trois rôles de base, et l'import, la reprise d'un dossier, l'identité, l'aide d'IA, le retrait
@@ -376,7 +447,7 @@ ports autorisés : un administrateur peut l'autoriser, mais **n'assouplissez pas
 « ne propose aucun export de fiches reconnu » (réessayez plus tard) ; « a renvoyé vers une adresse que le plugin n'accepte pas », « Le fichier annoncé … est plus gros que ce que le plugin accepte »,
 « Le fichier reçu est incomplet ou abîmé » ; et « data.gouv.fr n'indique plus la Licence Ouverte 2.0 pour ce jeu de données » (le plugin enregistre « Licence Ouverte 2.0 » avec chaque fiche et ne peut pas vérifier celle d'un fichier déposé :
 vérifiez-la sur la page du jeu de données, et signalez-le au responsable du plugin). Pour les messages du réseau, du délai dépassé et du certificat, une ligne « À donner à votre hébergeur » nomme l'adresse et le code cURL ; l'erreur de data.gouv.fr donne son code dans la phrase. **Dans tous les cas, sauf celui de la licence,
-la sortie est la même : déposez vous-même le fichier zip** (le téléchargement se fait sur votre poste, le serveur n'a rien à joindre), puis cliquez « Lire le fichier déposé ». Tous les messages de refus,
+la sortie est la même : déposez vous-même le fichier zip** (le téléchargement se fait sur votre poste, le serveur n'a rien à joindre) par le sélecteur de fichiers de Moodle (« Choisir un fichier… », puis « Déposer un fichier »), puis cliquez « Lire le fichier déposé ». Tous les messages de refus,
 avec leur cause et leur remède, sont dans le guide d'usage V2, partie 4.11 (« En cas de refus »).
 
 **Mon numéro n'est pas trouvé, ou la fiche n'a aucun bloc : que faire ?**
@@ -434,10 +505,10 @@ visible, donc ouvert aux déclarations tant que vous ne l'avez pas caché), puis
 Réglage « Rappeler aux responsables après ce nombre de jours » (zéro : désactivé). La page « Déclarations en attente d'attestation » (droit `viewany`) donne le même état, par vaeiste, sans rien notifier. Sa colonne « Responsables à prévenir » donne le nombre de responsables qui seraient prévenus (jamais leurs noms) ; zéro veut dire que personne ne le serait, et la case « Seulement les vaeistes que personne ne peut prévenir » ne garde que ceux-là : rattachez-les à un responsable par une cohorte.
 
 **Comment donner les adresses des règles de validation ?**
-*Compétences → Règles de validation : adresses* : une fiche, un intitulé court, l'adresse, et le jour où vous avez ouvert la page pour la vérifier (cinq adresses au plus par fiche). Le plugin ne les ouvre jamais. Elles ne sont montrées aux vaeistes que lorsque vous cochez « Montrer les adresses des règles de validation » : faites d'abord relire la phrase qui les encadre par un accompagnateur VAE.
+*Compétences → VAE → Règles de validation : adresses* : une fiche, un intitulé court, l'adresse, et le jour où vous avez ouvert la page pour la vérifier (cinq adresses au plus par fiche). Le plugin ne les ouvre jamais. Elles ne sont montrées aux vaeistes que lorsque vous cochez « Montrer les adresses des règles de validation » : faites d'abord relire la phrase qui les encadre par un accompagnateur VAE.
 
 **Comment ouvrir l'aide à la reformulation par IA ?**
-Elle est **fermée par défaut**. Ne l'ouvrez (*Administration du site → Compétences → VAE : réglages*, réglage « Ouvrir l'aide à la reformulation aux vaeistes ») qu'une fois écrits la base légale, le registre,
+Elle est **fermée par défaut**. Ne l'ouvrez (*Administration du site → Compétences → VAE → VAE : réglages*, réglage « Ouvrir l'aide à la reformulation aux vaeistes ») qu'une fois écrits la base légale, le registre,
 la durée de conservation et le contrat avec le fournisseur, et relus par un accompagnateur VAE et par la personne qui tient le registre l'instruction envoyée et la politique d'IA du site (le texte du cœur, que vous rédigez une fois par la personnalisation de langue, pour tous les endroits qui offrent de l'IA). Il faut
 ensuite donner le droit `tool/vae:useai` aux personnes de votre choix (aucun rôle ne l'a par défaut ; un administrateur du site passe tous les contrôles de droit, c'est le réglage qui
 verrouille) et **n'activer qu'un seul fournisseur d'IA pour le texte** (*Administration du site → IA → Fournisseurs d'IA*) : avec deux, le texte pourrait partir chez le second sans que le vaeiste le sache, et l'aide
@@ -445,7 +516,7 @@ ne se propose pas. Le texte envoyé et la réponse sont conservés par Moodle da
 le texte ; le registre des appels du plugin (lui aussi sans aucun texte) ne sert qu'à tenir les deux limites : 30 secondes entre deux demandes, 25 par vaeiste et par jour par défaut.
 
 **Comment répartir les responsables par bloc ?**
-*Compétences → Référents des blocs* : pour une fiche (ou un de ses blocs), nommez par identifiant les membres du personnel qui doivent être prévenus en premier d'une déclaration. C'est un aiguillage des messages : qui suit un vaeiste peut toujours lire son dossier et attester, et un bloc sans référent parmi ses suiveurs est annoncé à tous comme avant. Sur *Mes vaeistes*, un référent peut aussi compter les déclarations de ses blocs ; la liste de ses vaeistes ne change pas.
+*Compétences → VAE → Référents des blocs* : pour une fiche (ou un de ses blocs), nommez par identifiant les membres du personnel qui doivent être prévenus en premier d'une déclaration. C'est un aiguillage des messages : qui suit un vaeiste peut toujours lire son dossier et attester, et un bloc sans référent parmi ses suiveurs est annoncé à tous comme avant. Sur *Mes vaeistes*, un référent peut aussi compter les déclarations de ses blocs ; la liste de ses vaeistes ne change pas.
 
 **Comment ouvrir le cycle « déclarer, évaluer, certifier » ?**
 Les trois actes sont internes à la structure ; seul le jury valide, hors de la plateforme. Déclarer et attester existent déjà ; évaluer et certifier sont deux droits de plus, qu'**aucun archétype** ne donne et qu'**aucun réglage du plugin**
@@ -456,7 +527,7 @@ certifications à renouveler. Décision du porteur, qui est aussi délégué à 
 *(Non vérifié : la rédaction de la clause n'est pas écrite dans le plugin, et la base légale n'a pas été relue par un juriste.)*
 
 **Que deviennent les positionnements quand un compte est effacé, quand je désinstalle ou quand je retire une fiche ?**
-Compte d'un **responsable ou de la direction** effacé : les lignes qu'il a écrites restent, et le motif avec elles. Dès la suppression du compte, l'écran et l'archive ne le nomment plus (« une personne dont le compte n'existe plus »), mais la ligne garde son numéro de compte dans la base : c'est à l'approbation de la demande de suppression de données de ce compte que le plugin retire l'identité de la ligne et refait les archives, les sauvegardes et les copies qu'il conservait. L'observateur de suppression de compte ne le fait pas à lui seul (écart connu, consigné dans l'AIPD et dans T-84 ; *non vérifié par un essai sur un site réel*). Compte du **vaeiste**
+Compte d'un **responsable ou de la direction** effacé : les lignes qu'il a écrites restent, et le motif avec elles. Dès la suppression du compte, l'écran et l'archive ne le nomment plus (« une personne dont le compte n'existe plus »), mais la ligne garde son numéro de compte dans la base : c'est à l'approbation de la demande de suppression de données de ce compte que le plugin retire l'identité de la ligne et refait les archives, les sauvegardes et les copies qu'il conservait. La tâche qui suit la suppression d'un compte (mise en file par l'observateur, jouée au premier passage du cron qui suit) ne le fait pas à elle seule (écart connu, consigné dans l'AIPD et dans T-84 ; *non vérifié par un essai sur un site réel*). Compte du **vaeiste**
 effacé : toutes ses lignes partent avec lui. **Durée de conservation** (décision du 5 novembre 2026) : celle du dossier, jusqu'à la suppression du compte, plus un effacement à la demande du délégué à la protection des données du site ; le plugin n'a pas de purge automatique propre, car la ligne est en ajout seul. Le texte d'une ligne dont l'auteur est effacé reste, l'identité part (confirmé le 5 novembre 2026). **Désinstallation** : la sauvegarde de chaque dossier contient `positionnement.json` (état courant et historique) et un réimport les restaure, sauf pour un vaeiste resté sans aucune déclaration : son dossier n'est pas
 sauvegardé, et ses positionnements se perdent. **Retrait de la ligne d'une fiche** : une évaluation ou une certification écrite sur la fiche compte, comme une déclaration, parmi les traces qui font refuser le retrait, et le message de refus les compte. Les deux
 tables (`tool_vae_eval` et `tool_vae_certif`) sont déclarées dans l'API de confidentialité de Moodle.

@@ -30,6 +30,8 @@ use tool_vae\local\presenter;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\presenter::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\chronology::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\state_label::class)]
 final class presenter_state_test extends \advanced_testcase {
     /**
      * An attestation row, as much of it as the presenter reads.
@@ -46,6 +48,18 @@ final class presenter_state_test extends \advanced_testcase {
             'attestantrole' => 'Directrice',
             'statement' => 'Texte-Secret',
         ];
+    }
+
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
     }
 
     public function test_the_state_is_read_from_the_attestations(): void {
@@ -92,7 +106,7 @@ final class presenter_state_test extends \advanced_testcase {
         $this->assertSame([100, 200, 300, 400, 500, 600, 700], array_column($acts, 'time'));
 
         $this->resetAfterTest();
-        $html = presenter::chronology_html($evidence, $attestations, $requests);
+        $html = self::render(new output\chronology($evidence, $attestations, $requests));
         $this->assertStringNotContainsString('Texte-Secret', $html);
         $this->assertStringNotContainsString('Directrice', $html);
     }
@@ -107,7 +121,7 @@ final class presenter_state_test extends \advanced_testcase {
         $this->assertSame(['declared', 'attested', 'carriedto', 'attested'], array_column($acts, 'act'));
         $this->assertStringContainsString(
             get_string('chrono:carriedto', 'tool_vae'),
-            presenter::chronology_html($evidence, [], [], $carries)
+            self::render(new output\chronology($evidence, [], [], $carries))
         );
         foreach (['en', 'fr'] as $lang) {
             foreach (['chrono:carriedto', 'chrono:carriedfrom'] as $key) {
@@ -121,8 +135,8 @@ final class presenter_state_test extends \advanced_testcase {
 
     public function test_an_open_question_is_said_next_to_the_state_and_not_in_its_place(): void {
         $this->resetAfterTest();
-        $without = presenter::state_label([], 0);
-        $with = presenter::state_label([], 2);
+        $without = self::render(new output\state_label([], 0));
+        $with = self::render(new output\state_label([], 2));
 
         $this->assertStringContainsString(get_string('state:declared', 'tool_vae'), $with);
         $this->assertStringContainsString(get_string('state:questionopen', 'tool_vae'), $with);

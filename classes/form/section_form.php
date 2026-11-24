@@ -19,6 +19,7 @@ namespace tool_vae\form;
 defined('MOODLE_INTERNAL') || die();
 
 use tool_vae\local\draft_manager;
+use tool_vae\output\form_note;
 
 // The parent class is not autoloaded - see declare_form for the story. The require goes here.
 require_once($CFG->libdir . '/formslib.php');
@@ -42,6 +43,8 @@ class section_form extends \moodleform {
      * Build the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $mform->addElement('hidden', 'draftid');
@@ -49,11 +52,7 @@ class section_form extends \moodleform {
         $mform->addElement('hidden', 'workingat');
         $mform->setType('workingat', PARAM_INT);
 
-        $mform->addElement('html', \html_writer::div(
-            get_string('anonymisereminder', 'tool_vae'),
-            'alert alert-info tool-vae-anonymise',
-            ['id' => self::REMINDER_ID]
-        ));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::reminder(self::REMINDER_ID)));
 
         $mform->addElement(
             'textarea',
@@ -61,6 +60,7 @@ class section_form extends \moodleform {
             get_string('sectiontext', 'tool_vae'),
             ['rows' => 18, 'cols' => 80, 'aria-describedby' => self::REMINDER_ID]
         );
+        // Free text: PARAM_RAW, as Moodle asks for a text area; checked by its manager and cleaned or escaped when shown.
         $mform->setType('text', PARAM_RAW);
 
         $mform->addElement(

@@ -208,8 +208,8 @@ final class import_conflicts_test extends \advanced_testcase {
      * @return string[]
      */
     private static function strings_of(string $lang): array {
-        $string = [];
-        include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
 
         return $string;
     }
@@ -377,7 +377,9 @@ final class import_conflicts_test extends \advanced_testcase {
      * (which compares the keys, not what is in them) stay green.
      */
     public function test_the_texts_of_the_refusal_hold_the_values_the_importer_gives_them_in_each_language(): void {
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             $strings = self::strings_of($lang);
 
             $this->assertSame(['{$a->count}', '{$a->list}'], self::markers($strings[self::REFUSAL]), "lang/$lang " . self::REFUSAL);
@@ -399,6 +401,8 @@ final class import_conflicts_test extends \advanced_testcase {
      * a developer. No manoeuvre in the database is described (the project owner asked for none), in French or in English.
      */
     public function test_the_french_refusal_says_what_can_be_done_today(): void {
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        \tool_vae\fixtures\lang_files::skip_unless_present('fr');
         $french = self::strings_of('fr');
 
         $text = str_replace(['{$a->count}', '{$a->list}'], ['3', '<ul><li>RNCP40692-BC01</li></ul>'], $french[self::REFUSAL]);
@@ -432,7 +436,10 @@ final class import_conflicts_test extends \advanced_testcase {
             'fr' => ['base de données', 'SQL', 'phpMyAdmin', 'requête', 'tool_vae', 'UPDATE', 'DELETE'],
         ];
 
-        foreach ($manoeuvres as $lang => $terms) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $present = array_flip(\tool_vae\fixtures\lang_files::languages());
+        foreach (array_intersect_key($manoeuvres, $present) as $lang => $terms) {
             $strings = self::strings_of($lang);
             foreach ($keys as $key) {
                 foreach ($terms as $term) {
@@ -441,9 +448,11 @@ final class import_conflicts_test extends \advanced_testcase {
                 $this->assertStringNotContainsString("\u{2014}", $strings[$key], "lang/$lang $key");
             }
         }
-        $french = self::strings_of('fr');
-        foreach ($keys as $key) {
-            $this->assertStringNotContainsString('candidat', $french[$key], "lang/fr $key");
+        if (isset($present['fr'])) {
+            $french = self::strings_of('fr');
+            foreach ($keys as $key) {
+                $this->assertStringNotContainsString('candidat', $french[$key], "lang/fr $key");
+            }
         }
     }
 

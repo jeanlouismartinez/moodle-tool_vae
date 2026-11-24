@@ -342,7 +342,7 @@ final class archive_recipient_test extends \advanced_testcase {
      * private files of the administrator, held reflexion.json and validation.json, for good.
      */
     public function test_a_backup_rewritten_in_the_candidates_own_request_carries_neither_journal_nor_preparation(): void {
-        [$admin, $backups, $events] = $this->backup_rewritten_by_a_piece_removal();
+        [, $backups] = $this->backup_rewritten_by_a_piece_removal();
 
         $this->assertCount(1, $backups, 'The old backup went and one new one took its place.');
         $this->assert_no_journal_nor_preparation(self::unzip($backups[0]), 'Rewritten in the candidate\'s request.');

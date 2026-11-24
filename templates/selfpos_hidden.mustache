@@ -1,0 +1,51 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/selfpos_hidden
+
+    A record hidden under the vaeiste since the page was opened: the notice with the message of the record, then, when the
+    vaeiste had typed more than blanks, a sentence and the text given back in a field that can be read and copied. A textarea
+    keeps its text as it is written: nothing stands between its tags and the text.
+
+    Every text comes from the context, already worded by tool_vae\output\selfpos_hidden. The template holds no logic. Every
+    value is escaped (double braces) except one key:
+    * messagehtml - the message of the record, a sentence of the language file whose title of the record was escaped by
+      hidden_frameworks::message() (s()): placed as it is, as before, so that the title is escaped once
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * alertclass - string, the classes of the notice: information when nothing was sent, danger otherwise
+    * messagehtml - string, the message of the record
+    * kept - object or null: intro (the sentence), text (what was typed)
+
+    Example context (json):
+    {
+        "alertclass": "alert alert-danger",
+        "messagehtml": "The record Aide &amp; soins (RNCP100) is hidden.",
+        "kept": {"intro": "Nothing has been recorded. Here is what you wrote.", "text": "Alone since the third week."}
+    }
+}}
+<div class="{{alertclass}}">{{{messagehtml}}}</div>{{#kept}}<p>{{intro}}</p>{{!
+}}<textarea readonly="readonly" rows="8" cols="70" class="form-control mb-3">{{text}}</textarea>{{/kept}}

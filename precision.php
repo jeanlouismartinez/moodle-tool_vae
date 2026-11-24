@@ -29,9 +29,9 @@ require_once(__DIR__ . '/../../../config.php');
 
 use tool_vae\form\precision_form;
 use tool_vae\local\access;
-use tool_vae\local\attest_screen;
 use tool_vae\local\attestation_manager;
 use tool_vae\local\request_manager;
+use tool_vae\output\precision_page;
 
 require_login();
 
@@ -106,42 +106,13 @@ if ($answering !== null) {
     }
 }
 
+// A manager who would ask, on a declaration attested since: told why there is no form.
+$attested = !$form && !$open && request_manager::can_ask($candidateid)
+    && attestation_manager::active_attestation($evidenceid);
+
+$renderer = $PAGE->get_renderer('tool_vae');
+
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('precisionheading', 'tool_vae'));
-echo html_writer::tag('p', s(get_string('precisionintro', 'tool_vae')));
-
-echo attest_screen::declaration($evidence, $context);
-
-echo $OUTPUT->heading(get_string('precisionrequests', 'tool_vae'), 3);
-if (!$requests) {
-    echo html_writer::tag('p', s(get_string('precisionnone', 'tool_vae')));
-}
-foreach ($requests as $request) {
-    $author = $request->authorname !== '' ? $request->authorname : get_string('opinionformerauthor', 'tool_vae');
-    echo html_writer::tag('h4', s(get_string('precisionquestionheading', 'tool_vae')), ['class' => 'h5']);
-    echo html_writer::tag('p', s($author . ' - ' . userdate(
-        $request->timecreated,
-        get_string('strftimedatetime', 'langconfig')
-    )), ['class' => 'text-muted small']);
-    echo format_text($request->question, FORMAT_PLAIN, ['context' => $context, 'filter' => false]);
-
-    if ($request->answer === null) {
-        echo html_writer::tag('p', s(get_string('precisionwaiting', 'tool_vae')), ['class' => 'text-muted']);
-        continue;
-    }
-    echo html_writer::tag('h4', s(get_string('precisionanswerheading', 'tool_vae')), ['class' => 'h5']);
-    echo html_writer::tag('p', s(userdate(
-        $request->timeanswered,
-        get_string('strftimedatetime', 'langconfig')
-    )), ['class' => 'text-muted small']);
-    echo format_text($request->answer, FORMAT_PLAIN, ['context' => $context, 'filter' => false]);
-}
-
-if ($form) {
-    $form->display();
-} else if (!$open && request_manager::can_ask($candidateid) && attestation_manager::active_attestation($evidenceid)) {
-    echo $OUTPUT->notification(get_string('errorrequestattested', 'tool_vae'), \core\output\notification::NOTIFY_INFO);
-}
-
-echo html_writer::tag('p', html_writer::link($dossier, get_string('precisionbacktodossier', 'tool_vae')));
+echo $renderer->render(new precision_page($evidence, $context, $requests, $form, $attested, $dossier));
 echo $OUTPUT->footer();

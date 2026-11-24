@@ -1,0 +1,55 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/form_note
+
+    A sentence a form of the plugin places between its fields: a reminder or a warning in a div, a memo in a paragraph, a
+    heading. On one logical line, each break carried by a comment: the form places it as it comes.
+
+    Every text comes from the context, worded by tool_vae\output\form_note. The template holds no logic. Every value is
+    escaped (double braces): none of them is HTML.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * isdiv - bool, the sentence is in a div
+    * isp - bool, the sentence is in a paragraph
+    * ish3 - bool, the sentence is a heading
+    * class - string, the classes of the element
+    * withid - null, or {value}: the id of the element, that the fields of the form point to
+    * text - string, the sentence
+
+    Example context (json):
+    {
+        "isdiv": true,
+        "isp": false,
+        "ish3": false,
+        "class": "alert alert-info tool-vae-anonymise",
+        "withid": {"value": "tool_vae_anonymise"},
+        "text": "Do not write the name of a person you work with."
+    }
+}}
+{{#isdiv}}<div class="{{class}}"{{#withid}} id="{{value}}"{{/withid}}>{{text}}</div>{{/isdiv}}{{!
+}}{{#isp}}<p class="{{class}}"{{#withid}} id="{{value}}"{{/withid}}>{{text}}</p>{{/isp}}{{!
+}}{{#ish3}}<h3 class="{{class}}">{{text}}</h3>{{/ish3}}

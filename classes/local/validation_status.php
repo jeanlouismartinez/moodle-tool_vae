@@ -19,7 +19,7 @@ namespace tool_vae\local;
 /**
  * Where each section of the preparation of the validation dossier stands, in words (T-11).
  *
- * The counterpart of faisabilite_overview for the preparation, with the same four states and the same rule: it says what is
+ * The counterpart of feasibility_overview for the preparation, with the same four states and the same rule: it says what is
  * there - nothing, a draft, a version, a version with a more recent draft - and never whether it is enough (D-1).
  *
  * ONE DEFINITION OF "A DRAFT IN PROGRESS". A draft is there when it holds something: a text emptied by the writer is not a

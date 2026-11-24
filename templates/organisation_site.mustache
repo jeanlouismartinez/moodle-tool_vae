@@ -1,0 +1,73 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/organisation_site
+
+    The configuration of the scheme: the records (a box, or the table and the sentence on the number of plans), the rights
+    (the grid of the actors, the actors without an account, the rights of the plugin), the cohorts (a box, the word "none",
+    or the table) and the settings. On logical lines: a comment carries each line break of the template, so that no space
+    is drawn where the old code wrote none.
+
+    Every text comes from the context, worded by tool_vae\output\organisation_site. The template holds no logic beyond its
+    sections. Every text is escaped (double braces). Keys placed as they are (triple braces): noticehtml, a box drawn by
+    tool_vae/organisation_notice (or empty); tablehtml, actorshtml, capabilitieshtml and settingshtml, tables drawn by
+    tool_vae/table (or empty).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * ficheheading, powersheading, rolesatsite, actorsheading, actorsintro, capabilitiesheading, cohortsheading,
+      settingsheading - string, the headings and the sentences under them
+    * fiches - {noticehtml, tablehtml, note}: note null or {label}
+    * actorshtml, capabilitieshtml, settingshtml - string, HTML: the tables
+    * notes - null, or {items}: each {name, note}, an actor without an account
+    * cohorts - {noticehtml, none, tablehtml}: none null or {label}
+
+    Example context (json):
+    {
+        "ficheheading": "Records",
+        "fiches": {"noticehtml": "", "tablehtml": "<table class=\"generaltable\"><tbody><tr><td>RNCP100</td></tr></tbody></table>",
+            "note": {"label": "The number of plans counts the drafts."} },
+        "powersheading": "Rights",
+        "rolesatsite": "Roles given at the level of the site.",
+        "actorsheading": "Actors",
+        "actorsintro": "Who does what.",
+        "actorshtml": "<table class=\"generaltable\"><tbody><tr><td>Vaeiste</td></tr></tbody></table>",
+        "notes": {"items": [{"name": "Jury", "note": "Has no account."}]},
+        "capabilitiesheading": "Rights of the plugin",
+        "capabilitieshtml": "<table class=\"generaltable\"><tbody><tr><td>tool/vae:viewany</td></tr></tbody></table>",
+        "cohortsheading": "Cohorts",
+        "cohorts": {"noticehtml": "", "none": {"label": "none"}, "tablehtml": ""},
+        "settingsheading": "Settings",
+        "settingshtml": "<table class=\"generaltable\"><tbody><tr><td>Open</td></tr></tbody></table>"
+    }
+}}
+<h3>{{ficheheading}}</h3>{{#fiches}}{{{noticehtml}}}{{{tablehtml}}}{{!
+}}{{#note}}<p class="text-muted small">{{label}}</p>{{/note}}{{/fiches}}{{!
+}}<h3>{{powersheading}}</h3><p class="text-muted small">{{rolesatsite}}</p>{{!
+}}<h4>{{actorsheading}}</h4><p class="text-muted small">{{actorsintro}}</p>{{{actorshtml}}}{{!
+}}{{#notes}}<ul class="list-unstyled small">{{#items}}<li><strong>{{name}}</strong> - {{note}}</li>{{/items}}</ul>{{/notes}}{{!
+}}<h4>{{capabilitiesheading}}</h4>{{{capabilitieshtml}}}{{!
+}}<h3>{{cohortsheading}}</h3>{{#cohorts}}{{{noticehtml}}}{{#none}}<p>{{label}}</p>{{/none}}{{{tablehtml}}}{{/cohorts}}{{!
+}}<h3>{{settingsheading}}</h3>{{{settingshtml}}}

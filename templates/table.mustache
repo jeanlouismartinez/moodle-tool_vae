@@ -1,0 +1,107 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/table
+
+    A table of the core (html_table), with the DOM the core writes for it: the wrapper "table-responsive", the caption,
+    the headings, the rows and their cells, or an empty body over every column when there is no row.
+
+    Every attribute comes from the context, already worked out by tool_vae\output\table as the core works it out; the
+    template holds no logic beyond its sections. Every name and value of an attribute is escaped (double braces).
+    One key is HTML, placed as it is (triple braces): texthtml, the text of a heading, of the caption or of a cell, which
+    an html_table holds as HTML and the core places as it is; the code that fills the table escapes what it puts in, and a
+    renderable of the plugin in a cell is drawn by the renderer of the plugin before it gets here.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * responsive - bool, whether the table is wrapped in a block "table-responsive"
+    * attributes - array of {name, value}, the attributes of the table
+    * caption - false, or {attributes, texthtml}: the caption of the table
+    * hashead - bool, whether the table has headings
+    * head - array of headings, each {isth, attributes, texthtml}: a th when isth, otherwise a td
+    * emptybody - false, or {colspan}: the empty body drawn when there are headings and no row
+    * hasbody - bool, whether the table has rows
+    * rows - array of rows, each {attributes, cells}; each cell {isth, attributes, texthtml}
+
+    Example context (json):
+    {
+        "responsive": true,
+        "attributes": [{"name": "class", "value": "generaltable tool-vae-pending"}],
+        "caption": {"attributes": [{"name": "class", "value": "visually-hidden"}], "texthtml": "Declarations awaiting"},
+        "hashead": true,
+        "head": [
+            {"isth": true, "attributes": [{"name": "class", "value": "header c0"}, {"name": "style", "value": ""},
+                {"name": "scope", "value": "col"}], "texthtml": "Candidate"},
+            {"isth": false, "attributes": [{"name": "class", "value": "header c1 lastcol"}, {"name": "style", "value": ""}],
+                "texthtml": ""}
+        ],
+        "emptybody": false,
+        "hasbody": true,
+        "rows": [
+            {"attributes": [{"name": "class", "value": "lastrow"}], "cells": [
+                {"isth": true, "attributes": [{"name": "class", "value": "cell c0"}, {"name": "style", "value": ""},
+                    {"name": "scope", "value": "row"}], "texthtml": "Camille Durand"},
+                {"isth": false, "attributes": [{"name": "class", "value": "cell c1 lastcol"}, {"name": "style", "value": ""}],
+                    "texthtml": "6"}
+            ]}
+        ]
+    }
+}}
+{{#responsive}}
+<div class="table-responsive">
+{{/responsive}}
+<table{{#attributes}} {{name}}="{{value}}"{{/attributes}}>
+{{#caption}}
+<caption{{#attributes}} {{name}}="{{value}}"{{/attributes}}>{{{texthtml}}}</caption>
+{{/caption}}
+{{#hashead}}
+<thead>
+<tr>
+{{#head}}
+{{#isth}}<th{{#attributes}} {{name}}="{{value}}"{{/attributes}}>{{{texthtml}}}</th>{{/isth}}
+{{^isth}}<td{{#attributes}} {{name}}="{{value}}"{{/attributes}}>{{{texthtml}}}</td>{{/isth}}
+{{/head}}
+</tr>
+</thead>
+{{/hashead}}
+{{#emptybody}}
+<tbody class="empty"><tr><td colspan="{{colspan}}"></td></tr></tbody>
+{{/emptybody}}
+{{#hasbody}}
+<tbody>
+{{#rows}}
+<tr{{#attributes}} {{name}}="{{value}}"{{/attributes}}>
+{{#cells}}
+{{#isth}}<th{{#attributes}} {{name}}="{{value}}"{{/attributes}}>{{{texthtml}}}</th>{{/isth}}
+{{^isth}}<td{{#attributes}} {{name}}="{{value}}"{{/attributes}}>{{{texthtml}}}</td>{{/isth}}
+{{/cells}}
+</tr>
+{{/rows}}
+</tbody>
+{{/hasbody}}
+</table>
+{{#responsive}}
+</div>
+{{/responsive}}

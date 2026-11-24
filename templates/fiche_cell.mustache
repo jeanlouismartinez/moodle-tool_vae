@@ -1,0 +1,57 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/fiche_cell
+
+    A cell of the table of the preview of an import of records: the number of a record in bold and its title under it, or
+    the blocs of the export folded away, then lines one under the other, each a div with or without a class. The parts touch,
+    with nothing between them: the line breaks of this template are carried by comments.
+
+    Every text comes from the context, given by tool_vae\output\fiche_cell. The template holds no logic. The texts are
+    escaped (double braces). One key is HTML (triple braces): texthtml, the sentence of a refusal, made safe by
+    tool_vae\local\fiche_messages::html() (its parameters are escaped there).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * record - false, or an object {number, title}: the header of the row; title is false or an object {label}
+    * blocs - false, or an object {summary, rows}: the blocs of the export; rows is an array of objects {rang, label}
+    * lines - array of objects {classed, text, html}: classed is false or an object {name}; text is false or an object
+      {label}; html is false or an object {texthtml}
+
+    Example context (json):
+    {
+        "record": {"number": "RNCP99001", "title": {"label": "Diplôme inventé"} },
+        "blocs": {"summary": "2 blocs", "rows": [{"rang": "BC01", "label": "Premier bloc"}]},
+        "lines": [
+            {"classed": {"name": "small"}, "text": {"label": "Active"}, "html": false},
+            {"classed": false, "text": false, "html": {"texthtml": "The number is not in the export."} }
+        ]
+    }
+}}
+{{#record}}<strong>{{number}}</strong>{{#title}}<div>{{label}}</div>{{/title}}{{/record}}{{!
+}}{{#blocs}}<details><summary>{{summary}}</summary><ul>{{!
+}}{{#rows}}<li><strong>{{rang}}</strong> {{label}}</li>{{/rows}}</ul></details>{{/blocs}}{{!
+}}{{#lines}}<div{{#classed}} class="{{name}}"{{/classed}}>{{!
+}}{{#text}}{{label}}{{/text}}{{#html}}{{{texthtml}}}{{/html}}</div>{{/lines}}

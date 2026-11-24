@@ -55,3 +55,17 @@ Feature: A rank written outside the format does not stop the export of a dossier
     And I press "Continue"
     Then I should see "has been produced"
     And I should not see "whose format is not the one expected"
+
+  # The backup a manager takes on Moodle (backup.php) warns in the same way, on the dossier it goes back to: the two messages
+  # travel as notifications of the session, and the lines are drawn by the same piece as on the export page. Added by the
+  # pilot of lot 7, wave 4c: nothing played this path, and the wave changed the line that draws the warning.
+  Scenario: A rank that holds markup does not stop the backup on Moodle, and the dossier warns with the rank shown as text
+    Given the declaration "Night rounds with the care assistant" holds the rank "<b>x</b>" written directly
+    When I am on the "candidat" "tool_vae > Dossier" page logged in as "admin"
+    And I press "Back up on Moodle"
+    And I press "Continue"
+    Then I should see "Dossier backed up in your private files"
+    And I should not see "Reimport it from the dossier"
+    And I should see "The backup has been made, but it holds at least one line whose format is not the one expected"
+    # In the warning itself: the dossier names the rank too, in the row of the declaration.
+    And I should see "RNCP100-<b>x</b>" in the "//div[contains(@class, 'alert-warning')][contains(., 'The backup has been made')]" "xpath_element"

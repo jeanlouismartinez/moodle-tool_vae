@@ -1,0 +1,60 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/renewals_page
+
+    The page of the certifications whose date has passed, below its heading: what a positioning is, what the list says,
+    the day of the reading, then one sentence when no date has passed, or the table.
+
+    Every text comes from the context, already worded by tool_vae\output\renewals_page. The template holds no logic. Every
+    text is escaped (double braces), except one key of HTML (triple braces): tablehtml, the table drawn by the template
+    tool_vae/table.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * disclaimer - string, what a positioning is and is not
+    * intro - string, what the list says
+    * asof - string, the day of the reading
+    * none - false, or a string: the sentence drawn when no date has passed
+    * tablehtml - false, or HTML: the table
+
+    Example context (json):
+    {
+        "disclaimer": "A positioning says where the structure stands on a competency or a bloc. It is not a validation.",
+        "intro": "For each certification below, the date given by the management has passed.",
+        "asof": "On the day of reading: 2026-11-19",
+        "none": false,
+        "tablehtml": "<table class=\"generaltable tool-vae-renewals\"><tbody><tr><td>Camille Durand</td></tr></tbody></table>"
+    }
+}}
+<p class="text-muted small">{{disclaimer}}</p>
+<p>{{intro}}</p>
+<p class="text-muted small">{{asof}}</p>
+{{#none}}
+<p>{{none}}</p>
+{{/none}}
+{{#tablehtml}}
+{{{tablehtml}}}
+{{/tablehtml}}

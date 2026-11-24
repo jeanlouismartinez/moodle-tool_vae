@@ -27,6 +27,8 @@ require_once(__DIR__ . '/../../../config.php');
 use tool_vae\local\backup;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\exporter;
+use tool_vae\output\backup_page;
+use tool_vae\output\export_warnings;
 
 require_login();
 
@@ -48,13 +50,11 @@ $PAGE->set_context($context);
 $PAGE->set_pagelayout('standard');
 $PAGE->set_title(get_string('backupdossier', 'tool_vae'));
 $PAGE->set_heading(fullname($candidate));
+$renderer = $PAGE->get_renderer('tool_vae');
 
 if (!competency_gateway::is_subsystem_enabled()) {
     echo $OUTPUT->header();
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(backup_page::disabled());
     echo $OUTPUT->footer();
     die();
 }
@@ -79,10 +79,10 @@ if ($confirm) {
     // uninstall takes. The backup is made, but it will not be reimported as it stands, so the "done" message of the other
     // path, which says to reimport it, would be wrong: the two messages of this one travel as notifications of the session,
     // and the page answers the POST with a redirect, as the other path does. A page shown here would be the answer to a POST,
-    // and reloading it would make another backup. exporter::warnings_html() escapes the lines: the value is whatever an
+    // and reloading it would make another backup. The piece export_warnings escapes the lines: the value is whatever an
     // administrator typed.
     \core\notification::success(get_string('backupdossierdonewarned', 'tool_vae', $file->get_filename()));
-    \core\notification::warning(exporter::warnings_html($warnings, get_string('backupdossierwarning', 'tool_vae')));
+    \core\notification::warning($renderer->render(new export_warnings($warnings, get_string('backupdossierwarning', 'tool_vae'))));
     redirect($dossierurl);
 }
 
@@ -92,16 +92,12 @@ echo $OUTPUT->heading(get_string('backupdossier', 'tool_vae'));
 // Said here, as export.php does, rather than offering a confirmation that exporter::store()
 // would answer with a bare exception.
 if (!$DB->record_exists('tool_vae_evidence', ['candidateid' => $candidateid])) {
-    echo $OUTPUT->notification(
-        get_string('errorexportempty', 'tool_vae'),
-        \core\output\notification::NOTIFY_INFO
-    );
-    echo $OUTPUT->continue_button($dossierurl);
+    echo $renderer->render(backup_page::nodeclaration($dossierurl));
     echo $OUTPUT->footer();
     die();
 }
 
-echo html_writer::tag('p', s(get_string('backupdossierintro', 'tool_vae')));
+echo $renderer->render(backup_page::intro());
 echo $OUTPUT->confirm(
     get_string('backupdossierconfirm', 'tool_vae'),
     new moodle_url($url, ['confirm' => 1, 'sesskey' => sesskey()]),

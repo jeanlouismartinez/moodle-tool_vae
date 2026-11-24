@@ -1,33 +1,31 @@
-# Dépendances
+# Dependencies
 /node_modules/
 /vendor/
 
-# Construits
-/amd/build/
-*.min.js
+# Built files (amd/build is versioned: the core serves it and the CI compares it with amd/src)
 *.min.css
 
-# Environnement
+# Environment
 .env
 .env.*
 !.env.example
 config.local.php
 
-# Outils
+# Tools
 /.phpunit.result.cache
 /.php-cs-fixer.cache
 /moodle-plugin-ci.log
 
-# Systèmes
+# Operating systems
 .DS_Store
 Thumbs.db
 *~
 *.swp
 
-# Livraisons de session
+# Deliveries of a work session
 /_livraisons/
 
-# Jamais dans le plugin : videos et documents du guide (restent sur le poste du porteur)
+# Never in the plugin: videos and documents of the guide (they stay on the computer of the project owner)
 /docs/GUIDE-D-USAGE*.docx
 /docs/GUIDE-D-USAGE*.pdf
 *.webm

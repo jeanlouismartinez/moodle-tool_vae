@@ -22,7 +22,7 @@ use tool_vae\local\competency_gateway;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\hidden_frameworks;
 use tool_vae\local\importer;
-use tool_vae\local\passage_manager;
+use tool_vae\local\correspondence_manager;
 use tool_vae\local\supersession;
 
 /**
@@ -40,6 +40,7 @@ use tool_vae\local\supersession;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\local\hidden_frameworks::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\output\kept_text::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\tool_vae\form\declare_form::class)]
 final class framework_hidden_test extends \advanced_testcase {
     /** @var string What the vaeiste typed in the narrative of the form. */
@@ -129,8 +130,8 @@ final class framework_hidden_test extends \advanced_testcase {
      * @return string[]
      */
     private function strings(string $lang): array {
-        $string = [];
-        include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
 
         return $string;
     }
@@ -206,6 +207,18 @@ final class framework_hidden_test extends \advanced_testcase {
     /**
      * The list to declare in leaves a hidden record out and keeps the others; the page is told which are hidden.
      */
+    /**
+     * A piece of output drawn by the renderer of the plugin, as the pages draw it (lot 7: the screens became pieces).
+     *
+     * @param \core\output\renderable $piece
+     * @return string HTML.
+     */
+    private static function render(\core\output\renderable $piece): string {
+        global $PAGE;
+
+        return $PAGE->get_renderer('tool_vae')->render($piece);
+    }
+
     public function test_a_hidden_record_is_left_out_of_the_list_and_the_others_stay_offered(): void {
         $this->set_visible('RNCP40692');
 
@@ -301,6 +314,8 @@ final class framework_hidden_test extends \advanced_testcase {
      * Read from the language file, as the site language of a test is English.
      */
     public function test_the_french_message_says_cachee_and_sends_to_the_responsable(): void {
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        \tool_vae\fixtures\lang_files::skip_unless_present('fr');
         $french = $this->strings('fr');
 
         $text = $french['errorframeworkhidden'];
@@ -321,7 +336,9 @@ final class framework_hidden_test extends \advanced_testcase {
     public function test_the_new_texts_follow_the_house_rules_of_wording(): void {
         $keys = ['errorframeworkhidden', 'declarehiddenkept', 'declarekeptintro', 'carryhiddenkept'];
 
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             $strings = $this->strings($lang);
             foreach ($keys as $key) {
                 $this->assertArrayHasKey($key, $strings, "$lang: $key");
@@ -329,8 +346,10 @@ final class framework_hidden_test extends \advanced_testcase {
                 $this->assertStringNotContainsString('–', $strings[$key], "$lang: $key");
             }
         }
-        foreach ($keys as $key) {
-            $this->assertStringNotContainsString('candidat', mb_strtolower($this->strings('fr')[$key]), "fr: $key");
+        if (\tool_vae\fixtures\lang_files::present('fr')) {
+            foreach ($keys as $key) {
+                $this->assertStringNotContainsString('candidat', mb_strtolower($this->strings('fr')[$key]), "fr: $key");
+            }
         }
     }
 
@@ -398,7 +417,7 @@ final class framework_hidden_test extends \advanced_testcase {
     public function test_the_carry_is_not_offered_towards_a_hidden_record(): void {
         $this->setAdminUser();
         supersession::declare_successor('RNCP36832', 'RNCP40692');
-        (new passage_manager())->decide(
+        (new correspondence_manager())->decide(
             $this->ids['RNCP36832-C03'],
             $this->ids['RNCP40692-BC03'],
             'Même champ, nouvelle formulation.'
@@ -677,7 +696,7 @@ final class framework_hidden_test extends \advanced_testcase {
      * The text sent is given back whole, in a field that can be copied, when there is no form to give it back in.
      */
     public function test_the_text_sent_is_kept_whole_when_there_is_no_form_to_give_it_back_in(): void {
-        $html = hidden_frameworks::kept_text("Accompagnement au lever.\nSecond ligne.", 'Unité protégée, équipe de nuit');
+        $html = self::render(new output\kept_text("Accompagnement au lever.\nSecond ligne.", 'Unité protégée, équipe de nuit'));
 
         $this->assertStringContainsString(get_string('declarekeptintro', 'tool_vae'), $html);
         $this->assertStringContainsString(get_string('situation', 'tool_vae'), $html);
@@ -693,13 +712,13 @@ final class framework_hidden_test extends \advanced_testcase {
      * What was typed is shown as text, never as markup, and nothing is shown when nothing was typed.
      */
     public function test_the_text_kept_is_escaped_and_empty_when_nothing_was_typed(): void {
-        $html = hidden_frameworks::kept_text('Un texte </textarea><script>alert(1)</script>', '');
+        $html = self::render(new output\kept_text('Un texte </textarea><script>alert(1)</script>', ''));
 
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringContainsString('Un texte &lt;/textarea&gt;&lt;script&gt;alert(1)&lt;/script&gt;', $html);
         $this->assertStringNotContainsString(get_string('settingdetail', 'tool_vae'), $html, 'Nothing typed there.');
 
-        $this->assertSame('', hidden_frameworks::kept_text('', ''));
-        $this->assertSame('', hidden_frameworks::kept_text("  \n ", ' '));
+        $this->assertSame('', self::render(new output\kept_text('', '')));
+        $this->assertSame('', self::render(new output\kept_text("  \n ", ' ')));
     }
 }

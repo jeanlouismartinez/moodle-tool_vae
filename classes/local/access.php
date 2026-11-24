@@ -214,6 +214,43 @@ final class access {
     }
 
     /**
+     * Whether the current user follows at least one candidate: whether followed_candidates() would be non-empty.
+     *
+     * Asked on every page of the site, by the link of the primary navigation (lot S3), so its cost must not grow with the
+     * number of candidates followed. The same rows as followed_candidates(), put through the same follows(), but read in
+     * ONE query that brings the contexts along - preloaded, so that follows() reads none of them again - and the test stops
+     * at the first candidate followed. The guard is the same: viewassigned held at system level means "nobody".
+     *
+     * @return bool
+     */
+    public static function follows_anyone(): bool {
+        global $DB, $USER;
+
+        if (has_capability('tool/vae:viewassigned', context_system::instance())) {
+            return false;
+        }
+
+        $ctxfields = \context_helper::get_preload_record_columns_sql('ctx');
+        $sql = "SELECT DISTINCT ctx.instanceid AS candidateid, $ctxfields
+                  FROM {role_assignments} ra
+                  JOIN {context} ctx ON ctx.id = ra.contextid
+                 WHERE ra.userid = :userid
+                   AND ctx.contextlevel = :contextlevel";
+        // Read at once rather than through a recordset: a recordset is three readings on PostgreSQL (open, fetch, close),
+        // and the rows are the person's own role assignments in user contexts, which are few.
+        $rows = $DB->get_records_sql($sql, ['userid' => $USER->id, 'contextlevel' => CONTEXT_USER]);
+
+        foreach ($rows as $row) {
+            \context_helper::preload_from_record($row);
+            if (self::follows((int) $row->candidateid)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Require permission to declare an activity on one's own behalf.
      *
      * Declaring is always first person: the candidate holds

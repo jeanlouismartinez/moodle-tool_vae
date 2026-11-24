@@ -1,0 +1,102 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/section_page
+
+    The page that writes one section of one's own document, under its title, in one of three states: the contact details
+    read from the account (a list of terms and values, the way to the profile, the way back); a section of separate fields
+    (the help, where it stands, its history, the way back, the form); a section of free text (the conflict of a version
+    refused, the notices of the document, the help, where it stands, its ways out, the situations tagged on the bloc, the form
+    and the live region of the autosave).
+
+    Every text comes from the context, already worded by tool_vae\output\section_page. The template holds no logic.
+    Every value is escaped (double braces) except these keys:
+    * noticehtml - the notification of a conflict, drawn by the renderer of the core
+    * taggedhtml - the situations tagged on the bloc, drawn by the template tool_vae/tagged_situations ('' when none)
+    * formhtml - the form of the section, drawn by moodleform::render()
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * tool-vae-autosave (id) - the live region the module tool_vae/autosave writes in
+
+    Context variables required for this template:
+    * account - object or null: help (object: text) or null; rows, an array of {term, value}; profile and back (url, text)
+    * fields - object or null: help (object: text) or null; status; history and back (url, text); formhtml
+    * text - object or null: conflict (object: noticehtml, kept, reload and history (url, text)) or null; labelling (object:
+      text) or null; reflexion (object: private, consigne, prompts) or null; help (object: text) or null; consigne (object:
+      text) or null; status; history and back (url, text); taggedhtml; formhtml; autosaved (string, '' for none)
+
+    Example context (json):
+    {
+        "account": {
+            "help": {"text": "Read from your account."},
+            "rows": [{"term": "Email address", "value": "camille@example.com"}],
+            "profile": {"url": "https://example.com/user/edit.php?id=7", "text": "Edit my profile"},
+            "back": {"url": "https://example.com/admin/tool/vae/faisabilite.php", "text": "Back to the list"}
+        },
+        "fields": {
+            "help": null, "status": "No version yet.",
+            "history": {"url": "https://example.com/admin/tool/vae/history.php?draftid=3", "text": "History"},
+            "back": {"url": "https://example.com/admin/tool/vae/faisabilite.php", "text": "Back to the list"},
+            "formhtml": "<form action=\"#\"></form>"
+        },
+        "text": {
+            "conflict": {
+                "noticehtml": "<div class=\"alert alert-danger\">Another tab saved this draft.</div>",
+                "kept": "Your text is kept in the form below.",
+                "reload": {"url": "https://example.com/admin/tool/vae/section.php?section=objectifs", "text": "Reload"},
+                "history": {"url": "https://example.com/admin/tool/vae/history.php?draftid=3", "text": "History"}
+            },
+            "labelling": {"text": "Preparation - not the official dossier"},
+            "reflexion": {"private": "Nobody else reads it.", "consigne": "Name nobody.", "prompts": "What did you learn?"},
+            "help": {"text": "Say what you aim at."},
+            "consigne": {"text": "Name nobody."},
+            "status": "Current version: 2.",
+            "history": {"url": "https://example.com/admin/tool/vae/history.php?draftid=3", "text": "History"},
+            "back": {"url": "https://example.com/admin/tool/vae/faisabilite.php", "text": "Back to the list"},
+            "taggedhtml": "",
+            "formhtml": "<form action=\"#\"></form>",
+            "autosaved": "Draft saved at 10:42."
+        }
+    }
+}}
+{{#account}}{{#help}}<p class="tool-vae-section-help">{{text}}</p>{{/help}}<dl class="row">{{#rows}}{{!
+}}<dt class="col-sm-3">{{term}}</dt><dd class="col-sm-9">{{value}}</dd>{{/rows}}</dl>{{!
+}}{{#profile}}<p><a href="{{url}}">{{text}}</a></p>{{/profile}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}{{/account}}{{!
+}}{{#fields}}{{#help}}<p class="tool-vae-section-help">{{text}}</p>{{/help}}<p>{{status}}</p>{{!
+}}{{#history}}<p><a href="{{url}}">{{text}}</a></p>{{/history}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}{{!
+}}{{{formhtml}}}{{/fields}}{{!
+}}{{#text}}{{#conflict}}{{{noticehtml}}}<p>{{kept}}</p>{{!
+}}<p>{{#reload}}<a href="{{url}}">{{text}}</a>{{/reload}} - {{!
+}}{{#history}}<a href="{{url}}">{{text}}</a>{{/history}}</p>{{/conflict}}{{!
+}}{{#labelling}}<div class="alert alert-info tool-vae-labelling" role="note">{{text}}</div>{{/labelling}}{{!
+}}{{#reflexion}}<div class="alert alert-info tool-vae-labelling" role="note">{{private}}</div>{{!
+}}<div class="alert alert-warning tool-vae-anonymise" role="note">{{consigne}}</div>{{!
+}}<p class="tool-vae-section-help">{{prompts}}</p>{{/reflexion}}{{!
+}}{{#help}}<p class="tool-vae-section-help">{{text}}</p>{{/help}}{{!
+}}{{#consigne}}<div class="alert alert-warning tool-vae-anonymise" role="note">{{text}}</div>{{/consigne}}{{!
+}}<p>{{status}}</p>{{#history}}<p><a href="{{url}}">{{text}}</a></p>{{/history}}{{!
+}}{{#back}}<p><a href="{{url}}">{{text}}</a></p>{{/back}}{{!
+}}{{{taggedhtml}}}{{{formhtml}}}{{!
+}}<div class="text-muted small" id="tool-vae-autosave" role="status" aria-live="polite">{{autosaved}}</div>{{/text}}

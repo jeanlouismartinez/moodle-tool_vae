@@ -1,0 +1,74 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/piece_page
+
+    The page "Pièces justificatives", below its heading: what a piece is, its limits, the declaration, the list of its
+    pieces, the two forms (or the notice that the site takes no piece), and the way back to the dossier.
+
+    Every text comes from the context, already worded by tool_vae\output\piece_page. The template holds no logic. Every
+    text and address is escaped (double braces). Five keys are HTML (triple braces): declarationhtml, drawn by the template
+    tool_vae/attest_declaration; pieceshtml, drawn by the template tool_vae/pieces; filehtml and linkhtml, the forms of
+    the core ($form->render()); closedhtml, a notification made by the core.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - string, what a piece is
+    * limits - string, what the plugin does not do with a piece
+    * declarationhtml - HTML, the declaration and the warning of its anchor
+    * pieceshtml - HTML, the list of the pieces
+    * filehtml - false, or HTML: the form to attach a file
+    * linkhtml - false, or HTML: the form to give a link
+    * closedhtml - false, or HTML: the notice that the site takes no piece
+    * back - {url, label}: the way back to the dossier
+
+    Example context (json):
+    {
+        "intro": "Attach what supports this declaration.",
+        "limits": "Nothing is checked in a piece.",
+        "declarationhtml": "<dl class=\"tool-vae-claim\"><dt>Record</dt><dd>RS5000-C01</dd></dl>",
+        "pieceshtml": "<p>No piece.</p>",
+        "filehtml": false,
+        "linkhtml": false,
+        "closedhtml": "<div class=\"alert alert-info\">The site takes no piece.</div>",
+        "back": {"url": "https://example.com/admin/tool/vae/dossier.php?userid=3", "label": "Back to the dossier"}
+    }
+}}
+<p>{{intro}}</p>
+<div class="alert alert-warning">{{limits}}</div>
+{{{declarationhtml}}}
+{{{pieceshtml}}}
+{{#filehtml}}
+{{{filehtml}}}
+{{/filehtml}}
+{{#linkhtml}}
+{{{linkhtml}}}
+{{/linkhtml}}
+{{#closedhtml}}
+{{{closedhtml}}}
+{{/closedhtml}}
+{{#back}}
+<p><a href="{{url}}">{{label}}</a></p>
+{{/back}}

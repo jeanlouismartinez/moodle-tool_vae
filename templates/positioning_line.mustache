@@ -1,0 +1,52 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/positioning_line
+
+    One line of a positioning of the structure: its status in bold, who wrote it and when, its reason, and the reason of an
+    alert when there is one. The parts touch: the template holds on one logical line, each break carried by a comment.
+
+    Every text comes from the context, already worded by tool_vae\output\positioning_line. The template holds no logic.
+    Every value is escaped (double braces) except two keys:
+    * reasonhtml - the reason, drawn by format_text() as plain text (the core escapes it)
+    * alerthtml - the reason of the alert, drawn the same way
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * status - string, the status, with the day of the decision and the day it stands until for a certification
+    * signature - string, who wrote the line and when
+    * reasonhtml - string, HTML of the core: the reason
+    * alert - object or null: label (the words before the reason of the alert), alerthtml (HTML of the core)
+
+    Example context (json):
+    {
+        "status": "certified by the structure (decided on 2026-11-04) - stands until 2027-11-04",
+        "signature": "Dana Direction, Wednesday, 4 November 2026, 10:12 AM",
+        "reasonhtml": "Two situations seen on the ward.",
+        "alert": {"label": "Reason of the alert", "alerthtml": "Second competency seen next week."}
+    }
+}}
+<div class="ms-3 mb-2"><div class="small"><strong>{{status}}</strong> {{signature}}</div><div>{{{reasonhtml}}}</div>{{!
+}}{{#alert}}<div class="small"><em>{{label}} : </em>{{{alerthtml}}}</div>{{/alert}}</div>

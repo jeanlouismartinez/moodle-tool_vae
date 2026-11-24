@@ -1,0 +1,57 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/import_dossier_page
+
+    The page "Réimporter un dossier", between its header or heading and the footer: the notification that the sub-system of
+    competencies is off; or what the page is for, the notice that a withdrawal does not reach an archive, and the form.
+
+    Every text comes from the context, already worded by tool_vae\output\import_dossier_page. The template holds no logic:
+    the states exclude one another before. Every text is escaped (double braces), except two keys of HTML made by the core
+    (triple braces): noticehtml, a notification ($output->notification()); formhtml, the form of the core
+    (moodleform::render()), drawn once.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * intro - false, or a string: what the page is for
+    * noticehtml - HTML: the notification (off, or the notice on withdrawals)
+    * formhtml - false, or HTML: the form to choose the archive
+
+    Example context (json):
+    {
+        "intro": "Rebuild the dossier of this account from an archive.",
+        "noticehtml": "<div class=\"alert alert-warning\">A withdrawal does not reach an archive.</div>",
+        "formhtml": "<form method=\"post\" action=\"https://example.com/admin/tool/vae/import_dossier.php\"></form>"
+    }
+}}
+{{#intro}}
+<p>{{intro}}</p>
+{{/intro}}
+{{#noticehtml}}
+{{{noticehtml}}}
+{{/noticehtml}}
+{{#formhtml}}
+{{{formhtml}}}
+{{/formhtml}}

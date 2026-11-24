@@ -81,6 +81,7 @@ Feature: A hidden certification record refuses a declaration, and says so to the
     And I should see "The record Aide-Soignant (RNCP40692) is hidden"
     And I should see "Nothing has been recorded"
     And I should see "Early rounds in the protected unit, twice a week"
+    And I should see "Early rounds in the protected unit, twice a week" in the "#tool_vae_kept_situation" "css_element"
     And I should not see "No certification record has been imported yet"
 
   Scenario: The carry is offered while the new record is visible, and not once it is hidden
@@ -125,3 +126,27 @@ Feature: A hidden certification record refuses a declaration, and says so to the
     And I should see "Night rounds with the care assistant"
     And I should not see "Carry a declaration over to the new record"
     And I should not see "What you wrote is kept in the form below"
+
+  # Lot 7 (wave 3b, pilot): the two refusals the page writes before its form - the competencies switched off, the core's
+  # right to view them missing - were played by no scenario. The page draws them through a class of output now, and only
+  # a request for the page proves that it asks for the right one.
+  Scenario: The page that declares says so when the competencies are switched off
+    Given the following config values are set as admin:
+      | enabled | 0 | core_competency |
+    And I log in as "candidat"
+    When I am on the "tool_vae > Declare" page
+    Then I should see "Declare an activity"
+    And I should see "The competency subsystem is switched off on this site."
+    And I should not see "Your role does not hold the right moodle/competency:competencyview"
+    And I should not see "Competency claimed"
+
+  Scenario: The page that declares says so when the role lost the core's right to view the competencies
+    Given the following "permission overrides" exist:
+      | capability                       | permission | role | contextlevel | reference |
+      | moodle/competency:competencyview | Prohibit   | user | System       |           |
+    And I log in as "candidat"
+    When I am on the "tool_vae > Declare" page
+    Then I should see "Declare an activity"
+    And I should see "Your role does not hold the right moodle/competency:competencyview"
+    And I should not see "The competency subsystem is switched off on this site."
+    And I should not see "Competency claimed"

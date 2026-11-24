@@ -311,6 +311,13 @@ final class message_pointer_test extends \advanced_testcase {
      * @return \stdClass
      */
     private function deliver_one(string $provider): \stdClass {
+        // Ticket 3 of review MMR-520: a withdrawal and a departure queue one task that finds the recipients from cron, and the
+        // deletion of an evidence record queues its purge; both run first, as cron would, and only they.
+        ob_start();
+        $this->runAdhocTasks(\tool_vae\task\queue_notifications::class);
+        $this->runAdhocTasks(\tool_vae\task\purge_deleted_evidence::class);
+        ob_end_clean();
+
         $tasks = $this->queued($provider);
         $this->assertCount(1, $tasks, "Nothing, or more than one message, was queued for $provider.");
         $this->assertTrue(notifier::deliver($tasks[0]->get_custom_data()), "The $provider message was withheld at delivery.");
@@ -327,8 +334,8 @@ final class message_pointer_test extends \advanced_testcase {
         $this->setAdminUser();
 
         $lines = [];
-        foreach ($rows as $rang => $intitule) {
-            $lines[] = (object) ['rang' => $rang, 'intitule' => $intitule, 'description' => ''];
+        foreach ($rows as $rank => $label) {
+            $lines[] = (object) ['rang' => $rank, 'intitule' => $label, 'description' => ''];
         }
 
         (new importer())->import((object) [
@@ -399,7 +406,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_declarationpending(): \stdClass {
+    protected function scenario_declarationpending(): \stdClass {
         $this->declare_as($this->candidate, $this->competencyid);
 
         return $this->deliver_one(notifier::DECLARATION_PENDING);
@@ -410,7 +417,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_pieceafterattest(): \stdClass {
+    protected function scenario_pieceafterattest(): \stdClass {
         set_config('piecesopen', 1, 'tool_vae');
         set_config('piecenoantivirus', 1, 'tool_vae');
 
@@ -427,7 +434,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_depositmade(): \stdClass {
+    protected function scenario_depositmade(): \stdClass {
         $this->deposit_rights();
         $this->deposit_as_candidate();
 
@@ -443,7 +450,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_validationdepositmade(): \stdClass {
+    protected function scenario_validationdepositmade(): \stdClass {
         global $DB;
 
         $this->deposit_rights();
@@ -473,7 +480,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_opinionmade(): \stdClass {
+    protected function scenario_opinionmade(): \stdClass {
         $this->deposit_rights();
         $write = $this->getDataGenerator()->create_role();
         assign_capability('tool/vae:writeopinion', CAP_ALLOW, $write, \context_system::instance()->id, true);
@@ -494,7 +501,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_positioningrecorded(): \stdClass {
+    protected function scenario_positioningrecorded(): \stdClass {
         $plugin = $this->getDataGenerator()->get_plugin_generator('tool_vae');
         $plugin->create_source(['fichecode' => 'RNCP100', 'ficherang' => 'BC01', 'shortname' => 'Bloc 1']);
         $plugin->create_competency([
@@ -517,7 +524,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_declarationoverdue(): \stdClass {
+    protected function scenario_declarationoverdue(): \stdClass {
         global $DB;
 
         $claim = $this->declare_as($this->candidate, $this->competencyid);
@@ -532,7 +539,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_precisionasked(): \stdClass {
+    protected function scenario_precisionasked(): \stdClass {
         $claim = $this->declare_as($this->candidate, $this->competencyid);
         $this->setUser($this->manager);
         (new request_manager())->ask((int) $claim->id, 'Pouvez-vous préciser la période ?');
@@ -545,7 +552,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_evidenceattested(): \stdClass {
+    protected function scenario_evidenceattested(): \stdClass {
         $this->attest($this->declare_as($this->candidate, $this->competencyid));
 
         return $this->deliver_one(notifier::EVIDENCE_ATTESTED);
@@ -556,7 +563,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_attestationwithdrawn(): \stdClass {
+    protected function scenario_attestationwithdrawn(): \stdClass {
         $attestation = $this->attest($this->declare_as($this->candidate, $this->competencyid));
         $this->setAdminUser();
         (new attestation_manager())->withdraw((int) $attestation->id, 'erreur');
@@ -569,7 +576,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_withdrawalrequested(): \stdClass {
+    protected function scenario_withdrawalrequested(): \stdClass {
         $this->colleague_asks();
 
         return $this->deliver_one(notifier::WITHDRAWAL_REQUESTED);
@@ -580,7 +587,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_withdrawalrefused(): \stdClass {
+    protected function scenario_withdrawalrefused(): \stdClass {
         [$attestation] = $this->colleague_asks();
         $this->setUser($this->manager);
         (new attestation_manager())->refuse_withdrawal((int) $attestation->id);
@@ -593,7 +600,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_declarationpurged(): \stdClass {
+    protected function scenario_declarationpurged(): \stdClass {
         $claim = $this->declare_as($this->candidate, $this->competencyid);
         $this->attest($claim);
         $this->setUser($this->candidate);
@@ -607,7 +614,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_competencyleftrecord(): \stdClass {
+    protected function scenario_competencyleftrecord(): \stdClass {
         global $DB;
 
         $this->record(['BC01' => 'Accompagner la personne', 'BC02' => 'Repérer les évolutions']);
@@ -659,7 +666,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_attestationswithdrawn(): \stdClass {
+    protected function scenario_attestationswithdrawn(): \stdClass {
         $this->erase_the_manager_who_attested();
 
         return $this->deliver_the_erasure_task(notifier::ATTESTATIONS_ERASED, notifier::ATTESTATION_WITHDRAWN);
@@ -670,7 +677,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_declarationsawaitagain(): \stdClass {
+    protected function scenario_declarationsawaitagain(): \stdClass {
         $colleague = $this->getDataGenerator()->create_user(['firstname' => 'Hugo', 'lastname' => 'Marchand']);
         role_assign($this->managerrole, $colleague->id, \context_user::instance($this->candidate->id)->id);
         accesslib_clear_all_caches_for_unit_testing();
@@ -712,7 +719,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_noteadded(): \stdClass {
+    protected function scenario_noteadded(): \stdClass {
         $situation = $this->annotation_ground();
         $this->getDataGenerator()->get_plugin_generator('tool_vae')->create_note([
             'authorid' => $this->manager->id, 'userid' => $this->candidate->id, 'fichecode' => 'RNCP100',
@@ -727,7 +734,7 @@ final class message_pointer_test extends \advanced_testcase {
      *
      * @return \stdClass
      */
-    private function scenario_consentgiven(): \stdClass {
+    protected function scenario_consentgiven(): \stdClass {
         $this->annotation_ground();
 
         return $this->deliver_one(notifier::CONSENT_GIVEN);
@@ -783,8 +790,8 @@ final class message_pointer_test extends \advanced_testcase {
      * @return string[]
      */
     private static function strings_of(string $lang): array {
-        $string = [];
-        include(__DIR__ . '/../lang/' . $lang . '/tool_vae.php');
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        $string = \tool_vae\fixtures\lang_files::strings($lang);
 
         return $string;
     }
@@ -830,6 +837,8 @@ final class message_pointer_test extends \advanced_testcase {
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('texts_in_each_language')]
     public function test_the_body_ends_with_the_sentence_that_says_where_to_act(string $lang, string $text): void {
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        \tool_vae\fixtures\lang_files::skip_unless_present($lang);
         $body = $this->body($text, $lang);
 
         $this->assertStringNotContainsString('{$a', $body, "lang/$lang notify{$text}_body leaves a value unreplaced.");
@@ -846,7 +855,11 @@ final class message_pointer_test extends \advanced_testcase {
      * It used to say "you may read the question and answer it", and the "Reply" button of the email leads to nobody.
      */
     public function test_the_precision_message_says_the_answer_is_given_in_the_dossier(): void {
-        $this->assertStringContainsString('dans le dossier', $this->body('precisionasked', 'fr'));
+        // French where lang/fr is present: the package of the plugin ships English only.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        if (\tool_vae\fixtures\lang_files::present('fr')) {
+            $this->assertStringContainsString('dans le dossier', $this->body('precisionasked', 'fr'));
+        }
         $this->assertStringContainsString('in the dossier', $this->body('precisionasked', 'en'));
     }
 
@@ -857,7 +870,9 @@ final class message_pointer_test extends \advanced_testcase {
      * added later is read too. This cannot fail on a text that never had those words: it guards the wording of the pointer.
      */
     public function test_no_body_speaks_of_an_email_or_tells_to_reply(): void {
-        foreach (['en', 'fr'] as $lang) {
+        // Every language present here: the package of the plugin ships English only, the repository English and French.
+        require_once(__DIR__ . '/fixtures/lang_files.php');
+        foreach (\tool_vae\fixtures\lang_files::languages() as $lang) {
             $strings = self::strings_of($lang);
             $bodies = array_filter(
                 $strings,

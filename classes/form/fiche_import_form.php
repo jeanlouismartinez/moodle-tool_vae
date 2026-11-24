@@ -19,6 +19,8 @@ namespace tool_vae\form;
 use tool_vae\local\fiche_import;
 use tool_vae\local\fiche_messages;
 use tool_vae\local\fiche_refusal;
+use tool_vae\output\form_default_submit;
+use tool_vae\output\form_link;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -33,9 +35,9 @@ require_once($CFG->libdir . '/formslib.php');
  * have none). The key of the session is the one of every moodleform: without it, nothing leaves - above all not the request to
  * data.gouv.fr, which is only ever the answer to a click on a button of a form sent by a signed-in administrator.
  *
- * THE UPLOAD IS A PLAIN FIELD OF THE PAGE, not the file element of the form library: that element is a fatal error on this
- * version of the core (see piece_file_form), and the page reads $_FILES itself, BEFORE the form is built, since the library empties
- * it when it processes a submission. The label is a real one, tied to the field.
+ * THE UPLOAD IS THE FILE PICKER OF THE CORE (review MMR-520): the zip goes to a draft area of the administrator, the form sends
+ * the number of the area, and the page reads the file there (draft_upload, fiche_import::upload_path()), then empties the area.
+ * The file picker offers and checks the extension .zip; what the archive holds is read by fiche_archive, as before.
  *
  * Custom data: `maxbytes` (int), the largest file this site accepts to upload.
  *
@@ -51,15 +53,14 @@ class fiche_import_form extends \moodleform {
      * Build the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
         $maxbytes = (int) ($this->_customdata['maxbytes'] ?? 0);
 
         // THE FIRST SUBMIT BUTTON OF A FORM IS THE ONE THAT ENTER PRESSES in a field (a box ticked, a list of days): it must
         // not be the one that makes the server go out onto the Internet. This one does nothing, and the page says so.
-        $mform->addElement('html', \html_writer::empty_tag('input', [
-            'type' => 'submit', 'name' => 'defaultbutton', 'value' => '', 'class' => 'd-none',
-            'tabindex' => '-1', 'aria-hidden' => 'true',
-        ]));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(new form_default_submit()));
 
         $mform->addElement('textarea', 'numbers', get_string('fcimportnumbers', 'tool_vae'), ['rows' => 6, 'cols' => 40]);
         $mform->setType('numbers', PARAM_TEXT);
@@ -75,24 +76,18 @@ class fiche_import_form extends \moodleform {
         $mform->addElement('static', 'ziptext', '', get_string(
             'fcimportziptext',
             'tool_vae',
-            \html_writer::link(fiche_import::SOURCE_URL, 'data.gouv.fr')
+            $PAGE->get_renderer('tool_vae')->render(new form_link(fiche_import::SOURCE_URL, 'data.gouv.fr'))
         ));
         if ($maxbytes > 0 && $maxbytes < self::SAYS_LIMIT_BELOW) {
             $mform->addElement('static', 'zipmax', '', get_string('fcimportzipmax', 'tool_vae', display_size($maxbytes)));
         }
 
-        $mform->updateAttributes(['enctype' => 'multipart/form-data']);
-        $mform->addElement('html', \html_writer::div(
-            \html_writer::label(get_string('fcimportzipfile', 'tool_vae'), 'id_exportzip')
-            . \html_writer::empty_tag('input', [
-                'type' => 'file',
-                'name' => 'exportzip',
-                'id' => 'id_exportzip',
-                'accept' => '.zip',
-                'class' => 'form-control',
-            ]),
-            'mb-3'
-        ));
+        // Not required by a rule of the form: the fetch button sends the same form without a file, and the page says, in the
+        // words of the import, that no file was chosen (fiche_refusal::ZIP_MISSING).
+        $mform->addElement('filepicker', 'exportzip', get_string('fcimportzipfile', 'tool_vae'), null, [
+            'maxbytes' => $maxbytes,
+            'accepted_types' => ['.zip'],
+        ]);
 
         // Optional: the day is read from the name of the file, and typed only when the name no longer gives it.
         $mform->addElement(
@@ -110,7 +105,7 @@ class fiche_import_form extends \moodleform {
     /**
      * Server side checks. The client side ones are a convenience, never a guarantee.
      *
-     * The numbers only: the file is not read here (the page read it before the form was built, and reads it once).
+     * The numbers only: the file is not read here (the page reads it from the draft area, once, after the form gave its data).
      *
      * @param array $data
      * @param array $files

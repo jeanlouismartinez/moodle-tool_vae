@@ -49,6 +49,11 @@ Feature: The direction sees which candidates nobody can be told of
       | Camille Durand | 1                |
       | Alex Martin    | 0                |
 
+  Scenario: The table has a legend that a screen reader announces
+    Given I log in as "direction"
+    When I am on the "tool_vae > Pending" page
+    Then I should see "Declarations awaiting an attestation, by candidate, the oldest first" in the "caption.visually-hidden" "css_element"
+
   Scenario: The filter keeps only the candidates nobody can be told of
     Given I log in as "direction"
     And I am on the "tool_vae > Pending" page

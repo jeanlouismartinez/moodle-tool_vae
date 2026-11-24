@@ -77,7 +77,7 @@ class consent_changed extends \core\event\base {
     /**
      * Map the object id for restore from a backup. Not restorable.
      *
-     * @return bool
+     * @return false
      */
     public static function get_objectid_mapping() {
         return false;
@@ -86,7 +86,7 @@ class consent_changed extends \core\event\base {
     /**
      * Map the other fields for restore from a backup: nothing in other names a record (the manager is relateduserid).
      *
-     * @return bool
+     * @return false
      */
     public static function get_other_mapping() {
         return false;

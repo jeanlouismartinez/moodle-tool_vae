@@ -19,10 +19,11 @@ namespace tool_vae\local;
 /**
  * From the open data of France compétences to the file the import reads (T-31).
  *
- * NO MOODLE IN HERE. This class is also run by scripts/convertir-fiche-rncp.php on a workstation with no site: it
- * reads two files of the daily export (`Blocs_De_Compétences` and `Standard`, semicolon-separated, UTF-8, CRLF - read on
- * the exports of 19 and 27 October 2026, which carry no byte-order mark; an older one did, and both are read) and writes
- * the three columns the import reads.
+ * NO MOODLE API IN HERE, BUT A MOODLE TO RUN IT. The class works on the text of two files; the import screen and the
+ * command line script cli/convert_fiche.php (which needs an installed Moodle, like every Moodle command line script)
+ * call it. It reads two files of the daily export (`Blocs_De_Compétences` and `Standard`, semicolon-separated, UTF-8,
+ * CRLF - read on the exports of 19 and 27 October 2026, which carry no byte-order mark; an older one did, and both are
+ * read) and writes the three columns the import reads.
  *
  * WHAT IT NEVER DOES. It never rewords a label and never cuts one (Licence Ouverte 2.0: no misleading anybody about
  * the content). A label of 100 characters or fewer goes to the import as it was published, trimmed of the blanks
@@ -57,7 +58,13 @@ final class fiche_converter {
     /** @var int The longest label the core holds for a competency (importer::LABEL_MAXLENGTH). */
     public const LABEL_MAXLENGTH = 100;
 
-    /** @var string The title given to a bloc whose published label is too long; the rank follows. */
+    /**
+     * @var string The title given to a bloc whose published label is too long; the rank follows. Kept in French on purpose
+     *      (decision of the project owner, 22 November 2026): "Bloc" is the official term of the RNCP data of France
+     *      compétences (the blocs of competencies, Bloc_Competences_Code in the export), and competency_gateway::label_of()
+     *      recognises the name it makes and shows the published label in its place. Another title would leave the competencies
+     *      already imported under this one unrecognised.
+     */
     public const SHORT_TITLE = 'Bloc ';
 
     /** @var string How the standard file is named in a refusal. */
@@ -152,6 +159,25 @@ final class fiche_converter {
         fclose($stream);
 
         return $csv;
+    }
+
+    /**
+     * Write the file the import reads, and say whether it was written whole.
+     *
+     * NEVER SAY A FILE WAS WRITTEN WHEN IT WAS NOT: the person who reads the end of the output of cli/convert_fiche.php
+     * would type nine fields for nothing. A directory that does not exist is not created.
+     *
+     * @param string $path Where to write.
+     * @param array[] $rows What convert() returns as rows.
+     * @return bool True when the whole file is written.
+     */
+    public static function write_csv(string $path, array $rows): bool {
+        if (!is_dir(dirname($path))) {
+            return false;
+        }
+        $csv = self::to_csv($rows);
+
+        return file_put_contents($path, $csv) === strlen($csv);
     }
 
     /**

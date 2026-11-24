@@ -12,7 +12,7 @@ Feature: The administrator creates the VAE roles from the presets, one by one, a
     Then I should see "The three base roles"
     And I should see "Two optional roles"
     And I should see "Create \"Vaeiste\""
-    And I should see "Create \"Direction VAE certificatrice\""
+    And I should see "Create \"VAE certifying direction\""
     And I should not see "Already exists"
 
   Scenario: A role is asked for, confirmed and created with its rights only
@@ -26,14 +26,14 @@ Feature: The administrator creates the VAE roles from the presets, one by one, a
     Then I should see "The role \"Vaeiste\" was created"
     And I should see "Already exists (not changed)"
     And I should not see "Create \"Vaeiste\""
-    And I should see "Create \"Responsable VAE\""
+    And I should see "Create \"VAE manager\""
 
   Scenario: Cancelling the confirmation creates nothing
     Given I log in as "admin"
     And I am on the "tool_vae > Roles installer" page
-    When I press "Create \"Direction VAE\""
+    When I press "Create \"VAE direction\""
     And I press "Cancel"
-    Then I should see "Create \"Direction VAE\""
+    Then I should see "Create \"VAE direction\""
     And I should not see "Already exists"
 
   Scenario: Somebody who may not manage roles is refused

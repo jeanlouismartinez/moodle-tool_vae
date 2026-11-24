@@ -34,9 +34,7 @@ use tool_vae\local\ai_assistant;
 use tool_vae\local\competency_gateway;
 use tool_vae\local\evidence_manager;
 use tool_vae\local\hidden_frameworks;
-use tool_vae\local\selfpos_manager;
-use tool_vae\local\selfpos_screen;
-use tool_vae\local\whereami_panel;
+use tool_vae\output\declare_page;
 
 require_login();
 
@@ -51,14 +49,12 @@ $PAGE->set_title(get_string('declareheading', 'tool_vae'));
 $PAGE->set_heading(fullname($USER));
 
 $dossier = new moodle_url('/admin/tool/vae/dossier.php', ['userid' => $candidateid]);
+$renderer = $PAGE->get_renderer('tool_vae');
 
 if (!competency_gateway::is_subsystem_enabled()) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('declareheading', 'tool_vae'));
-    echo $OUTPUT->notification(
-        get_string('errorcompetenciesdisabled', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(declare_page::disabled());
     echo $OUTPUT->footer();
     die();
 }
@@ -70,10 +66,7 @@ if (!competency_gateway::is_subsystem_enabled()) {
 if (!competency_gateway::can_view_competencies(context_system::instance())) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('declareheading', 'tool_vae'));
-    echo $OUTPUT->notification(
-        get_string('errordeclarenoview', 'tool_vae'),
-        \core\output\notification::NOTIFY_ERROR
-    );
+    echo $renderer->render(declare_page::noview());
     echo $OUTPUT->footer();
     die();
 }
@@ -100,23 +93,11 @@ if (!$competencies) {
         redirect($dossier);
     }
     // Every record hidden since the form was opened leaves nothing to choose, so there is no form: the text is given back as is.
-    $kept = hidden_frameworks::kept_text($sent->situation, $sent->settingdetail);
+    $kept = new \tool_vae\output\kept_text($sent->situation, $sent->settingdetail);
 
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('declareheading', 'tool_vae'));
-    // When every record is hidden, saying so is the truth; "no record imported" would not be. A send that arrives here was
-    // refused, which is not the same thing as a page that is only read.
-    $level = $kept === '' ? \core\output\notification::NOTIFY_INFO : \core\output\notification::NOTIFY_ERROR;
-    foreach ($hidden as $message) {
-        echo $OUTPUT->notification($message, $level);
-    }
-    if (!$hidden) {
-        echo $OUTPUT->notification(
-            get_string('noframeworkimported', 'tool_vae'),
-            \core\output\notification::NOTIFY_INFO
-        );
-    }
-    echo $kept;
+    echo $renderer->render(declare_page::nothing($hidden, $kept));
     echo $OUTPUT->footer();
     die();
 }
@@ -164,39 +145,14 @@ if ($refusal === null && ($data = $form->get_data())) {
     }
 }
 
-echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('declareheading', 'tool_vae'));
-if ($refusal !== null) {
-    echo $OUTPUT->notification($refusal, \core\output\notification::NOTIFY_ERROR);
-    echo html_writer::tag('p', get_string('declarehiddenkept', 'tool_vae'));
-}
-foreach ($hidden as $message) {
-    // The record the form was refused for has just been named.
-    if ($message !== $refusal) {
-        echo $OUTPUT->notification($message, \core\output\notification::NOTIFY_INFO);
-    }
-}
 // Where the vaeiste stands on each record they declared on, folded, in reading (lot 1b, spec 1a § 6.6); with no declaration
-// yet, one way to position oneself, for whoever may. The form below stays as it was.
+// yet, one way to position oneself, for whoever may. The form below stays as it was. A reading only, made before the page.
 $declaredcodes = $DB->get_fieldset_sql(
     'SELECT DISTINCT fichecode FROM {tool_vae_evidence} WHERE candidateid = :c ORDER BY fichecode',
     ['c' => $candidateid]
 );
-if (!$declaredcodes && selfpos_manager::can_write($candidateid)) {
-    echo html_writer::tag('p', html_writer::link(
-        selfpos_screen::url($candidateid),
-        s(get_string('selfposlink', 'tool_vae'))
-    ));
-}
-foreach ($declaredcodes as $declaredcode) {
-    $panel = whereami_panel::render($candidateid, (string) $declaredcode, ['link' => true, 'title' => '']);
-    if ($panel !== '') {
-        echo html_writer::tag(
-            'details',
-            html_writer::tag('summary', s(get_string('whereamideclare', 'tool_vae', $declaredcode))) . $panel,
-            ['class' => 'mb-3']
-        );
-    }
-}
-$form->display();
+
+echo $OUTPUT->header();
+echo $OUTPUT->heading(get_string('declareheading', 'tool_vae'));
+echo $renderer->render(declare_page::form($refusal, $hidden, $candidateid, $declaredcodes, $form));
 echo $OUTPUT->footer();

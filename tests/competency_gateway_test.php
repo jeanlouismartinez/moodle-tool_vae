@@ -116,7 +116,7 @@ final class competency_gateway_test extends \advanced_testcase {
     }
 
     /**
-     * Rename the core's default competence scale, then add the site scale found on fildargent.net on 2 November 2026.
+     * Rename the core's default competence scale, then add the site scale found on a real site on 2 November 2026.
      *
      * That site held no scale under the name Moodle looks for today: its three-level scale was named
      * "Echelle d'évaluation de compétence par défault" (an older wording, with a typing error), so every import stopped at

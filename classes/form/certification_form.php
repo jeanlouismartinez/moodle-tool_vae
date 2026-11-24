@@ -22,6 +22,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 use tool_vae\local\certification_manager;
+use tool_vae\output\form_note;
 
 /**
  * Certifying a bloc (T-90, lot 3): a status, the date of the decision, a written reason and, when a competency of the bloc
@@ -39,6 +40,8 @@ class certification_form extends \moodleform {
      * Build the form. The target - candidate, record, rank - is in the address, not in the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
 
         $options = [];
@@ -54,7 +57,7 @@ class certification_form extends \moodleform {
             get_string('positioningdatelabel', 'tool_vae'),
             ['size' => 12, 'maxlength' => 10]
         );
-        $mform->setType('decisiondate', PARAM_RAW_TRIMMED);
+        $mform->setType('decisiondate', PARAM_ALPHANUMEXT);
         $mform->setDefault('decisiondate', certification_manager::today());
         $mform->addElement('static', 'datehelp', '', get_string('positioningdatehelp', 'tool_vae'));
         $mform->addRule('decisiondate', null, 'required', null, 'client');
@@ -66,21 +69,23 @@ class certification_form extends \moodleform {
             get_string('positioningvaliduntillabel', 'tool_vae'),
             ['size' => 12, 'maxlength' => 10]
         );
-        $mform->setType('validuntil', PARAM_RAW_TRIMMED);
+        $mform->setType('validuntil', PARAM_ALPHANUMEXT);
         $mform->addElement('static', 'validuntilhelp', '', get_string('positioningvaliduntilhelp', 'tool_vae'));
 
-        $mform->addElement('html', \html_writer::div(s(get_string('anonymiseshort', 'tool_vae')), 'small text-muted mb-2'));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::short()));
         $mform->addElement('textarea', 'reason', get_string('positioningreasonlabel', 'tool_vae'), ['rows' => 6, 'cols' => 70]);
+        // Free text: PARAM_RAW, as Moodle asks for a text area; checked by its manager and cleaned or escaped when shown.
         $mform->setType('reason', PARAM_RAW);
         $mform->addRule('reason', null, 'required', null, 'client');
 
-        $mform->addElement('html', \html_writer::div(s(get_string('anonymiseshort', 'tool_vae')), 'small text-muted mb-2'));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_note::short()));
         $mform->addElement(
             'textarea',
             'alertreason',
             get_string('positioningalertreasonlabel', 'tool_vae'),
             ['rows' => 4, 'cols' => 70]
         );
+        // Free text: PARAM_RAW, as Moodle asks for a text area; checked by its manager and cleaned or escaped when shown.
         $mform->setType('alertreason', PARAM_RAW);
         $mform->addElement('static', 'alerthelp', '', get_string('positioningalertreasonhelp', 'tool_vae'));
 

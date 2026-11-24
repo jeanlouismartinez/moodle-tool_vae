@@ -1,0 +1,81 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+    @copyright  2026 Jean-Louis Martinez <jeanlouis@martinez.pro>
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template tool_vae/pieces
+
+    The supporting pieces of a declaration: one sentence when there is none, or the list (for each piece its nature, its
+    title, its details; removed and when, or what the signature says of it and how to get at it: the address and its
+    host, the file, or the word that the reader may not open it; whether the reader opened it; the button to remove it),
+    then, for a reader who is not the vaeiste, how many files they opened. The parts of a piece touch, with nothing
+    between them: a comment carries each line break inside the list.
+
+    Every text comes from the context, already worded by tool_vae\output\pieces. The template holds no logic. Every text
+    and address is escaped (double braces). One key is HTML (triple braces): actionhtml, the button to remove a piece,
+    made by the core ($output->single_button()).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * none - false, or a string: the sentence drawn when there is no piece
+    * haspieces - bool, whether there is a list
+    * pieces - array, each:
+        * nature - string; title - false or {text}; details - string
+        * removed - false, or {text, after}: when it was removed; after: false or {text}, covered by the signature
+        * active - false, or {after, listonly, link, file, opened, actionhtml}: after - false or {text}, added after the
+          signature; listonly - false or {text}; link - false or {url, host, open}; file - false or {url, open}; opened -
+          false or {text}; actionhtml - false or HTML
+    * count - false, or {text}: how many files the reader opened
+
+    Example context (json):
+    {
+        "none": false,
+        "haspieces": true,
+        "pieces": [
+            {"nature": "Diploma", "title": {"text": "Diplôme"}, "details": "20 November 2026, 10:00", "removed": false,
+                "active": {"after": false, "listonly": false, "file": false, "opened": false, "actionhtml": false,
+                    "link": {"url": "https://example.com/a", "host": "example.com", "open": "Open the link"} } },
+            {"nature": "Contract", "title": false, "details": "PDF, 1KB", "active": false,
+                "removed": {"text": "Removed on 20 November 2026.", "after": false} }
+        ],
+        "count": {"text": "0 of 0 files you may open were opened by you. Opening is not reading."}
+    }
+}}
+{{#none}}
+<p>{{none}}</p>
+{{/none}}
+{{#haspieces}}
+<ul class="list-unstyled tool-vae-pieces">{{#pieces}}<li class="mb-3 tool-vae-piece"><strong>{{nature}}</strong>{{!
+}}{{#title}} - {{text}}{{/title}}<div class="text-muted small">{{details}}</div>{{!
+}}{{#removed}}<div class="text-muted">{{text}}</div>{{#after}}<div class="text-muted">{{text}}</div>{{/after}}{{/removed}}{{!
+}}{{#active}}{{#after}}<div class="alert alert-warning py-1">{{text}}</div>{{/after}}{{!
+}}{{#listonly}}<div class="text-muted">{{text}}</div>{{/listonly}}{{!
+}}{{#link}}<div>{{url}}</div><div class="text-muted small">{{host}}</div>{{!
+}}<div><a href="{{url}}" rel="noopener noreferrer" target="_blank">{{open}}</a></div>{{/link}}{{!
+}}{{#file}}<div><a href="{{url}}">{{open}}</a></div>{{/file}}{{!
+}}{{#opened}}<div class="text-muted small">{{text}}</div>{{/opened}}{{!
+}}{{#actionhtml}}{{{actionhtml}}}{{/actionhtml}}{{/active}}</li>{{/pieces}}</ul>
+{{#count}}
+<p class="text-muted small">{{text}}</p>
+{{/count}}
+{{/haspieces}}

@@ -21,6 +21,8 @@ defined('MOODLE_INTERNAL') || die();
 // The parent class is not autoloaded - see declare_form.php for what that cost once.
 require_once($CFG->libdir . '/formslib.php');
 
+use tool_vae\output\form_link;
+
 /**
  * The confirmation of an import of records, after the preview (0.47.0).
  *
@@ -43,6 +45,8 @@ class fiche_confirm_form extends \moodleform {
      * Build the form.
      */
     protected function definition() {
+        global $PAGE;
+
         $mform = $this->_form;
         $token = (string) $this->_customdata['token'];
         $importable = (int) $this->_customdata['importable'];
@@ -70,9 +74,6 @@ class fiche_confirm_form extends \moodleform {
             $mform->addElement('cancel');
         }
 
-        $mform->addElement('html', \html_writer::tag('p', \html_writer::link(
-            new \moodle_url('/admin/tool/vae/import_fiches.php', ['redo' => $token]),
-            get_string('fcimportedit', 'tool_vae')
-        )));
+        $mform->addElement('html', $PAGE->get_renderer('tool_vae')->render(form_link::redo($token)));
     }
 }
